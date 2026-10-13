@@ -23,7 +23,9 @@ These facts set the strategy, and all of them are favorable:
 | **Mono backend**, Unity 2021.3.16f1 | Managed CIL. Decompiles to near-source C#. No IL2CPP dumping, no Ghidra, no address math. |
 | **Not obfuscated** — 6,717 readable PascalCase identifiers, intact lambda names (`>b__887_0`) | Original type, method and field names survive. Comprehension is reading, not puzzle-solving. |
 | **Official ModdingTool** — 53 sheets, each declaring the `Config/` file it writes, with field schemas in its header rows | Modding is sanctioned, **and the data model is largely handed to us.** Most schemas no longer need reversing out of the game's parsers. [Details](notes/02-modding-tool-data-model.md). |
-| **The game already layers data**: scenario-local `regiments/groups/battledata/nations.dat` override global `Config/` | There's an existing override precedence to mirror in Phase 4 rather than invent. |
+| **Policy and project *effects* are hardcoded** — data files carry only descriptions, costs and prerequisites | **New policies/projects with real effects are impossible via data modding.** Only code patching reaches them, which makes this the hook library's headline capability. |
+| **Scenario overrides replace whole files**, with no field-level merge | Field-level additive overrides are genuinely new capability, not a reimplementation — and it explains why data mods conflict so badly today. |
+| **Prefs are scale-dependent**: weapon ranges tuned to map size, lethality to unit echelon | No weapon number means anything without stating its scale. Affects every combat note. |
 | **Some mechanics live in Unity prefabs**, not code or config (building names, ranking, levels — via the named `Cbuilding` script) | A hard ceiling on data-only modding, and a direct argument for the hook library. Also leaks a `C`-prefix class convention. |
 | **`Config/` is ~2 MB of plain-text data** — weapons, unitprefs, policies, commanders, historicalevents, aistrategies | Much of "game mechanics" is externalized data, not code. Cheap to document without decompiling anything. |
 | **Config format is positional** (count header, then records addressed by line index) | Brittle and conflict-prone. Two mods editing `weapons.txt` collide. **This is the hook library's killer feature** — see Phase 4. |
@@ -53,8 +55,10 @@ realistic, not a multi-week slog.
       `-p` emits a `.csproj` with one file per type — which is what makes the
       result searchable with Grep/ripgrep like any normal codebase.
 - [ ] Confirm `decompiled/` is gitignored (it is) and never commit the output.
-- [x] ~~Read `Modding/ModdingTool Quick Guide.pdf`~~ — checked; contains no
-      data-model documentation.
+- [x] **Read `Modding/ModdingTool Quick Guide.pdf`** (via OCR text). No
+      column-level schemas, but it supplies the *semantics* the workbook
+      can't: what each file controls, which effects are hardcoded, scenario
+      layout, and several stated limits on modding. Essential reading.
 - [x] **Inventory the ModdingTool workbook** — done, and it paid off: 53 sheets
       each declaring the config file they write, with field schemas in their
       header rows. See [`notes/02-modding-tool-data-model.md`](notes/02-modding-tool-data-model.md).
@@ -138,7 +142,8 @@ Priority order, by how much mechanics they expose:
 | `policies.dat` | 144 | Campaign-layer political/economic effects |
 | `aistrategies.dat` | 22 | AI behavior, by named map location |
 | `historicalevents.dat` | 136 | Event scripting and triggers |
-| `campaignprefs.txt` / `battleprefs.txt` | 125 / 41 | Global tuning constants |
+| `campaignprefs.txt` | 125 | **Promoted.** The designated balance surface for hardcoded policy effects — likely a large table of tuning constants keyed to them |
+| `battleprefs.txt` | 41 | Battle tuning; **rescales with map size** (4×4 vs 8×8 miles) |
 | `commanders.txt` | 544 | Commander traits/perks and their effects |
 | `projects.dat`, `buildingtypes.dat`, `resources.dat` | 59 | Economy model |
 
@@ -329,21 +334,42 @@ library's existence.
 - [ ] Typed models per data file, generated from the Phase 2 schemas.
 - [ ] Conflict detection and a resolution policy.
 
-**Mirror the game's own layering rather than inventing one.** The data model
-already overrides: scenario-local `regiments/groups/battledata/nations.dat`
-take precedence over global `Config/`, and `debug.txt` notes that a scenario
-folder's `battleprefs`/`unitprefs` subfiles override the global copies. So the
-precedence chain to extend is:
+**The game has no field-level merge** — a scenario copy of a prefs file
+*replaces* the global one wholesale. So mod overrides add a layer the game
+lacks entirely, rather than extending an existing merge:
 
 ```
-Config/ (global)  →  scenario folder  →  [mod overrides]  →  effective value
+Config/ (global)  ─replaced by─►  scenario file  ─merged by us─►  mod overrides
+     └──────── the game's two-entry chain ───────┘   └─ new capability ─┘
 ```
 
-- [ ] Map the existing precedence exactly before designing the API, so mod
-      overrides slot in as one more layer. Matching the game's semantics means
-      modders reason about one rule, not two — and it may let the override
-      system reuse the game's existing resolution logic rather than running a
-      competing one beside it.
+- [ ] Slot the override layer after the game's own resolution, so a mod patch
+      applies to whichever file actually won. Modders then reason about one
+      rule: *the effective value, whatever its source*.
+- [ ] Validate before injecting. The game's data layer fails hard — a missing
+      or malformed file makes a scenario fail to load — so overrides must be
+      checked and rejected individually rather than inheriting that behavior.
+
+### Effect registration — the capability nothing else provides
+
+Policy and project *effects* are hardcoded; the data files hold only
+descriptions, costs and prerequisites. A modder can add a project today and it
+will appear, be researchable, and do nothing.
+
+That makes effect registration the library's headline feature, not a
+nice-to-have:
+
+```csharp
+GTCW.ModApi.Projects.Register("Repeating Rifles", effect => {
+    effect.OnCompleted += ctx => ctx.Nation.UnlockWeaponClass("Repeater");
+});
+```
+
+- [ ] Map which hardcoded effects are already balanceable via
+      `campaignprefs.txt` (the designated balance surface) versus which need
+      patching outright. That split defines the work.
+- [ ] Find the effect dispatch site for policies and projects, and establish
+      whether new IDs can be injected or only existing ones intercepted.
 
 ### Also worth investigating
 

@@ -1,8 +1,22 @@
 # The ModdingTool as a data-model specification
 
 **Build:** see [00-build-provenance](00-build-provenance.md)
-**Source:** `Modding/ModdingTool_1.11.xlsm` (structural inspection of the
-OOXML package — sheet names, declared filenames, header rows)
+**Sources:**
+- `Modding/ModdingTool_1.11.xlsm` — structural inspection of the OOXML
+  package (sheet names, declared filenames, header rows)
+- `Modding/ModdingTool Quick Guide.pdf` (guide v1.08, older than the v1.11
+  tool), read via OCR text extraction
+
+The two sources are complementary and neither is sufficient alone: **the
+workbook gives field layout, the guide gives meaning and constraints.** The
+guide carries no column-level schemas — but it documents what each file
+controls, which effects are hardcoded, how scenarios are laid out, and
+several hard limits on modding. Read both before touching the decompiler.
+
+> OCR caveat: the extracted text has character-level errors (`etracklist`
+> for `ctracklist`, `Groupsdat` for `groups.dat`, digit/letter confusion in
+> the map-ID list, and the title's "1861-1864"). Treat exact identifiers from
+> the guide as approximate and confirm against the filesystem.
 
 ## Why this matters
 
@@ -16,46 +30,86 @@ schema by reverse-engineering the game's parsers. For most files that is no
 longer necessary: the schema can be read off the sheet headers, and the game's
 parser is then only needed to confirm it and to learn what each field *does*.
 
-The `Quick Guide` PDF shipped alongside does not document the data model
-(verified manually) — the workbook itself carries the information.
+What the workbook cannot tell us is **what the data does**, and that's where
+the guide earns its place — see [Semantics and hard limits](#semantics-and-hard-limits)
+below. Its most consequential disclosure is that several systems'
+*effects* are hardcoded regardless of what the data files say.
 
 ## Sheet → output file
 
-| Sheet | Writes | Lives in |
-| --- | --- | --- |
-| Weapons | `weapons.txt` | `Config/` |
-| Weapon classes | `weaponclasses.dat` | `Config/` |
-| FortWeapons | `weapongroups.dat` | `Config/` |
-| CapturedWeapons | `weaponstock.dat` | `Config/` |
-| Policies | `policies.dat` | `Config/` |
-| Projects | `projects.dat` | `Config/` |
-| Resources | `resources.dat` | `Config/` |
-| BuildingTypes | `buildingtypes.dat` | `Config/` |
-| Subsidies | `subsidies.dat` | `Config/` |
-| Ship Types | `shiptypes.dat` | `Config/` |
-| Ships | `ships.dat` | `Config/` |
-| Cities | `cities.dat` | `Config/` |
-| Uniforms | `colvariations.dat` | `Config/` |
-| Commanders | `commanders.txt` | `Config/` |
-| ArmyNames / ArmyNames CSA | `armynames0.dat` / `armynames1.dat` | `Config/` |
-| HistoricalEvents | `historicalevents.dat` | `Config/` |
-| CampaignObjectives | `campaignobjectives.dat` | `Config/` |
-| ActivatedObjectives | `activatedobjectives.dat` | `Config/` |
-| Quotes | `quotes.dat` | `Config/` |
-| Tutorial / Tutorial B | `ctutorial.dat` / `btutorial.dat` | `Config/` |
-| GameGuide / C / B | `FieldBookMainMenu.dat` / `FieldBookCampaign.dat` / `FieldBookBattle.dat` | `Config/` |
-| Sounds (B/C/L) | `bsounds.txt` / `csounds.txt` / `lsounds.txt` | `Config/` |
-| Track ID list (B/C/L) | `btracklist.txt` / `ctracklist.txt` / `ltracklist.txt` | `Config/` |
-| AIStrategies | `aistrategies.dat` | `Config/` |
-| **Unit list** | **`regiments.dat`** | **scenario folder** |
-| **Groups** | **`groups.dat`** | **scenario folder** |
-| **Battle Setup** | **`battledata.dat`** | **scenario folder** |
-| **Nations** | **`nations.dat`** | **scenario folder** |
+The guide organizes these into three tiers, which corrects an assumption from
+the workbook-only pass: several files are **scenario-scoped, not global**.
 
-Sheets with no declared output are helper/lookup tables feeding the others:
-`Unit types`, `Unit perks`, `Ammunition`, `Weather`, `Ranks & Status`,
-`Group override`, `Group Formations`, `Macro AI`, `C-AI Personality`,
-`Dummy Cmdr` (×4, one per nation), `Ship names` (×3).
+### Tier 1 — Common data, in `Config/` (affects all scenarios)
+
+| Sheet | Writes | Controls |
+| --- | --- | --- |
+| Weapons | `weapons.txt` | All weapons. Weapon images bind by weapon ID |
+| Weapon classes | `weaponclasses.dat` | Class names — guide says **do not edit** |
+| FortWeapons | `weapongroups.dat` | Campaign-map fort weapons; **only fort levels 1-3 used** |
+| Policies | `policies.dat` | Policy text, requirements, research times, newspaper copy |
+| Projects | `projects.dat` | Project prices, activation dates, descriptions |
+| Resources | `resources.dat` | Tradeable goods: prices, demand |
+| BuildingTypes | `buildingtypes.dat` | Campaign building data |
+| Ship Types | `shiptypes.dat` | Ship types. Images bind by ship ID; **many sheet columns unused** |
+| Uniforms | `colors.dat` | Available uniform colors |
+| Uniforms | `colvariations.dat` | Color variation per color per nationality |
+| Uniforms | `equipment.dat` | 3D-troop equipment per uniform type (hats, knapsacks, blanket rolls) |
+| Commanders | `commanders.txt` | Commanders: attributes, historical rank progression. Portraits bind by commander ID |
+| ArmyNames / ArmyNames CSA | `armynames0.dat` / `armynames1.dat` | Default new-army names per state |
+| ActivatedObjectives | `activatedobjectives.dat` | Which objectives are active in historical battles |
+| AIStrategies | `aistrategies.dat` | Historical-battle AI scripts — **objective chains with delays** |
+| Quotes | `quotes.dat` | Loading-screen quotes |
+| HistoricalEvents | `historicalevents.dat` | (not covered in guide v1.08) |
+| CampaignObjectives | `campaignobjectives.dat` | (not covered in guide v1.08) |
+| Tutorial / Tutorial B | `ctutorial.dat` / `btutorial.dat` | (not covered in guide v1.08) |
+| GameGuide / C / B | `FieldBook*.dat` | (not covered in guide v1.08) |
+| Sounds (B/C/L) | `bsounds.txt` / `csounds.txt` / `lsounds.txt` | Situational sounds + volume, per context |
+| Track ID list (B/C/L) | `btracklist.txt` / `ctracklist.txt` / `ltracklist.txt` | Sound files used by the matching `*sounds.txt` |
+
+Two `Config/` **subfolders** hold per-nation name lists:
+
+- `Config/CommanderDummies/` ← `Dummy Cmdr` sheets (×4). Name lists for
+  **procedurally generated commanders**, created whenever a historical
+  commander isn't assigned to a unit (most fort commanders, or when no
+  suitable historical figure is available).
+- `Config/ShipNames/` ← `Ship names` sheets (×3). Guide notes **only files 0
+  and 1 matter**, because the other nations don't construct ships — which
+  independently confirms 0 = Union, 1 = CSA.
+
+### Tier 2 — Campaign scenario files (in `Campaigns/<mapID>/<letter>/`)
+
+| Sheet | Writes | Controls |
+| --- | --- | --- |
+| C-AI Personality | `aipersonalities.dat` | **Campaign AI**: personalities with tax, subsidy, policy and project priorities, including emergency behavior |
+| Battle Setup | `battledata.dat` | Scenario date, sides, weather, economy, group deployment |
+| Unit list | `regiments.dat` | Every unit incl. custom garrisons; each must belong to a group |
+| Groups | `groups.dat` | Army HQs and navy fleets; **only HQs can be reinforcements** |
+| Nations | `nations.dat` | Nationality and state data, incl. national military experience |
+| Cities | `cities.dat` | Per-city ownership overrides (state ownership comes from `nations.dat`) |
+| Ships | `ships.dat` | Scenario ships, assignable to fleets in `groups.dat` |
+| Subsidies | `subsidies.dat` | Starting subsidies per type per nation |
+| CapturedWeapons | `weaponstock.dat` | Starting weapon stock per type per nation |
+
+Plus non-tool files: `briefing0.txt`/`briefing1.txt`, `scenariodescr.txt`
+(required for main-menu listing), and an **empty `Save/` folder** for autosaves.
+
+### Tier 3 — Historical battle scenarios (in `Battlefields/<mapID>/<letter>/`)
+
+A subset: `battledata.dat`, `groups.dat`, `nations.dat`, `regiments.dat`,
+`briefing0.txt` (Union) / `briefing1.txt` (CSA), `scenariodescr.txt`, `Save/`.
+
+Scenario folders are named by **map ID, then a letter from `A`**. Map IDs run
+roughly 000-029 for historical battle maps, 100 for a limited test map, and
+200-240 for non-historical maps; campaign map 001 is the main North America
+map. Every battle map needs an `A/` folder present for campaign battles to
+load at all, whatever its contents.
+
+### Helper sheets (no output file)
+
+Orange-tabbed sheets feed the others and per the guide **should not be
+edited**: `Unit types`, `Unit perks`, `Ammunition`, `Weather`,
+`Ranks & Status`, `Group override`, `Group Formations`, `Macro AI`.
 
 ### Naming conventions, decoded
 
@@ -78,11 +132,42 @@ are **not** global config. They belong to a scenario or battle folder, and
 its own `battleprefs`/`unitprefs` subfiles, which then **override** the global
 ones in `Config/`.
 
-So the data model already has an override mechanism with a defined precedence:
-**scenario-local beats global.** Worth understanding fully before designing the
-hook library's override system (plan Phase 4) — matching the game's own
-layering will feel native to modders, and may let the override system reuse
-the game's existing precedence logic rather than inventing a parallel one.
+The guide confirms and sharpens this: any `Config/` preference file may be
+copied into a scenario folder, and the scenario copy "is then loaded instead
+of" the global one.
+
+**Correction to an earlier assumption.** *Instead of* means **whole-file
+replacement, not field-level merge.** The game has no mechanism for
+overriding an individual value — a scenario either supplies a complete file or
+inherits the global one entirely. So the override precedence is a two-entry
+chain of whole files, not a layered merge:
+
+```
+Config/<file>   ⟵ replaced wholesale by ⟵   <scenario>/<file>
+```
+
+This makes the Phase 4 override system **more valuable than first framed, not
+less**: field-level, additive, stackable overrides are a genuinely new
+capability rather than a reimplementation of something the game already does.
+It also explains why data mods conflict so badly today — two mods wanting one
+changed value each must each ship an entire copy of the file, and whichever
+loads second wins completely.
+
+### Prefs are scale-dependent — a real mechanics finding
+
+The guide's Wilson's Creek example is more informative than it looks. That
+battle uses a 4×4-mile map instead of the default 8×8, and regiment-level
+rather than brigade-level units, so its scenario folder carries custom:
+
+- `battleprefs.txt` — "to rescale weapon ranges, etc." for the smaller map
+- `unitprefs.txt` — "for regiment scale weapon lethality, etc."
+
+So **weapon ranges are tuned to map scale, and lethality to unit scale.**
+Neither is an absolute physical quantity in the simulation: the same weapon
+behaves differently on a 4-mile map than an 8-mile one, and differently for a
+regiment than a brigade. Any mod that changes map size or unit echelon must
+retune both files, and any note about weapon numbers is meaningless without
+stating which scale it assumed. Worth confirming in the parser early.
 
 ## Schema observations
 
@@ -107,6 +192,91 @@ library would need to respect to add translatable strings.
 objective names "need to fit 1:1 to the objective names used in Unity (case
 sensitive!)". So AI strategy data is bound to scene objects by exact string
 match — a fragile seam, and a likely source of silent failure for modders.
+The guide adds a trap: in `activatedobjectives.dat` the names refer to **map
+object names, which usually differ from the objective name shown in-game**.
+
+## Semantics and hard limits
+
+Everything here comes from the guide, and it's the half the workbook can't
+supply. Several items constrain the project directly.
+
+### Hardcoded effects — the central finding
+
+| File | Guide says |
+| --- | --- |
+| `policies.dat` | "the effects are **mostly hardcoded**, but many can be balanced via `campaignprefs.txt`" |
+| `projects.dat` | "the effects are **hardcoded** and adding new projects will not add any effects for them" |
+
+These files carry *descriptions, costs, prerequisites and research times* —
+not behavior. A modder can add a project and it will appear, be researchable,
+and **do nothing**.
+
+This is the strongest argument yet for the hook library, and it reframes its
+purpose. The ceiling on data-only modding isn't inconvenience, it's
+capability: new policies and projects with real effects are **impossible**
+through data files and only reachable by patching code. Phase 4 should treat
+"register a project/policy effect" as a first-class API, not an afterthought —
+it's the feature that unlocks a category of mod that cannot exist today.
+
+`campaignprefs.txt` (125 KB) rises in priority as a result: it's the
+designated balance surface for hardcoded policy effects, so it likely holds a
+large table of tuning constants keyed to those effects.
+
+### Content bound by ID to assets inside the game
+
+Portraits bind by commander ID, weapon images by weapon ID, ship images by
+ship ID. Adding a new weapon or ship therefore needs a corresponding image
+slot — and those live inside Unity asset bundles.
+
+### Stated ceilings
+
+- **Uniform colors cannot be added.** Since the v1.03 move to 3D troops each
+  color needs texture files, and the guide says these "cannot be modified or
+  added currently".
+- **Battle main-menu map images cannot be added** — read from game files only.
+- `weaponclasses.dat` — "You should not edit this."
+- `weapongroups.dat` — only fort levels 1-3 are used.
+- `shiptypes.dat` — many sheet columns are unused.
+
+Each is a candidate for the hook library to unlock, and each needs
+verification: "cannot currently" is a statement about the *supported* path,
+not necessarily about what runtime patching can reach.
+
+### A working runtime import path exists (v1.08+)
+
+The game already imports external PNGs at runtime, which is both a model to
+follow and a confirmed hook target:
+
+| Asset | Format | Location | Naming |
+| --- | --- | --- | --- |
+| Battle flags (Perk lvl 3 units) | PNG 256×256 | `Modding/BattleFlags/<allianceID>/` | numbered from `1000` |
+| Scenario images | PNG 1340×1340 | `Modding/Campaigns/` or `Modding/Battles/` | `<mapID><letter>.PNG` |
+| Commander portraits | — | per game Manual, Article VI | by commander ID |
+
+**Alliance ID: 0 = Union, 1 = CSA** — explicitly stated here, confirming the
+index convention inferred from the file suffixes. The existing
+`Modding/BattleFlags/0/` and `/1/` folders match.
+
+Finding the code behind this import is high value: it's a known-good example
+of the game reading arbitrary external files, and likely the cleanest place to
+extend asset loading.
+
+### AI architecture, in outline
+
+- **Battle AI** (`aistrategies.dat`) — scripted "objective chains with
+  delays", assignable per group, keyed to map object names.
+- **Campaign AI** (`aipersonalities.dat`) — named personalities carrying
+  priorities for tax, subsidies, policies and projects, plus emergency
+  behavior.
+- A separate `Macro AI` helper sheet exists, suggesting a third tier above
+  both.
+
+### Failure mode to respect
+
+"If any of the files is missing, or contains data in incorrect form, the
+scenario will most likely fail to load." The game's data layer is **brittle
+and fails hard** — which is exactly why the hook library's own overrides must
+fail soft and validate before injecting, rather than inheriting this behavior.
 
 ## Leads for decompiling
 
@@ -143,5 +313,15 @@ The workbook leaks real implementation detail:
 - What is the count-header convention per file? `weapons.txt` opens with `87`
   then `0`, suggesting `count` followed by records — but `aistrategies.dat`
   opens `176`, `0`, `0`, then a name, so the preamble differs per file.
-- Where do `Campaigns/001/` and `Battlefields/` fit relative to scenario-local
-  overrides?
+- **Which hardcoded policy/project effects are reachable from
+  `campaignprefs.txt`, and which are not balanceable at all?** This divides
+  Phase 4's work into "expose the existing knob" versus "patch the effect".
+- Are the stated ceilings (uniform colors, menu map images) genuinely
+  unreachable, or only unsupported through data files? Runtime patching may
+  reach what the ModdingTool cannot.
+- Where is the v1.08 external-PNG import implemented? Best-known example of
+  the game loading arbitrary external files.
+- What sits above battle AI and campaign AI, given the `Macro AI` sheet?
+- `historicalevents.dat`, `campaignobjectives.dat`, the tutorials and the
+  FieldBook files postdate guide v1.08 and are undocumented — these need the
+  parser treatment.
