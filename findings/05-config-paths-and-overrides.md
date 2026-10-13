@@ -76,11 +76,21 @@ Config/<file>   ◄── replaced wholesale by ──   <scenario>/<file>
 `loadcontrols()` falls back to `Config/battleprefs.txt` if the battlefield
 file is missing **or** if `SceneManagement.currentoperation` is `3` or `8`.
 
+Those two values are now decoded
+([03-scene-wiring](03-scene-wiring.md)): **`3` is a fresh campaign battle and
+`8` is a campaign battle loaded from a save** — i.e. exactly the two cases
+where a battle is being fought inside a campaign.
+
+> **So the rule is: campaign battles always use the global
+> `Config/battleprefs.txt`; only standalone battles (`currentoperation` 1 and
+> 7) honour a battlefield-local override.**
+
 That is the mechanism behind the "scale-dependent prefs" observation in
-[07-config-data-model](07-config-data-model.md): the same pref file is loaded
-from a different place depending on what the game is currently doing, not only
-on what files exist. A mod that patches `battleprefs.txt` values must know
-which source actually won, and that depends on runtime mode.
+[07-config-data-model](07-config-data-model.md), and it is sharper than
+"depends on scenario scale": it depends on *how the battle was entered*. The
+same battlefield fought standalone and fought from a campaign can load
+different prefs. A mod that patches `battleprefs.txt` must know which source
+won, and that is a runtime-mode question, not a file-layout question.
 
 ### Why this matters for the ModApi
 

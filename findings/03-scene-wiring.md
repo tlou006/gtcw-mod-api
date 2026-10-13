@@ -102,23 +102,79 @@ Worth understanding before adding deferred work of our own: there may be
 ordering guarantees (or ordering bugs) that a mod's own queue would not
 inherit.
 
-### `SceneManagement.currentoperation`
+### `SceneManagement.currentoperation` — decoded
 
-An `int` used as a mode flag. It **changes config loading behaviour** — values
-`3` and `8` force the `Config/` fallback in `GamePrefs.loadcontrols()` (see
-[05-config-paths-and-overrides](05-config-paths-and-overrides.md)).
+An `int` mode flag: the game's own notion of "what am I running right now",
+which is exactly what a mod needs to know before touching anything. Every
+assignment site accounted for:
 
-The full enumeration is unknown and worth decoding: it is effectively the
-game's own notion of "what kind of thing am I running right now", which is
-exactly what a mod needs to know before touching anything.
+| Value | Meaning | Set by |
+| --- | --- | --- |
+| 0 | Idle / main menu | `ExitBattleScenario`, `ExitCampaignScenario` (when `resetsceneoperation`) |
+| 1 | Standalone battle, fresh | `LoadBattleScenario` |
+| 2 | **Campaign running** (steady state) | `CampaignController`, frame 30 |
+| 3 | Campaign battle, fresh | `LoadCampaignBattleScenario`, `BattleController` |
+| 4 | Campaign → battle transition in progress | `PrepareLaunchingBattleFromCampaign`, only from 2 |
+| 5 | Returning from a campaign battle | `ExitCampaignBattleAndRebuildCampaign` |
+| 6 | Campaign loaded from save | `PanelHandler`, `Saving` |
+| 7 | Standalone battle from save | `LoadBattleScenario`, `Saving` |
+| 8 | Campaign battle from save | `LoadCampaignBattleScenario`, `Saving` |
+
+This also sharpens the config-loading consequence: `loadcontrols()` forces
+`Config/battleprefs.txt` when `currentoperation` is **3 or 8 — the two
+campaign-battle cases**. So campaign battles always use the global file, while
+standalone battles (1 and 7) can use a battlefield-local one. See
+[05-config-paths-and-overrides](05-config-paths-and-overrides.md).
+
+## Scene lifetime: one gameplay scene at a time
+
+There are three named scenes plus per-battlefield scenes:
+
+| Scene | Loaded how |
+| --- | --- |
+| `Main` | `SceneManager.LoadScene("Main")` — **non-additive**, from `RebuildScenes()` |
+| `CampaignBase` | `LoadSceneMode.Additive` |
+| `BattlefieldBase` | `LoadSceneMode.Additive` |
+| `<bfid>` (specific battlefield) | `LoadSceneMode.Additive`, from `BattlefieldSetup` |
+
+**There is no `UnloadScene` or `UnloadSceneAsync` call anywhere in the
+assembly.** Gameplay scenes are only ever *added*, and the only teardown is the
+non-additive `LoadScene("Main")` in `RebuildScenes()`, which destroys
+everything.
+
+Every transition is therefore routed through `bo_rebuildscene`: the batch
+sequences in `PanelHandler`, `Saving`, `BattleController` and
+`CampaignController` all queue `rebuildscene` before loading the next scenario.
+
+> **Resolved: `GameController` is a distinct object per scene, but only one
+> exists at a time.** An earlier note here speculated that two might coexist
+> during a campaign battle, making `GameObject.Find("GameController")`
+> ambiguous. They cannot — the rebuild tears the hierarchy down first. The
+> component sets differ per scene, and `BattleUnits.IsCampaign` (a public
+> Inspector-set field with no assignment in code) tells you which flavour you
+> have.
+
+**But the consequence for bindings is stronger, not weaker.** Because the
+teardown is a full scene reload, a cached component reference across a
+transition is not merely stale — it points at a **destroyed** `UnityEngine.Object`,
+which throws or silently compares equal to `null` depending on how it is
+touched. Bindings must be resolved after each scenario load and discarded on
+`bo_rebuildscene`, never held across one.
+
+`DontDestroyOnLoad` is used for exactly one thing — the audio listener — so
+nothing else survives a rebuild. `MainMenuControls` lives in `Main`, which is
+why it survives *additive* loads and can own the global frame counter (see
+[10-simulation-tick](10-simulation-tick.md)).
 
 ## Open questions
 
-- The full value set of `SceneManagement.currentoperation`.
-- Whether `GameController` is the same `GameObject` across the campaign and
-  battle scenes, or a distinct one per scene with overlapping component sets.
-  The component list above mixes campaign (`Economy`) and battle
-  (`BattlefieldSetup`, `FogOfWar`) concerns, which suggests per-scene objects
-  sharing a name — meaning a cached binding must be invalidated on scene load.
 - Where `Policy.InitializeStatics` is called from in the load order, since
-  registering a policy has to happen before it.
+  registering a policy has to happen before it. The campaign boot sequence
+  ([10-simulation-tick](10-simulation-tick.md)) applies policy effects at
+  frame 8, so initialization is earlier than that.
+- Whether the per-battlefield additive scene can be reloaded without a full
+  rebuild (it is loaded by `BattlefieldSetup`, not `SceneManagement`, which
+  hints at a different lifecycle).
+- Which `GameObject` each of `CampaignController` and `BattleController` sits
+  on. Neither is fetched via `Find("GameController")` — both use
+  Inspector-assigned references instead — so their host object is unconfirmed.

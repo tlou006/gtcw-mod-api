@@ -43,15 +43,27 @@ assembly**, so a version gate must hash the DLL.
   reinforcement marker. There is no `Main`.
 - **`*_C` means third-party**, not "game class" — it is UniStorm's own suffix,
   the inverse of what `CBuilding` suggests.
-- **`GameController` may be a different object per scene** with an overlapping
-  component set, since the list mixes campaign (`Economy`) and battle
-  (`FogOfWar`) concerns. A cached binding must be invalidated on scene load.
+- **`GameController` is a different object per scene**, but only one ever
+  exists at a time — every transition tears the hierarchy down via a
+  non-additive `LoadScene("Main")`. So a binding held across a transition does
+  not go stale, it points at a **destroyed** object. Resolve after each
+  scenario load, discard on `bo_rebuildscene`.
 
 ## Still open
 
-- The per-frame simulation tick has not been located.
-- The long tail of ~230 game types is unclassified.
-- `SceneManagement.currentoperation`'s value set (3 and 8 are known to change
-  config loading).
 - Whether `Autocalc` shares code, or only parameters, with the live battle
   model — a combat mod has to change both.
+- Which `GameObject` hosts `CampaignController` and `BattleController`. Neither
+  is fetched via `Find`, so it is unconfirmed.
+- Where `Policy.InitializeStatics` sits in the load order.
+
+## Resolved since first writing
+
+- ~~The per-frame simulation tick has not been located.~~ See
+  [summary-simulation](summary-simulation.md).
+- ~~The long tail of game types is unclassified.~~ Classified by evidence in
+  [02-type-inventory](02-type-inventory.md) — and the useful result is that the
+  buckets **overlap heavily**, because simulation, UI and parsing routinely
+  live in one type.
+- ~~`SceneManagement.currentoperation`'s value set.~~ All nine values decoded
+  in [03-scene-wiring](03-scene-wiring.md).

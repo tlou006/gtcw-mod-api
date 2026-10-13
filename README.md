@@ -20,6 +20,7 @@ a summary:**
 | [Architecture](findings/summary-architecture.md) | Game code vs. third-party, the god classes, scene wiring and lifecycle, version identification |
 | [Data layer](findings/summary-data-layer.md) | Config paths and override resolution, the exact file format, the `Config/` data model, the save/load surface |
 | [Effects](findings/summary-effects.md) | Policy and project effect dispatch — and why new ids can be injected |
+| [Simulation](findings/summary-simulation.md) | How the game is driven: the frame counter, the boot state machines, the four scheduling patterns |
 
 [`findings/00-build-provenance.md`](findings/00-build-provenance.md) records
 which build everything was written against.

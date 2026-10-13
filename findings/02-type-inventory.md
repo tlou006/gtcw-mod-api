@@ -34,6 +34,46 @@ UI. The top four hold most of the game's behaviour.
 name noted during the obfuscation check — an index that high implies ~900
 methods in one type.
 
+## Classification of the 211 game types
+
+Classified by evidence rather than by name: counting references to UI types
+(`TextMeshProUGUI`, `UnityEngine.UI`, `Button`, `Image`, `RectTransform`),
+`StreamReader`/`StreamWriter` sites, rendering types (`Renderer`, `Material`,
+`Mesh`, `Shader`, `Texture2D`, `Terrain`) and tick methods.
+
+| Bucket | Count | Notes |
+| --- | --- | --- |
+| **UI-dominant** | ~67 | The largest group, as expected for a Unity game. Mostly `*Panel`, `*List`, `*Button`, `Tooltip`, `PanelHandler`, `MainMenu*`. |
+| **Rendering / glue-dominant** | ~26 | `Projectile`, `Smoke`, `Flag`, `FireArc`, `OrderMark`, `RangeMark`, `*Textures`, `ModelAnimator`, `SpriteAnimator`, `Heatmap`, `ConnectionLine`. |
+| **Has file IO** | 50 | Overlaps the others — see [08-save-load-surface](08-save-load-surface.md). Concentrated in `ImportExportUnitData` (66 sites), `DLC_WL` (43), `GameVars` (22), `Autocalc` (10), `GamePrefs` (9). |
+| **Simulation / AI** | ~20 | `Regiment`, `BattleUnits`, `Autocalc`, `AICampaign`, `AIBattle`, `AI_Manager`, `AI_Unit`, `Economy`, `Frontline`/`Frontline2`, `Retreat`, `SeaInvasion`, `BattleFront`, `FogOfWar`, `Camp`. |
+
+> **The buckets overlap heavily, and that is the finding.** The codebase does
+> not separate concerns by type: `Policies`, `Projects`, `Statistics`,
+> `Finances`, `Production` and `Trade` all classify as UI-dominant *because
+> they drive their own panels directly*, while also holding the simulation
+> logic and, in `Projects`' case, the config parser. `Camp` is UI, rendering
+> and simulation at once.
+
+For the hook library this means **there is rarely a clean "model" to bind
+to.** A mod that wants to change a number often has to reach into a type whose
+other half is UI code, which is an argument for the ModApi exposing
+purpose-built accessors rather than surfacing game types directly — exactly the
+`Bindings` boundary the plan already specifies.
+
+It also means the simulation/UI split is a poor filter for goal 1: reading
+`CampaignTopPanel` to learn what a value *means* is often faster than reading
+the simulation, because the UI is where values get labelled.
+
+### `OQOCCODODC` — a dead stub
+
+The only game type that is **not** a `MonoBehaviour` is `public class
+OQOCCODODC {}` — empty, three lines, referenced from nowhere. Almost certainly
+a build or protector artifact.
+
+> It is **not** evidence of obfuscation: one orphaned garbled name among 211
+> otherwise clean PascalCase types. Recorded so nobody chases it.
+
 ## Other notable game types
 
 Not yet studied, but confirmed present and game-owned:
@@ -67,12 +107,14 @@ contract — three fields, three lines, via `Load(StreamReader)` /
 
 ## Open questions
 
-- The per-frame simulation tick is not yet located. `Update`/`FixedUpdate` on
-  `BattleUnits` and the campaign controllers are the obvious candidates, plus
-  the turn-advance method.
+- ~~The per-frame simulation tick is not yet located.~~ **Resolved** — see
+  [10-simulation-tick](10-simulation-tick.md). `BattleUnits.Update` is the
+  subsystem driver, `Regiment.Update` the per-entity tick, and the controllers'
+  `Update` methods are boot state machines rather than simulation.
 - `Autocalc` (auto-resolve) and the live battle model presumably share
   parameters. Whether they share *code* is unknown, and matters: a mod that
   changes combat must change both or players will see auto-resolve diverge
-  from manual battles.
+  from manual battles. `Autocalc` has 10 file-IO sites, which is unexpected for
+  a pure calculation and worth a look.
 - `DLC_WL`'s boundary with the base game — it has its own config files and
   reader set, so it may be cleanly separable or may be entangled.

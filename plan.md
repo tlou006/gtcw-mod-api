@@ -107,17 +107,37 @@ Results are in [`findings/`](findings/README.md) — see [summary-architecture](
       is `BattleUnits`, `BattlefieldSetup`, `BattleUI`, `Economy`,
       `SpottedEnemy`, `Smoke`, `FogOfWar`, `AIBattle`. Secondary anchors: `UI`,
       `UICampaign`, `Cam_Pivot`, `SoundEngine`, `ProceduralObjects`.
-- [ ] Classify every major type into: **simulation**, **UI**, **data loading**,
-      **serialization**, **AI**, **rendering/glue**. Partially done — the top
-      ~18 types are classified; the long tail is not.
+- [x] Classify every major type into: **simulation**, **UI**, **data loading**,
+      **serialization**, **AI**, **rendering/glue**. Done by evidence (UI-type
+      references, IO sites, rendering types): ~67 UI-dominant, ~26
+      rendering/glue, 50 with file IO, ~20 simulation/AI.
+
+      > **The buckets overlap heavily, and that is the finding.** `Policies`,
+      > `Projects`, `Statistics`, `Finances`, `Production` and `Trade` each hold
+      > simulation logic *and* drive their own panels; `Projects` also holds a
+      > config parser. So there is rarely a clean "model" to bind to — an
+      > argument for the ModApi exposing purpose-built accessors rather than
+      > game types, which is the `Bindings` boundary already specified.
+      >
+      > It also means the simulation/UI split is a poor filter for Goal 1:
+      > reading a panel class to learn what a value *means* is often faster
+      > than reading the simulation, because the UI is where values get
+      > labelled.
 - [x] Find the entry points. **There is no `Main`** — standard Unity scene
       load. `EntryPoint` is a false friend (a *battlefield* reinforcement entry
       point). The lifecycle hub is `SceneManagement`, whose static
       `Load*`/`Exit*`/`SaveAll` methods are the Phase 4 event surface.
-- [ ] Find the per-frame tick loop proper: `Update`/`FixedUpdate` on
-      `BattleUnits` and the campaign controllers, plus the turn-advance method.
-      Still open — `SceneManagement.UpdateBatchOperations` and its nested
-      `BatchOperation` deferred-work queue are the lead.
+- [x] Find the per-frame tick loop proper. Done — see
+      [summary-simulation](findings/summary-simulation.md). **There is no fixed
+      timestep**: 192 of 211 game types use `Update()`, only two use
+      `FixedUpdate` and `Regiment.FixedUpdate` is an empty stub. The
+      controllers' `Update` methods are **boot state machines** (~50 numbered
+      frame gates), not simulation; the real driver is `BattleUnits.Update`,
+      branching on `IsCampaign`, plus `Regiment.Update` per unit.
+      `GameVars.frame++` happens in exactly one place, `MainMenuControls`.
+      Four scheduling mechanisms found, incl. a config-tunable macro-economy
+      interval (`GamePrefs.updatetimeforcampaigndata`). Game time comes from
+      **UniStorm**, the third-party weather asset.
 - [x] Find the `Config/` parsers. Done, and better than hoped: paths are plain
       relative string literals, the format is fully decoded (count header,
       line-per-field, `;`-separated fixed-width list fields, `\n`/`\t` escapes),
@@ -129,8 +149,12 @@ Results are in [`findings/`](findings/README.md) — see [summary-architecture](
 - [x] Write up the findings — split across `findings/01`–`09` with three summaries.
 
 **Exit criteria:** you can answer "where would I look to change X?" for any X.
-**Substantially met** for data, policies/projects, lifecycle and
-serialization; not yet for the per-frame simulation tick.
+**Met.** ✅ Phase 1 complete — all nine items closed, results in
+[`findings/`](findings/README.md) across 11 detail files and four summaries.
+
+Two items were closed by disproving their premise rather than by confirming
+it: the `C`-prefix convention does not exist, and there is no fixed timestep.
+Both reframed later phases, which is what the breadth-first pass was for.
 
 ---
 
@@ -451,7 +475,7 @@ GTCW.ModApi.Projects.Register("Repeating Rifles", effect => {
       prefab. This decides how far effect registration can actually reach.
 - [ ] Harvest `Policies.UpdateAllTooltips` and
       `Projects.GetProjectEffect(int id, float effect, float secondeffect)`
-      into `findings/10-policy-and-project-catalogue.md`. These build the player-facing
+      into `findings/11-policy-and-project-catalogue.md`. These build the player-facing
       effect strings, so they map id → meaning for free — the same trick as the
       `Get*Tooltip` methods in Phase 2.
 

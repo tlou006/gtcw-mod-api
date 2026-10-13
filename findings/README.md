@@ -72,12 +72,19 @@ the evidence than in a central list.
 | --- | --- |
 | [09-policy-and-project-effects](09-policy-and-project-effects.md) | The effect dispatch sites; why new ids can be injected |
 
+### Simulation — [summary](summary-simulation.md)
+
+| File | Contents |
+| --- | --- |
+| [10-simulation-tick](10-simulation-tick.md) | How the game is driven: the frame counter, the boot state machines, the four scheduling patterns |
+
 ## Planned
 
-- `10-policy-and-project-catalogue.md` — id → effect for all 117 policy arms
+- `11-policy-and-project-catalogue.md` — id → effect for all 117 policy arms
   and every project id, harvested from `Policies.UpdateAllTooltips` and
   `Projects.GetProjectEffect`.
-- `11-game-state.md` — `GameVars.alliance[]` and `GameVars.nation[]` field
+- `12-game-state.md` — `GameVars.alliance[]` and `GameVars.nation[]` field
   maps: the state every effect writes to, and the ModApi's core data surface.
 - One file per simulation subsystem, per `plan.md` Phase 2: combat → morale →
-  supply → economy → politics → commanders → AI.
+  supply → economy → politics → commanders → AI. These join
+  `summary-simulation`.
