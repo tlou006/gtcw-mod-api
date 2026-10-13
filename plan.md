@@ -277,8 +277,34 @@ Suggested order — combat first, since it's what modders most want to change:
    raises state support, which caps `fightingspirit`), and **the AI raids
    logistics using the same `GetClosestDepotsAndTowns` lookup** the player's
    units use to find it.
-4. **Campaign economy** — production, trade, demand. (`GetHighestDemand`,
-   `GetDemandProductionList`, `GetEconomyTooltip` confirmed.)
+4. ✅ **Campaign economy** — done, see
+   [summary-economy](findings/summary-economy.md). Three layers. **`IIP` nodes**
+   are a spatial network of local markets — nine node types, each with its own
+   stock, prices, transport capacity and trade ledger, where IIPs, buildings,
+   towns *and armies* all trade as counterparties. **`Resource`** gives goods a
+   recipe expressed as a **boolean expression** over four inputs (0 = OR,
+   1 = AND), which the parser expands into alternative recipes that
+   `CheapestPreGoods` then resolves **at local prices** — so substitution is
+   real and a factory has no fixed bill of materials. **Macro** turns deficit
+   and debt into a credit-rating notch, which sets the interest rate, which
+   compounds the debt; `ratingmodifier` is exactly what the policy switch
+   adjusts, closing a policy → rating → interest → treasury loop.
+
+   Pricing is a logistic curve on scarcity (`scurvepricingC1/C2`), so
+   **moderate shortages move prices more than severe ones**, and transactions
+   are priced on their own average rather than the starting stock — correct
+   slippage. Note `minpricereached` is a **quantity**, not a price: the stock
+   level at which price bottoms out, and the stock scale used everywhere else.
+
+   Closed two open questions: **`IIP`** is an infrastructure node that is also
+   a market (so a depot with no `closestiip` has nothing to buy from), and
+   **`Alliance.credibility`** is an inverted credit-rating notch.
+
+   Found the worst modding trap so far: transport-capacity policies key off
+   **Unity scene object names** (`"Trade_SantaFe"`, `"Trade_Butterfield"`, …),
+   so renaming a trade node silently disables the policy and a new trade route
+   cannot receive these effects at all. Policy 30 shows the better pattern —
+   membership of a `northernroutes` list.
 5. ✅ **Politics and prestige** — done out of order, see
    [summary-politics](findings/summary-politics.md). Three variables, each with
    its own accounting array: **state support** (per state × alliance, 42
@@ -562,7 +588,7 @@ GTCW.ModApi.Projects.Register("Repeating Rifles", effect => {
       prefab. This decides how far effect registration can actually reach.
 - [ ] Harvest `Policies.UpdateAllTooltips` and
       `Projects.GetProjectEffect(int id, float effect, float secondeffect)`
-      into `findings/20-policy-and-project-catalogue.md`. These build the player-facing
+      into `findings/21-policy-and-project-catalogue.md`. These build the player-facing
       effect strings, so they map id → meaning for free — the same trick as the
       `Get*Tooltip` methods in Phase 2.
 

@@ -238,6 +238,20 @@ Two hardcoded gates:
 A DLC commander's nationality shifts the probability via
 `DLC_WL.EffectMultiplier(34, …)`.
 
+Finally the result is **chapter-gated**:
+
+```
+if (Policy.CurrentChapter == -1) return 0;
+p = GamePrefs.relationsintervention[Policy.CurrentChapter] >= 100f
+      ? 0
+      : p / max(0.0001f, GamePrefs.relationsintervention[Policy.CurrentChapter]);
+clamp [0, 1]
+```
+
+So `relationsintervention[]` is **per chapter**, and a value of `100` or more
+makes intervention impossible in that chapter outright — the designers' switch
+for "diplomacy is closed for now".
+
 Intervention level is driven by a large family of policy prefs —
 `kingcottonintervention`, `cottontradeintervention`, `abolitionintervention`,
 `emancipationintervention`, `emancipationcsaintervention`,

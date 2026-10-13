@@ -25,6 +25,7 @@ a summary:**
 | [Morale](findings/summary-morale.md) | The morale slots and rally pipeline, `fightingspirit` as a politics→combat cap, cohesion, two unwired features |
 | [Logistics](findings/summary-logistics.md) | The two supply models, depots as economy buildings, the 5% shortage cliff, attrition, fatigue, training, and the enumerations reference |
 | [Politics](findings/summary-politics.md) | State support as the manpower tap, national morale and the loss condition, foreign intervention, and the broken support breakdown |
+| [Economy](findings/summary-economy.md) | `IIP` nodes as local markets, S-curve pricing, boolean production recipes, and the debt→rating→interest loop |
 
 [`findings/00-build-provenance.md`](findings/00-build-provenance.md) records
 which build everything was written against.

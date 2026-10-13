@@ -105,26 +105,31 @@ the evidence than in a central list.
 | --- | --- |
 | [17-politics-and-support](17-politics-and-support.md) | State support and its 42 reason codes, national morale and the loss condition, foreign intervention, recruitment, and the support-breakdown NaN bug |
 
+### Economy — [summary](summary-economy.md)
+
+| File | Contents |
+| --- | --- |
+| [18-economy](18-economy.md) | `IIP` nodes as local markets, S-curve pricing, boolean production recipes, the debt→rating→interest loop, and policies keyed to scene object names |
+
 ## Planned
 
 Per `plan.md` Phase 2, one file per subsystem, in order: **combat ✅** →
 **morale ✅** → **supply ✅** → **politics ✅** (taken early, since state
-support kept turning up as an input to everything else) → economy →
+support kept turning up as an input to everything else) → **economy ✅** →
 commanders → AI. Each joins a `summary-<subsystem>.md`.
 
-- `18-economy.md` — production, trade, demand and prices. Already reached from
-  three directions: depot throughput is priced through
-  `Economy.GetLocalPrice`, army supply purchases register as trade data at the
-  nearest node, and national morale reads "Private Wealth" as a reason code.
-  `IIP` is the junction and needs decoding here, along with
-  `Alliance.credibility` and `AddTradeWarfare`.
 - `19-commanders-and-perks.md` — needs the per-unit-type perk catalogue first
   (see [16-enumerations](16-enumerations.md)); that is the largest single gap
-  left in Phase 2. Also picks up the president system and
-  `supportthroughappointedcommanders[]`.
-- `20-policy-and-project-catalogue.md` — id → effect for all 117 policy arms
+  left in Phase 2. Also picks up the president system,
+  `supportthroughappointedcommanders[]` (support reason 38) and the commander
+  attributes already seen driving supply, desertion, morale and fatigue.
+- `20-ai.md` — strategic (`AICampaign`, 8,374 lines) and battlefield
+  (`AIBattle`, 5,458) decision-making, plus `Config/aistrategies.dat` and the
+  several AI handicap multipliers found scattered through the simulation.
+- `21-policy-and-project-catalogue.md` — id → effect for all 117 policy arms
   and every project id, harvested from `Policies.UpdateAllTooltips` and
-  `Projects.GetProjectEffect`. Now also needs to map each policy to its
-  support and national-morale reason code, which the label tables name.
-- `21-game-state.md` — `GameVars.alliance[]` and `GameVars.nation[]` field
+  `Projects.GetProjectEffect`. Also needs to map each policy to its support and
+  national-morale reason code, which the label tables name, and to the
+  scene-object and state names some policies key off.
+- `22-game-state.md` — `GameVars.alliance[]` and `GameVars.nation[]` field
   maps: the state every effect writes to, and the ModApi's core data surface.
