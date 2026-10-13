@@ -97,27 +97,34 @@ the evidence than in a central list.
 | --- | --- |
 | [14-supply-and-logistics](14-supply-and-logistics.md) | The two supply models, depots as economy buildings, the 5% shortage cliff |
 | [15-attrition-and-condition](15-attrition-and-condition.md) | Condition, sickness, desertion, wounded recovery, fatigue and training |
-| [16-enumerations](16-enumerations.md) | Cross-cutting reference: `unittyp`, branches, stance, ammo, loss types, supply slots, perk-id reuse |
+| [16-enumerations](16-enumerations.md) | Cross-cutting reference: `unittyp`, branches, stance, ammo, loss types, supply slots, status and condition label tables, perk-id reuse |
+
+### Politics — [summary](summary-politics.md)
+
+| File | Contents |
+| --- | --- |
+| [17-politics-and-support](17-politics-and-support.md) | State support and its 42 reason codes, national morale and the loss condition, foreign intervention, recruitment, and the support-breakdown NaN bug |
 
 ## Planned
 
 Per `plan.md` Phase 2, one file per subsystem, in order: **combat ✅** →
-**morale ✅** → **supply ✅** → economy → politics → commanders → AI. Each
-joins a `summary-<subsystem>.md`.
+**morale ✅** → **supply ✅** → **politics ✅** (taken early, since state
+support kept turning up as an input to everything else) → economy →
+commanders → AI. Each joins a `summary-<subsystem>.md`.
 
-- `17-economy.md` — production, trade, demand and prices. Already reached from
-  two directions: depot throughput is priced through `Economy.GetLocalPrice`,
-  and army supply purchases register as trade data at the nearest node. `IIP`
-  is the junction and needs decoding here.
-- `18-politics-and-support.md` — `GameVars.nation[state].support[]` already
-  turns out to cap battle morale via `fightingspirit` and to amplify
-  desertion, so this is a higher priority than its position in the order
-  suggests. `AdjustSupport` reason codes belong here.
+- `18-economy.md` — production, trade, demand and prices. Already reached from
+  three directions: depot throughput is priced through
+  `Economy.GetLocalPrice`, army supply purchases register as trade data at the
+  nearest node, and national morale reads "Private Wealth" as a reason code.
+  `IIP` is the junction and needs decoding here, along with
+  `Alliance.credibility` and `AddTradeWarfare`.
 - `19-commanders-and-perks.md` — needs the per-unit-type perk catalogue first
   (see [16-enumerations](16-enumerations.md)); that is the largest single gap
-  left in Phase 2.
+  left in Phase 2. Also picks up the president system and
+  `supportthroughappointedcommanders[]`.
 - `20-policy-and-project-catalogue.md` — id → effect for all 117 policy arms
   and every project id, harvested from `Policies.UpdateAllTooltips` and
-  `Projects.GetProjectEffect`.
+  `Projects.GetProjectEffect`. Now also needs to map each policy to its
+  support and national-morale reason code, which the label tables name.
 - `21-game-state.md` — `GameVars.alliance[]` and `GameVars.nation[]` field
   maps: the state every effect writes to, and the ModApi's core data surface.

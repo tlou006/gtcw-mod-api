@@ -279,7 +279,33 @@ Suggested order — combat first, since it's what modders most want to change:
    units use to find it.
 4. **Campaign economy** — production, trade, demand. (`GetHighestDemand`,
    `GetDemandProductionList`, `GetEconomyTooltip` confirmed.)
-5. **Politics and prestige** — (`GetPrestigeEarnedDetails` confirmed.)
+5. ✅ **Politics and prestige** — done out of order, see
+   [summary-politics](findings/summary-politics.md). Three variables, each with
+   its own accounting array: **state support** (per state × alliance, 42
+   hardcoded reason codes, 23 of them policies), **national morale** (per
+   alliance, 35 codes, and the campaign-loss condition via
+   `breakmoraletrigger`), and **foreign intervention levels** (per alliance ×
+   foreign power, almost entirely a policy game, with power 3 gated on 7 June
+   1863 *and* policy 144).
+
+   Promoted ahead of the economy because state support kept appearing as an
+   input elsewhere, and it reaches further than expected: **volunteers scale
+   linearly with it and drop to zero below `statesupportrecruiting`**, drafts
+   are hard-gated, it caps battle morale through `fightingspirit`, it
+   multiplies desertion, and `minnationalmoralesurrender` makes units surrender
+   outright. Politics is an input to the war, not a reaction to it.
+
+   Two traps for modders: **policy 30 keys off five state *names* as strings**,
+   so renaming a state silently disables it; and **the war balance is computed
+   from ten UI `Slider.value` fields** rather than from the model, so anything
+   reading it headlessly gets whatever was last displayed.
+
+   Also found a clean first target for the hook library: the support-breakdown
+   tracker is written as `Mathf.Pow(amount, 0.5f)`, which is **NaN for any
+   support loss**, and guarded by `== float.NaN`, which is **always false in
+   C#**. The "what is hurting our support" UI therefore returns nothing, ever.
+   A postfix recomputing it as `sign(amount) * sqrt(|amount|)` fixes a visible
+   bug with zero balance impact.
 6. **Commander traits / experience** — (`GetEffectsOnFitness`,
    `GetInfluencesOnWeight` confirmed.)
 7. **AI** — strategic and battlefield decision-making.

@@ -182,6 +182,105 @@ See [14-supply-and-logistics](14-supply-and-logistics.md).
 
 ---
 
+## Label tables hardcoded in `GameVars`
+
+A cluster of `public static string[]` arrays in `GameVars` enumerate states and
+conditions with their display text. **They are in the assembly, not in config**
+— so a mod cannot extend them without patching, and the indices are the
+enumeration.
+
+### `unitstatustextcamp[28]` — campaign unit status
+
+| # | | # | | # | |
+| --- | --- | --- | --- | --- | --- |
+| 0 | Awaiting Orders | 10 | Besieged | 20 | Sailing |
+| 1 | Marching | 11 | Siege Assault | 21 | Bombarding Fort |
+| 2 | Forced Marching | 12 | **Encamped** | 22 | Engaging |
+| 3 | Transported | 13 | Breaking Camp | 23 | Intercepting |
+| 4 | Skirmishing | 14 | **Winter Quarters** | 24 | Moving to port |
+| 5 | Retreating | 15 | Scouting | 25 | Resupplying |
+| 6 | Routed | 16 | Raiding | 26 | Repairing |
+| 7 | **Entrenching** | 17 | Guarding | 27 | Raiding *(duplicate)* |
+| 8 | **Entrenched** | 18 | In Battle | | |
+| 9 | Siege Combat | 19 | Blockading | | |
+
+> **This answers the `encamped` / `entrenched` / `winterquarters` question left
+> open by [15-attrition-and-condition](15-attrition-and-condition.md) §6**:
+> they are campaign unit *statuses* (12, 8, 14), the same states that select
+> the drill rate and the wounded mortality/recovery pair. Status 17 "Guarding"
+> is the `cavalryorders == 3` guard duty.
+>
+> Note index 27 repeats "Raiding" — probably naval raiding versus land raiding
+> at 16.
+
+### `unitstatustext[25]` — battle unit status
+
+| # | | # | | # | |
+| --- | --- | --- | --- | --- | --- |
+| 0 | Idle | 9 | Retreating | 18 | Reattaching |
+| 1 | Layn down *(sic)* | 10 | Routed | 19 | Double Quick |
+| 2 | Marching | 11 | Constructing | 20 | Screen |
+| 3 | Running | 12 | In building | 21 | Defend |
+| 4 | Charging | 13 | Forming up | 22 | Attack |
+| 5 | Firing | 14 | Bombarding | 23 | Assault |
+| 6 | In melee | 15 | Reloading | 24 | Engaged |
+| 7 | Advancing | 16 | Rallying | | |
+| 8 | Falling back | 17 | Evading | | |
+
+Indices 20–23 (Screen / Defend / Attack / Assault) read as **stances**, which
+aligns with the auto-resolve stance set above but is not the same array.
+
+### Ten-band condition descriptors
+
+Each maps a `[0, 1]` stat to text by `(int)(value × 10)`:
+
+| Array | Bands |
+| --- | --- |
+| `moralecondition[10]` | Broken, Panicked, Unstable, Nervous, Stable, Stable, Confident, Confident, Determined, Eager |
+| `cohesioncondition[10]` | Broken, Fragmented, Fragmented, Disrupted, Disrupted, Failing, Good, Good, Intact, Intact |
+| `fatiguecondition[10]` | Exhausted, Very Tired, Very Tired, Tired, Tired, Tiring, Winded, OK, Rested, Well Rested |
+| `trainingleveltext[10]` | Untrained, Poor, Poor, Regular, Regular, Good, Good, Very Good, Very Good, Excellent |
+| `meleecondition[10]` | Worthless, Bad, Bad, Poor, Poor, Good, Good, Strong, Strong, Excellent |
+
+> `cohesioncondition` reads **"Failing" at band 5, between "Disrupted" (4) and
+> "Good" (6)** — out of order relative to its neighbours. Likely a copy slip in
+> the table; it means a unit at 50–60% cohesion is described worse than one at
+> 40–50%.
+
+### Others
+
+| Array | Entries |
+| --- | --- |
+| `conditiontext[4]` | Prose unit-condition descriptions ("whipped and in dire need of rest & supplies" → "very good for any kind of orders") |
+| `conditiontextcamp[6]` | Abysmal, Alarming, Deteriorated, Poor, Sufficient, Good |
+| `conditiontextfleets[5]` | Barely Afloat, Alarming, Deteriorated, Good, Intact |
+| `intelligencetext[6]` | Blind, Minimal, Poor, Good, Very good, Excellent |
+| `readinesstext[4]` | Deficient, Low, Mediocre, Excellent |
+| `weaponaccuracytext[5]` | Poor, Mediocre, Good, Very Good, Excellent |
+
+Also `GameVars.standardunittypegarrisons = 11` (Battalion), i.e. the default
+`unittyp` for garrison units.
+
+---
+
+## Political reason codes
+
+Two parallel accounting arrays, both with **slot 0 as a computed total**, both
+label tables hardcoded in the assembly. Full tables in
+[17-politics-and-support](17-politics-and-support.md).
+
+| Array | Size | Labels |
+| --- | --- | --- |
+| `Nation.supportinfluence[10, 50]` | 10 alliances × 50 slots, 42 named | `GameVars.supportdescr[42]` — 23 of the live codes are policies |
+| `Alliance.nationalmoraleinfluence[50]` | 50 slots, 35 named | `GameVars.Alliance.nationalmoraledescr[35]` — slots 13 and 15–19 are empty |
+
+Known support reason codes referenced elsewhere in these findings: **32** =
+medical treatment of wounded, **34** = Project: Propaganda, **6** = raids,
+**1** = battle casualties, **38** = commander. National morale **33** = state
+support, **34** = private wealth.
+
+---
+
 ## Partially decoded
 
 These have confirmed members but no complete set. Listed so later passes know
@@ -199,7 +298,7 @@ what is already known.
 | `IIP.IIPType` | `IIP.id_harbor` confirmed |
 | `CBuilding.BuildingType` | `id_supplydepot = 22` confirmed |
 | `weather.GetClimateData(pos, n)` | 100 = temperature; 105 = bad-weather measure (÷100) |
-| `AdjustSupport` reason codes | 32 = wounded treated; 34 = propaganda project |
+| `AdjustSupport` reason codes | **Complete** — 42 named codes, see above and [17-politics-and-support](17-politics-and-support.md) |
 
 ---
 
@@ -240,6 +339,17 @@ context.** Confirmed collisions:
   `unitprefs.txt` bound each set** — reading the parser's loop counts would
   give the sizes immediately, which is the cheapest way to finish them.
 - `overridesymbol` (echelon, compared against `supplytoplevelbf`).
-- The perk catalogue per unit type.
-- `AdjustSupport` reason codes — only 32 and 34 are known; the set is likely
-  enumerated somewhere in the politics UI.
+- The perk catalogue per unit type — **the largest gap in this file.**
+- Which policy maps to which support / national-morale reason code. The label
+  tables name the policies, so this is mechanical; it belongs in the planned
+  policy catalogue.
+- `unitstatustext[20..23]` (Screen / Defend / Attack / Assault) look like a
+  stance set distinct from the auto-resolve `usedstance` values. Worth
+  confirming they are separate.
+
+### Resolved since first writing
+
+- ~~`AdjustSupport` reason codes — only 32 and 34 are known.~~ **Complete** —
+  all 42 are hardcoded in `GameVars.supportdescr`.
+- ~~`encamped` / `entrenched` / `winterquarters` derivation.~~ **Resolved** —
+  they are campaign unit statuses 12, 8 and 14 in `unitstatustextcamp[28]`.
