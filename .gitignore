@@ -84,13 +84,19 @@ env/
 .ipynb_checkpoints/
 
 # ---------------------------------------------------------------------------
-# .NET (if you build analysis tooling or reimplementations)
+# .NET (analysis tooling and the hook library)
 # ---------------------------------------------------------------------------
 bin/
 obj/
 .vs/
 *.user
 *.suo
+
+# Local path to each developer's own game install, imported by
+# Directory.Build.props. Machine-specific by definition, and the game is
+# never distributed with this repo.
+game.props
+GameDir.props
 
 # ---------------------------------------------------------------------------
 # Node (if any tooling needs it)

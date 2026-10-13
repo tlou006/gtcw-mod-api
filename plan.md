@@ -157,8 +157,43 @@ stable event.
 | Mod loader | **BepInEx 5.x** (Mono branch) | The mature standard for Unity Mono. Bundles HarmonyX, uses UnityDoorstop injection, no game files modified. MelonLoader is the alternative but is weaker for Mono-era Unity. |
 | Patching | **HarmonyX** (ships with BepInEx) | Runtime IL patching — prefix/postfix/transpiler. No patched game DLLs to redistribute, which keeps us legally clean. |
 | Private member access | **`Krafs.Publicizer`** (MSBuild) | Compile against a publicized `Assembly-CSharp` reference so we can reach private members with normal typed code instead of reflection strings. Publicizes at build time only — **never redistributed**. |
+| Game references | **Resolved from each developer's own install**, never vendored | See [Distribution boundary](#distribution-boundary). No game DLL enters the repo or the release. |
 | Target framework | `netstandard2.1` (match Unity 2021.3) | ABI compatibility with the game's Mono runtime. |
 | Language | C# | Required by the goal, and native to the ecosystem. |
+
+### Referencing the game without shipping it
+
+The library must compile against `Assembly-CSharp.dll` but must never carry a
+copy of it. Point MSBuild at a path the developer supplies, and fail the build
+with a clear message when it's absent:
+
+```xml
+<!-- Directory.Build.props (tracked) -->
+<Project>
+  <!-- game.props is gitignored; it sets <GameDir>. Env var also works. -->
+  <Import Project="game.props" Condition="Exists('game.props')" />
+  <PropertyGroup>
+    <GameDir Condition="'$(GameDir)' == ''">$(GTCW_GAME_DIR)</GameDir>
+    <GameManaged>$(GameDir)\The Civil War (1861-1865)_Data\Managed</GameManaged>
+  </PropertyGroup>
+
+  <Target Name="CheckGameDir" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(GameManaged)')"
+           Text="Game not found. Set GameDir in game.props or the GTCW_GAME_DIR environment variable to your install directory. The game is not distributed with this repo." />
+  </Target>
+
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp" HintPath="$(GameManaged)\Assembly-CSharp.dll" Private="false" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(GameManaged)\UnityEngine.CoreModule.dll" Private="false" />
+  </ItemGroup>
+</Project>
+```
+
+`Private="false"` is the load-bearing attribute — it stops MSBuild copying the
+game's DLLs into `bin/`, which is exactly how game assemblies accidentally end
+up inside a release zip. `Krafs.Publicizer` then publicizes into `obj/` at
+build time, so the publicized reference is a local build artifact that is
+never committed and never shipped.
 
 ### Architecture: isolate volatility
 
@@ -259,8 +294,10 @@ library's existence.
 - [ ] Two or three sample mods, from trivial to realistic.
 - [ ] **Semantic versioning**, enforced strictly. Mods depend on this; breaking
       the public API without a major bump breaks the ecosystem.
-- [ ] Ship the API DLL only. **Never redistribute game assemblies**, publicized
-      references, or decompiled source — modders build against their own copy.
+- [ ] Package per the [Distribution boundary](#distribution-boundary): our DLLs,
+      docs and sample source only. Modders build against their own install.
+- [ ] State the game requirement plainly in the README and on every release
+      page, so nobody expects a playable download.
 - [ ] Publish to Nexus/Thunderstore and the game's modding community.
 
 ---
@@ -295,21 +332,79 @@ day analysis started. Mitigations, in order of value:
 | Mod conflicts on the same hook | Medium | Priority ordering + conflict reporting |
 | Public API ossifies too early | Medium | Mark unstable areas `[Experimental]` until Phase 2 covers them |
 | Decompiled code leaks into the repo | Low but serious | `.gitignore` covers it; notes describe findings rather than pasting source |
+| Game assembly swept into a release artifact | Low but serious | `Private="false"` on all game references; release-packaging filename check |
 
 ---
 
-## Scope and conduct
+## Distribution boundary
 
-Single-player strategy game with an official modding tool — modding is
-sanctioned, and there's no anti-cheat or multiplayer integrity concern to
-navigate. Even so:
+**The hook library ships alone. Everyone who uses it supplies their own game.**
+This is a hard constraint on the design, not a disclaimer bolted on at release.
 
-- The repo ships **original work only**: notes, schemas, and the hook library.
-- No decompiled source, game assemblies, or extracted assets are committed or
-  redistributed — `.gitignore` enforces this and it shouldn't be relaxed.
-- The hook library requires users to own the game; it patches at runtime in
-  memory and modifies nothing on disk.
-- Check the EULA's modding/reverse-engineering clauses before public release.
+### What ships, and what never does
+
+| Ships in the release | Never ships |
+| --- | --- |
+| `GTCW.ModApi.dll` (public API) | `Assembly-CSharp.dll` or any game assembly |
+| `GTCW.ModApi.Bindings.dll`, `GTCW.ModApi.Plugin.dll` | Publicized reference assemblies (build artifacts in `obj/`) |
+| Docs, API reference, sample mod **source** | Decompiled C# source, in whole or in part |
+| The signature manifest (names and hashes only) | `Config/` data files, or default data extracted from them |
+| Our `LICENSE`, covering our code only | Assets: textures, audio, meshes, maps |
+
+Three consequences that are easy to get wrong:
+
+- **The signature manifest stores names and hashes, not bodies.** Method
+  signatures and IL hashes are the fingerprints we need to detect drift; they
+  are not the game's code, and the manifest must never grow into a dump of it.
+- **Typed config models are schemas, not data.** Phase 4's override system
+  defines the *shape* of `weapons.txt` and reads values from the user's own
+  install at runtime. We ship no default values and no copy of any `.dat` or
+  `.txt` from `Config/`. A mod that wants to change a number expresses it as a
+  delta against whatever the player already has.
+- **Sample mods ship as source, with no bundled game data**, so a sample can
+  never become a backdoor for redistributing content.
+
+### Who needs a copy of the game
+
+| Role | Needs the game? | Why |
+| --- | --- | --- |
+| Contributor to this repo | **Yes** | Compiles against `Assembly-CSharp.dll` from their own install |
+| Modder building against the API | **Yes** | References `GTCW.ModApi.dll`, runs against their own install |
+| Player running a mod | **Yes** | Obviously — the library only exists inside a running game |
+
+Nobody obtains any part of the game *through us*, in any of those roles. The
+library is a lens on software the user already owns.
+
+### How this is enforced, not just intended
+
+- `.gitignore` keeps `game/`, `decompiled/` and extracted output out of the
+  repo entirely — already verified against real paths.
+- The build resolves game references from a developer-supplied `GameDir` with
+  `Private="false"`, so no game DLL is copied into `bin/` and none can be
+  swept into a release archive.
+- Publicized assemblies are generated into `obj/` per build — local artifacts
+  by construction.
+- BepInEx injects at runtime via UnityDoorstop. **No game file is modified on
+  disk**, so there is no patched binary that anyone could be tempted to
+  redistribute, and uninstalling means deleting our files.
+- [ ] Add a release-packaging check that fails if any game-owned filename
+      (`Assembly-CSharp*`, `*.assets`, `UnityPlayer*`, `global-metadata*`)
+      appears in the artifact. Cheap, and it catches the one mistake that
+      actually matters.
+
+### Conduct
+
+Single-player strategy game with an official, developer-shipped ModdingTool —
+modding is sanctioned, and there's no anti-cheat or multiplayer integrity
+concern to navigate. Remaining diligence:
+
+- Read the EULA's reverse-engineering and modding clauses before public
+  release, and respect any distribution limits it sets.
+- Keep `notes/` descriptive: explain mechanisms and document schemas rather
+  than pasting decompiled source. A note should be readable without the
+  original code beside it.
+- The developers have been modding-friendly; engaging their community early is
+  worth more than operating quietly.
 
 ---
 
