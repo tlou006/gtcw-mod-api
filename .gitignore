@@ -1,0 +1,124 @@
+# ---------------------------------------------------------------------------
+# Game files and decompiler output.
+#
+# Everything the game ships and everything derived from it is the publisher's
+# copyrighted material. Keep it on disk, keep it out of the repo.
+# ---------------------------------------------------------------------------
+
+# Original game install / copies of it
+game/
+GameData/
+*_Data/
+*.exe
+*.dll
+*.so
+*.dylib
+*.pdb
+
+# Unity asset containers and bundles
+*.assets
+*.assets.resS
+*.resource
+*.bundle
+*.unity3d
+*.sharedAssets
+globalgamemanagers*
+level*
+resources.assets*
+
+# IL2CPP / Mono artifacts
+GameAssembly.*
+global-metadata.dat
+*.il
+*.il2cpp
+
+# Extracted / decompiled output
+decompiled/
+extracted/
+dumped/
+out/
+output/
+exported/
+dump.cs
+dump.h
+script.json
+il2cpp.h
+
+# Ripped assets
+*.fbx
+*.obj
+*.png
+*.jpg
+*.jpeg
+*.tga
+*.dds
+*.ktx
+*.astc
+*.wav
+*.ogg
+*.mp3
+*.bnk
+*.mp4
+*.webm
+
+# ---------------------------------------------------------------------------
+# Tooling (download it, don't vendor it)
+# ---------------------------------------------------------------------------
+tools/*
+!tools/README.md
+*.zip
+*.7z
+*.rar
+*.tar
+*.tar.gz
+
+# ---------------------------------------------------------------------------
+# Scratch
+# ---------------------------------------------------------------------------
+scratch/
+tmp/
+temp/
+*.log
+*.tmp
+*.bak
+
+# ---------------------------------------------------------------------------
+# Python (analysis scripts)
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# ---------------------------------------------------------------------------
+# .NET (if you build analysis tooling or reimplementations)
+# ---------------------------------------------------------------------------
+bin/
+obj/
+.vs/
+*.user
+*.suo
+
+# ---------------------------------------------------------------------------
+# Node (if any tooling needs it)
+# ---------------------------------------------------------------------------
+node_modules/
+npm-debug.log*
+
+# ---------------------------------------------------------------------------
+# Editors / OS
+# ---------------------------------------------------------------------------
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+.DS_Store
