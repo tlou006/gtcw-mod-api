@@ -1,6 +1,6 @@
 # Build provenance
 
-Which build the notes in this repo were written against. Record a new entry
+Which build the findings in this repo were written against. Record a new entry
 here whenever the game updates — offsets, metadata indices and method bodies
 all shift between builds, and a note that doesn't name its build can't be
 trusted later.

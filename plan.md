@@ -10,7 +10,7 @@
 
 The two goals feed each other: Goal 1 produces the map, Goal 2 turns the map
 into a stable surface other people can build on. Goal 1 output lives in
-`notes/`; Goal 2 output lives in `src/`.
+`findings/`; Goal 2 output lives in `src/`.
 
 ---
 
@@ -22,7 +22,7 @@ These facts set the strategy, and all of them are favorable:
 | --- | --- |
 | **Mono backend**, Unity 2021.3.16f1 | Managed CIL. Decompiles to near-source C#. No IL2CPP dumping, no Ghidra, no address math. |
 | **Not obfuscated** — 6,717 readable PascalCase identifiers, intact lambda names (`>b__887_0`) | Original type, method and field names survive. Comprehension is reading, not puzzle-solving. |
-| **Official ModdingTool** — 53 sheets, each declaring the `Config/` file it writes, with field schemas in its header rows | Modding is sanctioned, **and the data model is largely handed to us.** Most schemas no longer need reversing out of the game's parsers. [Details](notes/02-modding-tool-data-model.md). |
+| **Official ModdingTool** — 53 sheets, each declaring the `Config/` file it writes, with field schemas in its header rows | Modding is sanctioned, **and the data model is largely handed to us.** Most schemas no longer need reversing out of the game's parsers. [Details](findings/07-config-data-model.md). |
 | **Policy and project *effects* are hardcoded** — data files carry only descriptions, costs and prerequisites | **New policies/projects with real effects are impossible via data modding.** Only code patching reaches them, which makes this the hook library's headline capability. |
 | **Scenario overrides replace whole files**, with no field-level merge | Field-level additive overrides are genuinely new capability, not a reimplementation — and it explains why data mods conflict so badly today. |
 | **Prefs are scale-dependent**: weapon ranges tuned to map size, lethality to unit echelon | No weapon number means anything without stating its scale. Affects every combat note. |
@@ -67,7 +67,7 @@ realistic, not a multi-week slog.
       layout, and several stated limits on modding. Essential reading.
 - [x] **Inventory the ModdingTool workbook** — done, and it paid off: 53 sheets
       each declaring the config file they write, with field schemas in their
-      header rows. See [`notes/02-modding-tool-data-model.md`](notes/02-modding-tool-data-model.md).
+      header rows. See [`findings/07-config-data-model.md`](findings/07-config-data-model.md).
 - [ ] **Extract `xl/vbaProject.bin` (218 KB, `Module1`).** The export macros
       are the developers' own serializer for every `Config/` file — field
       order included. VBA source is RLE-compressed per MS-OVBA, so this needs
@@ -91,7 +91,7 @@ realistic, not a multi-week slog.
 
 **Goal:** know what exists and where, before studying anything closely.
 
-Results are in [`notes/01-architecture.md`](notes/01-architecture.md).
+Results are in [`findings/`](findings/README.md) — see [summary-architecture](findings/summary-architecture.md), [summary-data-layer](findings/summary-data-layer.md) and [summary-effects](findings/summary-effects.md).
 
 - [x] Inventory types by size; identify the god-classes. Found: `Regiment`
       (28.5k lines) is the one the `b__887_0` lambda index pointed at, followed
@@ -126,7 +126,7 @@ Results are in [`notes/01-architecture.md`](notes/01-architecture.md).
 - [x] Find the save/load path. `ImportExportUnitData` — ~25 paired
       `Save*`/`Load*` methods, one per subsystem, plus the game's own
       `CheckFileIntegrity` and a float save-version file.
-- [x] Write `notes/01-architecture.md`.
+- [x] Write up the findings — split across `findings/01`–`09` with three summaries.
 
 **Exit criteria:** you can answer "where would I look to change X?" for any X.
 **Substantially met** for data, policies/projects, lifecycle and
@@ -136,7 +136,7 @@ serialization; not yet for the per-frame simulation tick.
 
 ## Phase 2 — Document mechanics (Goal 1)
 
-**Goal:** `notes/` explains the simulation well enough to predict its behavior.
+**Goal:** `findings/` explains the simulation well enough to predict its behavior.
 
 Run two tracks in parallel, cheapest first:
 
@@ -174,12 +174,12 @@ Priority order, by how much mechanics they expose:
 | `projects.dat`, `buildingtypes.dat`, `resources.dat` | 59 | Economy model |
 
 > Document the **schema and the meaning**, with representative values to make
-> ranges clear. Don't bulk-copy these files into `notes/` — they're the
+> ranges clear. Don't bulk-copy these files into `findings/` — they're the
 > publisher's data, and `.gitignore` deliberately keeps them out of the repo.
 
 ### Track B — Code-driven mechanics (the real reversing)
 
-For each subsystem, write `notes/NN-<subsystem>.md` covering: inputs, the
+For each subsystem, write `findings/NN-<subsystem>.md` covering: inputs, the
 formula or algorithm, where the constants come from (hardcoded vs `Config/`),
 and the edge cases.
 
@@ -287,7 +287,7 @@ treat that boundary as inviolable.
 - [ ] Scaffold the three projects under `src/`, plus `samples/HelloWorldMod`.
 - [ ] Verify BepInEx loads against this build; get a log line out of the game.
 - [ ] Implement the **version gate**: on startup, hash `Assembly-CSharp.dll`
-      and compare against known-good hashes (`notes/00-build-provenance.md`).
+      and compare against known-good hashes (`findings/00-build-provenance.md`).
       Mismatch → loud warning, continue in degraded mode. Never hard-crash
       someone's game over a version bump.
 
@@ -377,7 +377,7 @@ absent, reassign the path to `Config/` — one path wins entirely
 (`loadcampaigncontrols`, `loadunitprefs`, `loadcontrols`). `loadcontrols` also
 forces the `Config/` fallback when `SceneManagement.currentoperation` is 3 or
 8, which is the mechanism behind the scale-dependent prefs finding in
-`notes/02`. So mod overrides add a layer the game lacks entirely, rather than
+`findings/07-config-data-model.md`. So mod overrides add a layer the game lacks entirely, rather than
 extending an existing merge:
 
 ```
@@ -451,7 +451,7 @@ GTCW.ModApi.Projects.Register("Repeating Rifles", effect => {
       prefab. This decides how far effect registration can actually reach.
 - [ ] Harvest `Policies.UpdateAllTooltips` and
       `Projects.GetProjectEffect(int id, float effect, float secondeffect)`
-      into `notes/03-policies-and-projects.md`. These build the player-facing
+      into `findings/10-policy-and-project-catalogue.md`. These build the player-facing
       effect strings, so they map id → meaning for free — the same trick as the
       `Get*Tooltip` methods in Phase 2.
 
@@ -492,7 +492,7 @@ day analysis started. Mitigations, in order of value:
    which patches drifted. Turns "the mod is broken, somewhere" into a
    30-second diff — and it's the highest-leverage piece of tooling in this
    whole plan.
-3. **Keep every note tied to a build** via `notes/00-build-provenance.md`.
+3. **Keep every note tied to a build** via `findings/00-build-provenance.md`.
 4. **Version-gate at runtime**, degrade loudly rather than crashing.
 5. Prefer patching **stable, semantically-named** methods over volatile
    internals; avoid transpilers (IL-offset-fragile) where a prefix/postfix works.
@@ -577,7 +577,7 @@ concern to navigate. Remaining diligence:
 
 - Read the EULA's reverse-engineering and modding clauses before public
   release, and respect any distribution limits it sets.
-- Keep `notes/` descriptive: explain mechanisms and document schemas rather
+- Keep `findings/` descriptive: explain mechanisms and document schemas rather
   than pasting decompiled source. A note should be readable without the
   original code beside it.
 - The developers have been modding-friendly; engaging their community early is
@@ -590,6 +590,6 @@ concern to navigate. Remaining diligence:
 1. Read `Modding/ModdingTool Quick Guide.pdf` — may hand over the data model.
 2. Install .NET SDK + `ilspycmd`; export `decompiled/Assembly-CSharp`.
 3. Set Steam to update-on-launch only.
-4. Phase 1 namespace/type inventory → `notes/01-architecture.md`.
+4. Phase 1 namespace/type inventory → `findings/` (done).
 5. Locate the `Config/` parsers — best single return on effort, since it
    unlocks both the data schemas (Goal 1) and the override system (Goal 2).

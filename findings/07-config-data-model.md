@@ -1,6 +1,7 @@
 # The ModdingTool as a data-model specification
 
 **Build:** see [00-build-provenance](00-build-provenance.md)
+**Summary:** [summary-data-layer](summary-data-layer.md)
 **Sources:**
 - `Modding/ModdingTool_1.11.xlsm` — structural inspection of the OOXML
   package (sheet names, declared filenames, header rows)
@@ -137,7 +138,7 @@ copied into a scenario folder, and the scenario copy "is then loaded instead
 of" the global one.
 
 **Correction to an earlier assumption — since verified in code**
-([`01-architecture.md` §4b](01-architecture.md)). *Instead of* means
+([05-config-paths-and-overrides](05-config-paths-and-overrides.md)). *Instead of* means
 **whole-file replacement, not field-level merge.** The game has no mechanism for
 overriding an individual value — a scenario either supplies a complete file or
 inherits the global one entirely. So the override precedence is a two-entry
@@ -299,7 +300,7 @@ The workbook leaks real implementation detail:
    > convention. The full export shows only `CBuilding` and `CBuildingIcon`
    > carry the prefix. Game code is instead identified by sitting in the
    > **global namespace** while third-party code keeps its own — see
-   > [`01-architecture.md` §1](01-architecture.md). `CBuilding` is 3,271 lines,
+   > [01-assembly-partition](01-assembly-partition.md). `CBuilding` is 3,271 lines,
    > so it is a major type regardless.
 2. **Some mechanics live in prefabs, not in code or config.** Building
    identity, ranking and level progression are authored as scene/prefab data.

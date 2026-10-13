@@ -6,16 +6,23 @@ interoperability purposes.
 **Goals:** document the game's mechanics from its code, and ship a C# hook
 library so other modders can extend the game without reversing it themselves.
 See [`plan.md`](plan.md) for the phased approach, and
-[`notes/00-build-provenance.md`](notes/00-build-provenance.md) for which build
+[`findings/00-build-provenance.md`](findings/00-build-provenance.md) for which build
 the findings apply to.
 
 ### Findings so far
 
-| Note | Covers |
+Research write-ups live in [`findings/`](findings/README.md), split into
+detailed `NN-<topic>.md` files and `summary-<topic>.md` overviews. **Start with
+a summary:**
+
+| Summary | Covers |
 | --- | --- |
-| [`00-build-provenance.md`](notes/00-build-provenance.md) | Which build was analyzed, and its hashes |
-| [`01-architecture.md`](notes/01-architecture.md) | Assembly map: god-classes, scene wiring, the config format, the policy/project effect dispatch |
-| [`02-modding-tool-data-model.md`](notes/02-modding-tool-data-model.md) | The `Config/` data model, recovered from the official ModdingTool and Quick Guide |
+| [Architecture](findings/summary-architecture.md) | Game code vs. third-party, the god classes, scene wiring and lifecycle, version identification |
+| [Data layer](findings/summary-data-layer.md) | Config paths and override resolution, the exact file format, the `Config/` data model, the save/load surface |
+| [Effects](findings/summary-effects.md) | Policy and project effect dispatch — and why new ids can be injected |
+
+[`findings/00-build-provenance.md`](findings/00-build-provenance.md) records
+which build everything was written against.
 
 ## What lives in this repo
 
@@ -26,7 +33,7 @@ copyrighted by the publisher and are excluded by `.gitignore`.
 
 | Path | Tracked | Contents |
 | --- | --- | --- |
-| `notes/` | yes | Findings: formats, structures, call graphs, behavior |
+| `findings/` | yes | Research write-ups: formats, structures, call graphs, behavior |
 | `scripts/` | yes | Parsers and analysis tooling written here |
 | `game/` | **no** (README only) | A copy of the game install — see `game/README.md` |
 | `decompiled/`, `extracted/` | no | Decompiler and asset-extractor output |
@@ -40,7 +47,7 @@ fresh clone still shows what belongs where.
 
 ```
 decompile-gtcw/
-├── notes/          # research write-ups, one file per subsystem
+├── findings/       # research write-ups, plus summary-*.md overviews
 ├── scripts/        # analysis / parsing tooling
 ├── tools/          # (ignored) IL2CPP dumpers, AssetRipper, dnSpy, ILSpy, ...
 ├── game/           # (ignored) local copy of the game
@@ -49,7 +56,7 @@ decompile-gtcw/
 
 ## Setup
 
-Nothing to track here, but for reproducibility record in `notes/` which
+Nothing to track here, but for reproducibility record in `findings/` which
 tool versions you used:
 
 - The game build (version string, store, install date) under analysis
@@ -59,7 +66,7 @@ tool versions you used:
 
 1. Keep a pristine copy of the game install outside this repo, or in `game/`.
 2. Run dumpers/extractors into `decompiled/` or `extracted/`.
-3. Write what you *learned* into `notes/` — file formats, struct layouts,
+3. Write what you *learned* into `findings/` — file formats, struct layouts,
    protocol shapes, logic descriptions. Quote only the small snippets a note
    actually needs to make sense.
 4. Put any parser or reimplementation you write in `scripts/`.

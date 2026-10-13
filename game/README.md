@@ -27,10 +27,10 @@ game/
 Work from a copy so that a patch, a verify-files, or an accidental write never
 costs you the build you took notes against.
 
-## Record the build in notes/
+## Record the build in findings/
 
 Because this folder is untracked, anything you need to remember about the build
-goes in `notes/` instead — version string, platform/store, install date, and
+goes in `findings/` instead — version string, platform/store, install date, and
 the SHA-256 of the main assembly. Findings are only reproducible if you know
 which build produced them, and a game that auto-updates will quietly
 invalidate offsets.
