@@ -110,13 +110,78 @@ by a config-defined factor.
 `smoke`, `ammousage`, `weightfactor`, `complexity`, `startfireangle`,
 `trajectorypeak`, `isari`, `horseari`, `wclass`, `year`, `restriction`.
 
-> **`firepower[3]` is indexed differently by the two paths.** `Projectile` uses
-> `firepower[ammotype]`; `Autocalc.FightUnit` uses
-> `firepower[fightingdistance]` for artillery and `firepower[0]` for everything
-> else. For artillery the two plausibly coincide — ammunition choice is
-> range-driven (canister is close range), so band ≈ ammo type — but **this is
-> an inference, not a confirmed mapping.** Worth nailing down before anyone
-> edits the array, because a mod author will reasonably assume one meaning.
+### `firepower[3]` is indexed by ammunition type — resolved
+
+| Index | Ammunition | Evidence |
+| --- | --- | --- |
+| **0** | **Solid shot** | Selected as the fallback, and sets `bouncing = true` — ricochet fire. Also the only index non-artillery ever uses. |
+| **1** | **Explosive shell** | Selection is gated on `ammo[1]` and governed by the `prob_explosives_*` prefs; `ammotype == 1` activates `explosivesobj`, explosion smoke and an impact sound; `cancelbombardmentbelowammoexplosives` tests `ammo[1]`. |
+| **2** | **Canister** | Selected when `distance / firerange <= GamePrefs.canisterrange`; spawns **three** projectiles at `startfireangle` and ±15°. |
+
+**Only artillery (`unittyp == 2`) ever selects a non-zero index.** Everything
+else sets the ammo index to 0 unconditionally, so for infantry and cavalry
+**both combat models read the same `firepower[0]`.**
+
+Artillery ammunition selection in `FireBullet`, in order:
+
+1. **Canister** if the target is within `canisterrange × firerange` and
+   `ammo[2]` remains.
+2. Otherwise **shell**, with probability from the situation:
+   `prob_explosives_openfield` by default, `prob_explosives_counterbattery`
+   (combat behaviour 8), `prob_explosives_bombardment` (behaviour 9), or
+   `prob_explosives_behindcover` if the target has `covervalue > 0`, plus
+   `prob_explosives_largedistances` when past half of fire range.
+3. Otherwise **solid shot**, with bouncing enabled.
+
+`weapon.smoke == 3` forces solid shot with no bounce and no visible
+projectile — a special weapon class worth identifying.
+
+#### How auto-resolve lands on the same axis
+
+`Autocalc` indexes the same array with `fightingdistance`, which is **not a
+measured distance**: `CalculateStance()` derives it from the two sides' stance
+matchup. Stances come from force balance, scaled by commander initiative:
+
+| Stance | Meaning | Trigger pref |
+| --- | --- | --- |
+| 0 | Assault / flanking | `forcebalancetriggerassaultflanking` (highest) |
+| 1 | Attack | `forcebalancetriggerattack` |
+| 2 | Defend | `forcebalancetriggerdefend` (lowest) |
+| 3 | Retreat | `triggerforretreat`, via `0.5 + enemyPoints − ownPoints` |
+
+In sieges (`type == 2`) the fort holder is forced to stance 2 and an attacker
+with `campaignstance == 0` to stance 0.
+
+The resulting `fightingdistance` matrix (rows = side 0, columns = side 1):
+
+| | 0 assault | 1 attack | 2 defend | 3 retreat |
+| --- | --- | --- | --- | --- |
+| **0 assault** | 2 | 2 | 2 | 1 |
+| **1 attack** | 2 | 1 | 1 | 0 |
+| **2 defend** | 2 | 1 | 0 | 0 |
+| **3 retreat** | 1 | 0 | 0 | 0 |
+
+**If either side assaults, the band is 2; two defenders or anyone retreating
+gives 0.** So `fightingdistance` runs **2 = close, 0 = distant** — the same
+direction as the ammunition axis, since canister is close-range and solid shot
+is long-range ricochet fire.
+
+> **So the array has one meaning, read two ways.** It is ammunition type;
+> auto-resolve picks the index that the manual model *would* have selected at
+> that engagement closeness. The two paths therefore agree about *which* value
+> to read. They still disagree about how to use it — linear in `Projectile`,
+> square-rooted in `FightUnit` — which is the real source of divergence.
+>
+> **For modders:** `firepower[0]` is the only entry that affects infantry at
+> all, in either model. Entries 1 and 2 are artillery-only.
+
+`randomcasualtiesfactordistance[fightingdistance]` also varies the casualty
+randomness by closeness, on the same 0–2 band.
+
+> **`reloadspeed[3]` is dead data.** It is parsed into the `Weapon` class and
+> **never read anywhere** — the only reload-related values in use are the
+> `GamePrefs.perk_*reloadspeed` arrays. Same status as `velocity_fts` and
+> `projectileweight_lb`.
 
 ---
 
@@ -451,26 +516,32 @@ Shared: `ammoalertlevel`, `fatiguealertlevel`, `cohesionalertlevel`,
 
 ## 8. Open questions
 
-1. **`firepower[3]` indexing** — ammo type vs. distance band (§2). The single
-   most important thing to confirm before documenting `weapons.txt`.
-2. **`losses[4]` and `losses[5]`** — declared, never consumed as far as found.
+1. **`losses[4]` and `losses[5]`** — declared, never consumed as far as found.
    Possibly sick-to-dead transitions or a save-format remnant.
-3. **Melee.** `MeleeCounterparts`, `inmelee`, `blockobj[].meleecounterpart[]`
-   and `weapon.melee` / `meleemounted` exist, and `Regiment.cs:16038` applies
-   melee casualties, but the melee resolution formula is not yet traced. It is
-   the obvious next piece of this subsystem.
-4. **`fightingdistance`** — the band index driving both
-   `randomcasualtiesfactordistance[]` and artillery `firepower[]`. Its value
-   set and the distances it maps to are unknown.
-5. **Stance.** `usedstance[]`, `CalculateStance`, `GetStanceOfUnit`,
-   `SetStance` — `rofstancepairs` makes stance the core of auto-resolve, so
-   the stance enumeration deserves its own pass.
-6. **`GamePrefs.casualtiesmodifier` provenance** — it is on `GameVars`, not
+2. **`GameVars.casualtiesmodifier` provenance** — it is on `GameVars`, not
    `GamePrefs`, so it is probably a difficulty setting from the options UI
    rather than a config value. Worth confirming where the player sets it.
-7. **Does `Autocalc` ever run during a manual battle?** `StartManualBattleFromAutocalc`
-   goes one way; whether the reverse happens (autocalc resolving a detached
-   skirmish while the player fights elsewhere) would mean both models are live
-   simultaneously.
-8. **Cohesion** is an input here but its own update rule is not traced — it
-   belongs with morale, the next subsystem in the Phase 2 order.
+3. **Does `Autocalc` ever run during a manual battle?**
+   `StartManualBattleFromAutocalc` goes one way; whether the reverse happens
+   (autocalc resolving a detached skirmish while the player fights elsewhere)
+   would mean both models are live simultaneously.
+4. **Cohesion** is an input throughout but its own update rule is not traced —
+   it belongs with morale, the next subsystem in the Phase 2 order.
+5. **`weapon.smoke == 3`** forces solid shot with no visible projectile.
+   Identifying that weapon class would explain the special case.
+6. **`forcebalance[]` and `points[]`** feed `CalculateStance` but their own
+   derivation is untraced — they decide every auto-resolve stance and
+   therefore the whole ROF matrix lookup.
+
+### Resolved since first writing
+
+- ~~`firepower[3]` indexing — ammo type vs. distance band.~~ **Resolved** in
+  §2: it is ammunition type (0 solid shot, 1 shell, 2 canister), and
+  auto-resolve's `fightingdistance` selects the index the manual model would
+  have chosen at that closeness. Non-artillery always uses index 0 in both
+  models.
+- ~~`fightingdistance` value set.~~ **Resolved** — 0–2, derived from the
+  stance matchup, with 2 = close.
+- ~~Stance enumeration.~~ **Resolved** — 0 assault, 1 attack, 2 defend,
+  3 retreat, from force-balance thresholds scaled by commander initiative.
+- ~~Melee.~~ **Done** — see [12-melee](12-melee.md).

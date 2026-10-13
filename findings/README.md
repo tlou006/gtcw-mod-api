@@ -82,7 +82,8 @@ the evidence than in a central list.
 
 | File | Contents |
 | --- | --- |
-| [11-combat-resolution](11-combat-resolution.md) | The two combat models, the weapon unit-system split, accuracy/casualty formulas, loss types |
+| [11-combat-resolution](11-combat-resolution.md) | The fire models, the weapon unit-system split, `firepower[3]`, stance, accuracy/casualty formulas, loss types |
+| [12-melee](12-melee.md) | Melee entry/exit, the differential casualty formula, `meleestrength` as a display-only value, perk-id reuse |
 
 ## Planned
 
@@ -90,10 +91,10 @@ Per `plan.md` Phase 2, one file per subsystem, in order: **combat ✅** →
 morale → supply → economy → politics → commanders → AI. Each joins a
 `summary-<subsystem>.md`.
 
-- `12-melee.md` — completes combat; the melee formula is the one piece of
-  combat resolution not yet traced.
-- `13-morale-and-cohesion.md` — the decisive system in this genre, and
-  cohesion is already an input to combat without its update rule being known.
+- `13-morale-and-cohesion.md` — the decisive system in this genre, and cohesion
+  is already an input to all three combat models without its update rule being
+  known. `Regiment` already maintains a `moraleeffects[]` / `moraleeffecttext[]`
+  breakdown pair, which is the documentation shortcut the plan predicted.
 - `14-policy-and-project-catalogue.md` — id → effect for all 117 policy arms
   and every project id, harvested from `Policies.UpdateAllTooltips` and
   `Projects.GetProjectEffect`.

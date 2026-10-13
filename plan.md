@@ -219,7 +219,7 @@ Suggested order — combat first, since it's what modders most want to change:
 
 1. ✅ **Combat resolution** — done, see
    [summary-combat](findings/summary-combat.md). **There are two independent
-   damage models**: manual battles simulate real projectiles with ballistics
+   damage models**, and melee makes three: manual battles simulate real projectiles with ballistics
    and per-block hits; `Autocalc` computes casualties in closed form from a
    stance matrix and multiplicative stat influences. They share only
    `Regiment.SufferCasualties` and read different weapon fields — firepower is
@@ -227,7 +227,10 @@ Suggested order — combat first, since it's what modders most want to change:
    change both or they diverge. Almost every combat constant is already in
    `GamePrefs`, which means balance is a data-modding problem and the hook
    library's combat value is **structural** change plus keeping the two models
-   consistent. Melee is the one piece not yet traced.
+   consistent. Melee turned out to be a **third** model again — block-to-block,
+   purely differential, and absent from `Autocalc` entirely. `firepower[3]` is
+   indexed by **ammunition type** (solid shot / shell / canister), and
+   auto-resolve reaches the same index via a stance-derived closeness band.
 2. **Morale and cohesion** — morale change sources, rout/break thresholds,
    recovery. The decisive system in this genre.
 3. **Supply and logistics** — depots, supply range, attrition. (`Supply`
