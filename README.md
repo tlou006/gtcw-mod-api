@@ -3,6 +3,12 @@
 Reverse-engineering notes and tooling for a Unity game, for research and
 interoperability purposes.
 
+**Goals:** document the game's mechanics from its code, and ship a C# hook
+library so other modders can extend the game without reversing it themselves.
+See [`plan.md`](plan.md) for the phased approach, and
+[`notes/00-build-provenance.md`](notes/00-build-provenance.md) for which build
+the findings apply to.
+
 ## What lives in this repo
 
 This repo tracks **original work only** — notes, analysis scripts, and
