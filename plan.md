@@ -231,8 +231,26 @@ Suggested order — combat first, since it's what modders most want to change:
    purely differential, and absent from `Autocalc` entirely. `firepower[3]` is
    indexed by **ammunition type** (solid shot / shell / canister), and
    auto-resolve reaches the same index via a stance-derived closeness band.
-2. **Morale and cohesion** — morale change sources, rout/break thresholds,
-   recovery. The decisive system in this genre.
+2. ✅ **Morale and cohesion** — done, see
+   [summary-morale](findings/summary-morale.md). Two systems write one `[0,1]`
+   value: 18 effect slots in battle, 14 in the campaign, each a **rate**
+   applied inline and scaled by elapsed game time, over a continuous rally
+   recovery. Losses (never gains) are amplified by a factor experience and
+   leadership **halve but cannot remove**. The decisive finding is
+   `fightingspirit`: a hard morale cap in *both* combat models, seeded from
+   `GameVars.nation[state].support[alliance]` — **state political support caps
+   how well a unit can fight**, so any mod touching support is a combat mod.
+   Cohesion is separate and simple: an exponential approach to a target set by
+   terrain (only while moving), movement and units passing through, with drill
+   reducing disruption rather than speeding recovery.
+
+   **Two unwired features found**, both verified by exhaustive reference
+   search: (a) `cohesionbyfire` has no increment path anywhere, and the three
+   shipped `unitprefs.txt` values for infantry fire, artillery fire and cavalry
+   shock disrupting cohesion are **parsed and never read** — only the decay
+   half of the feature exists; (b) campaign morale slot 8 (high attrition) is
+   computed and shown in the UI but **never applied** to morale. A modder
+   tuning the cohesion values would see nothing happen.
 3. **Supply and logistics** — depots, supply range, attrition. (`Supply`
    appears 46×; `GetClosestDepotsAndTowns` is a confirmed real method.)
 4. **Campaign economy** — production, trade, demand. (`GetHighestDemand`,
@@ -494,7 +512,7 @@ GTCW.ModApi.Projects.Register("Repeating Rifles", effect => {
       prefab. This decides how far effect registration can actually reach.
 - [ ] Harvest `Policies.UpdateAllTooltips` and
       `Projects.GetProjectEffect(int id, float effect, float secondeffect)`
-      into `findings/14-policy-and-project-catalogue.md`. These build the player-facing
+      into `findings/16-policy-and-project-catalogue.md`. These build the player-facing
       effect strings, so they map id → meaning for free — the same trick as the
       `Get*Tooltip` methods in Phase 2.
 

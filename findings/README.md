@@ -85,18 +85,27 @@ the evidence than in a central list.
 | [11-combat-resolution](11-combat-resolution.md) | The fire models, the weapon unit-system split, `firepower[3]`, stance, accuracy/casualty formulas, loss types |
 | [12-melee](12-melee.md) | Melee entry/exit, the differential casualty formula, `meleestrength` as a display-only value, perk-id reuse |
 
+### Morale — [summary](summary-morale.md)
+
+| File | Contents |
+| --- | --- |
+| [13-morale-and-cohesion](13-morale-and-cohesion.md) | The 18 battle and 14 campaign morale slots, the rally/cap pipeline, `fightingspirit` as a politics→combat link, cohesion, and two unwired features |
+
 ## Planned
 
 Per `plan.md` Phase 2, one file per subsystem, in order: **combat ✅** →
-morale → supply → economy → politics → commanders → AI. Each joins a
+**morale ✅** → supply → economy → politics → commanders → AI. Each joins a
 `summary-<subsystem>.md`.
 
-- `13-morale-and-cohesion.md` — the decisive system in this genre, and cohesion
-  is already an input to all three combat models without its update rule being
-  known. `Regiment` already maintains a `moraleeffects[]` / `moraleeffecttext[]`
-  breakdown pair, which is the documentation shortcut the plan predicted.
-- `14-policy-and-project-catalogue.md` — id → effect for all 117 policy arms
+- `14-fatigue.md` — fatigue feeds morale, accuracy, autocalc casualties and
+  melee, but its own update rule is untraced. Smallest remaining gap in the
+  battle model; may fold into supply.
+- `15-enumerations.md` — `movementmode`, `currentterrain`, `formation`,
+  `unittyp`, `combatbehavior`, loss types, perk ids per unit type. Each has
+  been decoded piecemeal across combat and morale; they are load-bearing in
+  dozens of guards and a single reference table would pay for itself.
+- `16-policy-and-project-catalogue.md` — id → effect for all 117 policy arms
   and every project id, harvested from `Policies.UpdateAllTooltips` and
   `Projects.GetProjectEffect`.
-- `15-game-state.md` — `GameVars.alliance[]` and `GameVars.nation[]` field
+- `17-game-state.md` — `GameVars.alliance[]` and `GameVars.nation[]` field
   maps: the state every effect writes to, and the ModApi's core data surface.

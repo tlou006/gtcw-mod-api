@@ -79,7 +79,7 @@ player-facing effect text:
 
 Harvesting both yields a full catalogue of all 117 policy arms and every
 project id for a fraction of the cost of reading the switches. Planned as
-`14-policy-and-project-catalogue.md`.
+`16-policy-and-project-catalogue.md`.
 
 ## A useful nuance
 
