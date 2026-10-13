@@ -5,61 +5,48 @@
 # copyrighted material. Keep it on disk, keep it out of the repo.
 # ---------------------------------------------------------------------------
 
-# Original game install / copies of it
-game/
-GameData/
+# The game itself. One dedicated folder; nothing inside it is ever
+# committed. Only the folder's own README is tracked, so a fresh clone
+# still shows you where the game is meant to go.
+game/*
+!game/README.md
+
+# Decompiler / extractor output
+decompiled/
+extracted/
+dumped/
+exported/
+out/
+output/
+dump.cs
+dump.cs.*
+dump.h
+dump.json
+script.json
+il2cpp.h
+stringliteral.json
+
+# Safety net for game artifacts wherever they turn up outside game/.
+# Deliberately narrow: broad globs like *.png or level* would also
+# swallow diagrams and notes you do want tracked.
 *_Data/
+GameAssembly.*
+global-metadata.dat
+Assembly-CSharp*.dll
+*.assets
+*.assets.resS
+*.sharedAssets
+*.resource
+*.bundle
+*.unity3d
+globalgamemanagers*
 *.exe
 *.dll
 *.so
 *.dylib
 *.pdb
-
-# Unity asset containers and bundles
-*.assets
-*.assets.resS
-*.resource
-*.bundle
-*.unity3d
-*.sharedAssets
-globalgamemanagers*
-level*
-resources.assets*
-
-# IL2CPP / Mono artifacts
-GameAssembly.*
-global-metadata.dat
 *.il
-*.il2cpp
-
-# Extracted / decompiled output
-decompiled/
-extracted/
-dumped/
-out/
-output/
-exported/
-dump.cs
-dump.h
-script.json
-il2cpp.h
-
-# Ripped assets
-*.fbx
-*.obj
-*.png
-*.jpg
-*.jpeg
-*.tga
-*.dds
-*.ktx
-*.astc
-*.wav
-*.ogg
-*.mp3
 *.bnk
-*.mp4
-*.webm
 
 # ---------------------------------------------------------------------------
 # Tooling (download it, don't vendor it)

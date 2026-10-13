@@ -14,9 +14,13 @@ copyrighted by the publisher and are excluded by `.gitignore`.
 | --- | --- | --- |
 | `notes/` | yes | Findings: formats, structures, call graphs, behavior |
 | `scripts/` | yes | Parsers and analysis tooling written here |
-| `tools/` | no | Third-party tools, downloaded locally |
-| `game/` | no | A copy of the game install |
+| `game/` | **no** (README only) | A copy of the game install — see `game/README.md` |
 | `decompiled/`, `extracted/` | no | Decompiler and asset-extractor output |
+| `tools/` | no (README only) | Third-party tools, downloaded locally |
+
+The game lives in one dedicated folder, `game/`, and `.gitignore` excludes
+everything in it. Each of the untracked folders keeps a tracked README so a
+fresh clone still shows what belongs where.
 
 ## Layout
 
