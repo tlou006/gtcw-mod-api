@@ -202,7 +202,7 @@ Priority order, by how much mechanics they expose:
 | `historicalevents.dat` | 136 | Event scripting and triggers |
 | `campaignprefs.txt` | 125 | **Promoted.** The designated balance surface for hardcoded policy effects — likely a large table of tuning constants keyed to them |
 | `battleprefs.txt` | 41 | Battle tuning; **rescales with map size** (4×4 vs 8×8 miles) |
-| `commanders.txt` | 544 | Commander traits/perks and their effects |
+| `commanders.txt` | 544 | **Schema decoded** — 1,906 historical officers, 66 lines each; see [19](findings/19-commanders-and-perks.md) §10. Perks live in three separate `Perk*Tooltips.txt` files, not here |
 | `projects.dat`, `buildingtypes.dat`, `resources.dat` | 59 | Economy model |
 
 > Document the **schema and the meaning**, with representative values to make
@@ -332,9 +332,42 @@ Suggested order — combat first, since it's what modders most want to change:
    C#**. The "what is hurting our support" UI therefore returns nothing, ever.
    A postfix recomputing it as `sign(amount) * sqrt(|amount|)` fixes a visible
    bug with zero balance impact.
-6. **Commander traits / experience** — (`GetEffectsOnFitness`,
-   `GetInfluencesOnWeight` confirmed.)
-7. **AI** — strategic and battlefield decision-making.
+6. ✅ **Commanders and perks** — see
+   [summary-commanders](findings/summary-commanders.md). The perk blocker is
+   gone: there are **three perk namespaces** (19 battle, 18 army campaign, 11
+   fleet), selected by one line — `unittyp <= 13` gets **one** battle perk,
+   anything higher gets **four** campaign or fleet perks. The id "collisions"
+   recorded earlier were cross-namespace and never ambiguous at runtime.
+
+   The five attributes all run through one pipeline:
+   `raw × outOfDuty(0.5) × (0.5 + 0.5·exp) × (1 + 0.33·(superior − self))`, so
+   **a green commander operates at half his nominal attributes** and
+   experience only ever brings him up to the number on his card. And
+   **leadership, administration and cunning never change in the base game**
+   except through military schools in the commander's home state — which also
+   closes the `militaryschools[]` and `printingworks[]` questions from the
+   politics pass.
+
+   Rank is data-driven: every shipped commander has `rank = -1` and rises on
+   the authored `dateofpromotion[]` schedule in `commanders.txt` (1,906
+   researched officers, 66 lines each, spot-checked against history).
+   **Rank is never lowered, by any code path.** `ranks.txt` rows 0–9 are dead
+   data — fighting types are remapped to the Brigade row before lookup — and
+   the Union is capped at Major General in code, not data.
+
+   The find of the pass is **feuds**: a subordinate whose initiative differs
+   sharply from his superior's, and who is the more famous of the two, is
+   handed to a *third* AI controller and may march off at the nearest enemy.
+   Political commanders are twice as likely to; volunteers half as likely.
+
+   Three useful negatives: **the president is purely cosmetic**, the
+   **engineer branch of arms has no mechanical effect**, and the perk
+   "limited by policies and technologies" gating promised by the UI
+   **does not exist** (`IsPerkUnlocked()` returns `true` and is never called).
+7. **AI** — strategic and battlefield decision-making. Partly pre-decoded by
+   the commanders pass: `AIBattle` runs **three** controllers per battle, the
+   third being the feud controller, and most micro-AI guards are written in
+   terms of `ai_feudstance`.
 
 **Method:** the `Get*Tooltip` / `Get*Details` methods are the shortcut. A game
 that shows the player "why" a number is what it is must *compute the

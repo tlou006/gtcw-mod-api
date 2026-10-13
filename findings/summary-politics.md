@@ -158,19 +158,27 @@ uncovered**, returning an empty string for that band.
   12, 8 and 14. Now in [16-enumerations](16-enumerations.md) along with the
   battle status table and five ten-band condition descriptors.
 
+## Answered since, by [summary-commanders](summary-commanders.md) and [summary-economy](summary-economy.md)
+
+- **The president is cosmetic.** A name, a title, a date line and a portrait.
+  `LoadCampaignScenario`'s `chosenpresident` parameter is accepted and never
+  read, so he does not seed the policy set either.
+- **Political-commander support is reason code 2**, "Commander appointments" —
+  not 38. Code 38 exists but is DLC-only.
+- **`printingworks` and `militaryschools` both exist per-state *and*
+  per-alliance.** Military schools turn out to be the **only** source of
+  leadership, administration and cunning growth in the game; printing works
+  multiply commander fame from battles.
+- **`Alliance.credibility`** = `(ratingnotches.Length − currentrating) × 5`.
+- **There are eight alliances**, not five: Union, Confederacy, Great Britain,
+  France, Spain, Mexico, Sea Trade, Neutral States.
+
 ## Still open
 
-1. **The president system.** `currentpresident`, `UpdatePresident()`, config
-   fields for names, titles and "appointed or elected" all exist; what the
-   president *does* is untraced. `LoadCampaignScenario` takes a
-   `chosenpresident` and a `List<Policy> chosenpolicies`, so he probably seeds
-   the policy set.
-2. **Which policy maps to which reason code.** The labels name them, so this is
+1. **Which policy maps to which reason code.** The labels name them, so this is
    mechanical and belongs in the policy catalogue.
-3. **`printingworks[]` and `militaryschools[]`** — per-state arrays with
-   dedicated support prefs and `_temp` twins. State-level buildings affecting
-   support.
-4. **POW camps** (support reason 33, with an "overcrowded" message) and
-   `supportthroughappointedcommanders[]` (reason 38).
-5. **`Alliance.credibility`** and `AddTradeWarfare(...)` — both surface in the
-   strategy UI and both belong with the economy.
+2. **POW camps** — support reason 33, "Condition of enemy POW camps", with an
+   "overcrowded" message. Commanders captured in melee become POWs, so the two
+   systems meet.
+3. **`AddTradeWarfare(...)`** surfaces in the strategy UI and belongs with the
+   economy.

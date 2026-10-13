@@ -111,21 +111,26 @@ the evidence than in a central list.
 | --- | --- |
 | [18-economy](18-economy.md) | `IIP` nodes as local markets, S-curve pricing, boolean production recipes, the debt→rating→interest loop, and policies keyed to scene object names |
 
+### Commanders — [summary](summary-commanders.md)
+
+| File | Contents |
+| --- | --- |
+| [19-commanders-and-perks](19-commanders-and-perks.md) | The three perk namespaces and the full perk catalogue; the attribute pipeline; ranks and promotion; fame and defame; casualties and succession; `campaignranking` and the commander-in-chief; feuds; `commanders.txt` |
+
 ## Planned
 
 Per `plan.md` Phase 2, one file per subsystem, in order: **combat ✅** →
 **morale ✅** → **supply ✅** → **politics ✅** (taken early, since state
 support kept turning up as an input to everything else) → **economy ✅** →
-commanders → AI. Each joins a `summary-<subsystem>.md`.
+**commanders ✅** → AI. Each joins a `summary-<subsystem>.md`.
 
-- `19-commanders-and-perks.md` — needs the per-unit-type perk catalogue first
-  (see [16-enumerations](16-enumerations.md)); that is the largest single gap
-  left in Phase 2. Also picks up the president system,
-  `supportthroughappointedcommanders[]` (support reason 38) and the commander
-  attributes already seen driving supply, desertion, morale and fatigue.
 - `20-ai.md` — strategic (`AICampaign`, 8,374 lines) and battlefield
   (`AIBattle`, 5,458) decision-making, plus `Config/aistrategies.dat` and the
   several AI handicap multipliers found scattered through the simulation.
+  `AIBattle` already turned up partly decoded by the commanders pass: it runs
+  **three** controllers per battle, the third being the feud controller
+  ([19](19-commanders-and-perks.md) §7), and most of its micro-AI guards are
+  written in terms of `ai_feudstance`.
 - `21-policy-and-project-catalogue.md` — id → effect for all 117 policy arms
   and every project id, harvested from `Policies.UpdateAllTooltips` and
   `Projects.GetProjectEffect`. Also needs to map each policy to its support and

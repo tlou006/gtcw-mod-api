@@ -62,21 +62,33 @@ cannot be reordered.
 
 ---
 
-## `historicalbranch` — complete
+## `historicalbranch` — **two different enumerations**
 
-From the matching West Point bonus checks in `UpdateMorale`
-([13](13-morale-and-cohesion.md) §2):
+The field name is shared by two classes with different value sets. Labels in
+`GameVars.branchtext[5]`, with prose in `branchtextsub[5]`.
 
-| # | Branch | Matching `unittyp` |
-| --- | --- | --- |
-| 0 | Infantry | 0, 3 |
-| 1 | Cavalry | 1, 4 |
-| 2 | Artillery | 2 |
+| Class | Values |
+| --- | --- |
+| `Regiment.historicalbranch` | 0 infantry (`unittyp` 0, 3), 1 cavalry (1, 4), 2 artillery (2) |
+| `GameVars.Commander.historicalbranch` | 0 infantry, 1 cavalry, 2 artillery, **3 engineer, 4 navy** |
 
-Used by `increaseofmoralecapforcorrectbranch`,
+`historicalbranch == 4` is the navy discriminator throughout: excluded from the
+commander-in-chief election and from army rank tables, and capped at the Fleet
+rank ceiling.
+
+Branch *matching* drives `increaseofmoralecapforcorrectbranch`,
 `increaseofrofwhencorrectbranch` and `increaseofaccuracywhencorrectbranch` —
-all three additionally require `commander.westpoint` and
-`commander.status == 0`.
+but the guard differs between the two combat models:
+
+| Path | Guard |
+| --- | --- |
+| `Regiment` (manual battle, campaign) | `status == 0 && branch matches && commander.westpoint` |
+| `Autocalc` | `status == 0 && branch matches` — **no `westpoint` requirement** |
+
+> **Engineer (branch 3) has no mechanical effect anywhere in the base game**,
+> despite `branchtextsub[3]` promising siege and obstacle bonuses. 61 of the
+> 1,906 shipped commanders carry it. See
+> [19](19-commanders-and-perks.md) §11.
 
 ---
 
@@ -261,6 +273,44 @@ Each maps a `[0, 1]` stat to text by `(int)(value × 10)`:
 Also `GameVars.standardunittypegarrisons = 11` (Battalion), i.e. the default
 `unittyp` for garrison units.
 
+### Commander ranks
+
+`GameVars.commanderranks = 10`, and the two rank label tables are the
+enumeration:
+
+| # | `ranktext[10]` | `navyranktext[10]` |
+| --- | --- | --- |
+| 0 | Volunteer | Master |
+| 1 | Lieutenant | Lieutenant |
+| 2 | Captain | Commander |
+| 3 | Major | Captain |
+| 4 | Lieutenant Colonel | Flag Officer |
+| 5 | Colonel | *(empty)* |
+| 6 | Brigadier General | *(empty)* |
+| 7 | Major General | *(empty)* |
+| 8 | Lieutenant General | *(empty)* |
+| 9 | General | *(empty)* |
+
+Which table is used is decided by `Commander.historicalbranch == 4`. The navy
+stops at 4, matching the Fleet row of `Config/ranks.txt`. `branchtext[5]` =
+infantry, cavalry, artillery, engineer, navy. Rank windows per `unittyp` are in
+[19](19-commanders-and-perks.md) §3.1.
+
+---
+
+## Dual-unit and dual-meaning globals
+
+Not enumerations, but the same class of trap and the same consequence for a
+ModApi: a single name whose meaning depends on where you read it.
+
+| Name | Meanings |
+| --- | --- |
+| `GameVars.currenttimefromstart` | **Hours since battle start** in a battle scene (`uniStormSystem.Hour + battlepasseddays × 24`); **years since 1860** in the campaign (`CampaignController`). `Commander.GetSeniority()` assumes the campaign meaning |
+| `GameVars.Weapon` units | Metric fields for the battle layer, imperial for campaign/naval/UI, nothing keeping them in sync — see [11](11-combat-resolution.md) |
+| `cohesion` | Code: 1 = perfect order. Config labels: "cohesion" means *disorder* — see [13](13-morale-and-cohesion.md) |
+| `minpricereached` | A **quantity**, not a price — see [18](18-economy.md) |
+| `historicalbranch` | Three values on `Regiment`, five on `Commander` (above) |
+
 ---
 
 ## Political reason codes
@@ -274,10 +324,16 @@ label tables hardcoded in the assembly. Full tables in
 | `Nation.supportinfluence[10, 50]` | 10 alliances × 50 slots, 42 named | `GameVars.supportdescr[42]` — 23 of the live codes are policies |
 | `Alliance.nationalmoraleinfluence[50]` | 50 slots, 35 named | `GameVars.Alliance.nationalmoraledescr[35]` — slots 13 and 15–19 are empty |
 
-Known support reason codes referenced elsewhere in these findings: **32** =
-medical treatment of wounded, **34** = Project: Propaganda, **6** = raids,
-**1** = battle casualties, **38** = commander. National morale **33** = state
+Known support reason codes referenced elsewhere in these findings: **1** =
+battle casualties, **2** = commander appointments (political commanders — see
+[19](19-commanders-and-perks.md) §9), **6** = raids, **32** = medical treatment
+of wounded, **33** = condition of enemy POW camps, **34** = Project:
+Propaganda, **38** = "Commander" (**DLC-only**). National morale **33** = state
 support, **34** = private wealth.
+
+> `supportinfluence` is dimensioned `[10, 50]` but the campaign file declares
+> **8** alliances — Union, Confederacy, Great Britain, France, Spain, Mexico,
+> Sea Trade, Neutral States. The first dimension has two spare slots.
 
 ---
 
@@ -294,7 +350,7 @@ what is already known.
 | `currentterrain` | 3, 4, 5, 8 = embarked (`fightingstrengthembarked`). Indexes `terraininfluenceoncohesion[]` and `terrainfatigue[]` |
 | `eodcycle` | 0 = normal play; 2 → 3 → 4 observed in the end-of-day chain. Suspends firing, melee, cohesion and fatigue accrual |
 | `cavalryorders` | 3 = guard duty (`desertioninfluenceguard`) |
-| `commander.status` | 0 = active; `>= 2` = lost (campaign morale slot 9). WIA/KIA/POW filters exist in `CommandersList` |
+| `commander.status` | **Complete** — 0 active, 2 POW, 3 WIA, 4 KIA, 5 DLC-only; **1 is never assigned anywhere**. `> 0` is the universal "out of duty" test (campaign morale slot 9). See [19](19-commanders-and-perks.md) §5.1 |
 | `IIP.IIPType` | `IIP.id_harbor` confirmed |
 | `CBuilding.BuildingType` | `id_supplydepot = 22` confirmed |
 | `weather.GetClimateData(pos, n)` | 100 = temperature; 105 = bad-weather measure (÷100) |
@@ -302,33 +358,41 @@ what is already known.
 
 ---
 
-## Perk ids are **not** a single enumeration
+## Perk ids — **three namespaces**, resolved
 
-Documented in [12-melee](12-melee.md) §6 and worth repeating here because it is
-the one trap in this file that a reader might not expect.
+Earlier notes here and in [12-melee](12-melee.md) §6 recorded a set of
+apparently irreconcilable collisions, where the same numeric perk id meant
+different things in different places. **They were cross-namespace
+collisions.** There are three separate perk enumerations, each with its own
+tooltip file, and the full catalogue is in
+[19-commanders-and-perks](19-commanders-and-perks.md) §1.
 
-**The same numeric perk id means different things depending on unit type and
-context.** Confirmed collisions:
+| Namespace | File | Count | Holder |
+| --- | --- | --- | --- |
+| Battle | `Config/PerkBattleTooltips.txt` | 19 | `unittyp <= 13` — fighting units and low echelons, **1 slot** |
+| Army campaign | `Config/PerkTooltipsArmyCampaign.txt` | 18 | `unittyp > 13`, not 17 — formations, **4 slots** |
+| Fleets | `Config/PerkFleetsTooltips.txt` | 11 | `unittyp == 17` — fleets, **4 slots** |
 
-| Perk | Meanings found |
-| --- | --- |
-| 2 | Zouaves (fatigue factor); sharpshooter bonus in `Autocalc.FightUnit`; canister selection check |
-| 4 | Spirited charge (melee); night combat efficiency (naval); skilled cartographers (intelligence, movement speed) |
-| 7 | Iron discipline (cohesion recovery); floors the melee resolve; zeroes the friendly-rout morale penalty |
-| 8 | Ambulance corps (wounded mortality) |
-| 9 | Cold steel (melee, enemy morale malus); pontoon train (supply speed, movement cost); battery runner (naval vs. forts) |
-| 10 | Sappers and miners (siege assault); river expedition embarked strength |
-| 11 | Stormers (accuracy); land torpedoes (skirmish) |
-| 14 | Close support (melee strength — display only; weapon strength; reload speed) |
-| 15 | Skilled laying / counter-battery accuracy; night combat efficiency |
-| 16 | Grand battery bombardment accuracy |
-| 17 | River expedition (siege assault efficiency) |
-| 18 | Sapper gunners (reload speed) |
+The slot count is the discriminator, set in one line of
+`BattleUnits.create_regiment`:
 
-> **`HasPerk(n)` is not a global registry.** Any ModApi perk surface must key
-> on *(unit type, perk id)*. A proper perk catalogue — mapping each id to its
-> meaning per unit type — is a prerequisite for documenting commanders, and is
-> the largest single gap left in Phase 2.
+```csharp
+int num = ((component.unittyp <= 13) ? 1 : 4);
+```
+
+So the old collision table resolves cleanly: perk 9 is *Cold steel* on a
+brigade, *Pontoon train* on a division, and *Battery runner* on a fleet.
+
+Battle perks are further partitioned by branch, **hardcoded in `PerkRow`**:
+infantry 0–7, cavalry 8–13, artillery 14–18.
+
+> **`HasPerk(n)` is still not a global registry** — it searches one untyped
+> list. But the namespace is derivable from `unittyp` alone, so a ModApi perk
+> surface should key on *(namespace, id)* with the namespace computed from the
+> unit type, not on *(unit type, id)* as this file previously suggested.
+
+`GameVars.maxperklevels = 3`, and levels are 0-based, so `perklevel` is 0–2
+("I", "II", "III").
 
 ---
 
@@ -339,7 +403,12 @@ context.** Confirmed collisions:
   `unitprefs.txt` bound each set** — reading the parser's loop counts would
   give the sizes immediately, which is the cheapest way to finish them.
 - `overridesymbol` (echelon, compared against `supplytoplevelbf`).
-- The perk catalogue per unit type — **the largest gap in this file.**
+- ~~The perk catalogue per unit type~~ — **done**, see
+  [19-commanders-and-perks](19-commanders-and-perks.md) §1. What remains is the
+  prefab-authored `PerksShownGroup` / `PerksShownFleet` availability lists,
+  which are scene data and need an asset dump.
+- The battle-result enumeration that `fametrigger[]`, `defamedtrigger[]` and
+  `famefactorleveladjustment[]` are indexed by.
 - Which policy maps to which support / national-morale reason code. The label
   tables name the policies, so this is mechanical; it belongs in the planned
   policy catalogue.

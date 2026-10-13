@@ -23,16 +23,25 @@ hospitals.
 `townsinstate`, `slaveryallowed`, `occupiedby`, `population`, `census[]`,
 `mobilizationrate[]`, `productionfactor[]`, `recruitable`, `contractlength`.
 
-Countries are `GameVars.Alliance`. Alliance indices:
+Countries are `GameVars.Alliance`. The array is `new Alliance[n]` sized from
+`nations.dat`, and the shipped campaign declares **eight** — not the three or
+five this file originally assumed:
 
-| # | Role |
-| --- | --- |
-| 0 | Union |
-| 1 | Confederacy |
-| 2, 3, 4 | Foreign powers — 2 and 3 can intervene **for the Confederacy**, 4 **for the Union** (§4) |
+| # | Name | Role |
+| --- | --- | --- |
+| 0 | Union | |
+| 1 | Confederacy | |
+| 2 | Great Britain | can intervene **for the Confederacy** (§4) |
+| 3 | France | can intervene **for the Confederacy** (§4) |
+| 4 | Spain | can intervene **for the Union** (§4) |
+| 5 | Mexico | |
+| 6 | Sea Trade | pseudo-alliance — a trade counterparty |
+| 7 | Neutral States | pseudo-alliance — states that had not yet chosen a side |
 
-Names come from config, so the specific powers are not hardcoded; prefs like
-`mexicointervention` suggest the identities but this file does not assert them.
+Names come from config, so the identities are data rather than code. Ten of the
+1,906 shipped commanders carry `alliance == 7`
+([19](19-commanders-and-perks.md) §10.1), which is why the per-commander loops
+that index `GameVars.alliance[]` do not fault.
 
 ---
 
@@ -413,24 +422,43 @@ Progress is tracked in static fields on the class itself:
 
 ## 9. Open questions
 
-1. **The president system.** `CampaignStrategy.currentpresident`,
-   `UpdatePresident()`, and config fields for president names, images, titles
-   and "appointed (true) or elected (false)" exist, but what the president
-   *does* mechanically was not traced. `Policies` takes a
-   `List<Policy> chosenpolicies` and a `chosenpresident` at campaign load, so
-   the president probably seeds the policy set.
-2. **`Alliance.credibility`** appears in the strategy UI next to economy
-   figures; untraced.
-3. **`AddTradeWarfare(int type, float value)`** has its own accounting and
+### Answered since
+
+1. ~~**The president system.**~~ **The president is cosmetic.**
+   `UpdatePresident()` picks the last prefab-authored entry whose date has
+   passed and writes a name label, a title label, an inauguration line and a
+   portrait. Nothing mechanical reads `currentpresident`, and
+   `LoadCampaignScenario`'s `chosenpresident` parameter is **accepted and never
+   read** — so it does not seed the policy set either. Elections remain a
+   campaign objective that does not change the president.
+   ([19](19-commanders-and-perks.md) §8)
+2. ~~**`supportthroughappointedcommanders[]` / reason 38.**~~ The reason code is
+   **2, "Commander appointments"**; it fires only for `political` commanders
+   holding a command, as
+   `0.005 × fameMultiplier(1.0→3.5) × echelonMultiplier`. Code 38,
+   "Commander", is **DLC-only**. ([19](19-commanders-and-perks.md) §9)
+3. ~~**`printingworks[]` and `militaryschools[]`.**~~ Both exist at **two
+   levels**, per-state and per-alliance, and all four accessors are power laws
+   `value ^ exp × lin`:
+   - `Nation.printingworks[alliance]` → draft support;
+     `Alliance.printingworksvalue` → **commander fame from battles** and
+     intelligence gathering.
+   - `Nation.militaryschools[alliance]` → reduces the experience cost of
+     promotion **and is the only source of leadership, administration and
+     cunning growth in the game**; `Alliance.militaryschools` → national
+     military experience, which caps commander `exp`.
+     ([19](19-commanders-and-perks.md) §2.3, §4.1)
+4. ~~**`Alliance.credibility`.**~~ `(ratingnotches.Length − currentrating) × 5`
+   — an inverted credit-rating notch. ([18](18-economy.md))
+
+### Still open
+
+1. **`AddTradeWarfare(int type, float value)`** has its own accounting and
    feeds the `TradeWarfareSlider`. Belongs with the economy.
-4. **`POW camps`** (support reason 33) — a mechanic with its own
-   condition value and an "overcrowded" message, not examined.
-5. **`supportthroughappointedcommanders[]`** and `supportinfluence` reason 38
-   ("Commander") — commander appointments move state support. Belongs with
-   commanders.
-6. **`printingworks[]` and `militaryschools[]`** are per-state arrays with
-   `_temp` twins and dedicated support prefs — state-level buildings affecting
-   support, not examined.
-7. **Which policies map to which support/national-morale reason codes.** The
+2. **POW camps** (support reason 33, "Condition of enemy POW camps") — a
+   mechanic with its own condition value and an "overcrowded" message, not
+   examined. Note that commanders captured in melee become POWs
+   ([19](19-commanders-and-perks.md) §5.1), so the two systems meet.
+3. **Which policies map to which support/national-morale reason codes.** The
    label tables name them, so this is mechanical to finish and belongs in the
    planned policy catalogue.
