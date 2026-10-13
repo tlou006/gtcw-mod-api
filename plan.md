@@ -22,7 +22,9 @@ These facts set the strategy, and all of them are favorable:
 | --- | --- |
 | **Mono backend**, Unity 2021.3.16f1 | Managed CIL. Decompiles to near-source C#. No IL2CPP dumping, no Ghidra, no address math. |
 | **Not obfuscated** — 6,717 readable PascalCase identifiers, intact lambda names (`>b__887_0`) | Original type, method and field names survive. Comprehension is reading, not puzzle-solving. |
-| **Official ModdingTool** (`Modding/ModdingTool_1.11.xlsm` + guide) | Modding is sanctioned by the developers. Also documents data formats for free — read before reversing. |
+| **Official ModdingTool** — 53 sheets, each declaring the `Config/` file it writes, with field schemas in its header rows | Modding is sanctioned, **and the data model is largely handed to us.** Most schemas no longer need reversing out of the game's parsers. [Details](notes/02-modding-tool-data-model.md). |
+| **The game already layers data**: scenario-local `regiments/groups/battledata/nations.dat` override global `Config/` | There's an existing override precedence to mirror in Phase 4 rather than invent. |
+| **Some mechanics live in Unity prefabs**, not code or config (building names, ranking, levels — via the named `Cbuilding` script) | A hard ceiling on data-only modding, and a direct argument for the hook library. Also leaks a `C`-prefix class convention. |
 | **`Config/` is ~2 MB of plain-text data** — weapons, unitprefs, policies, commanders, historicalevents, aistrategies | Much of "game mechanics" is externalized data, not code. Cheap to document without decompiling anything. |
 | **Config format is positional** (count header, then records addressed by line index) | Brittle and conflict-prone. Two mods editing `weapons.txt` collide. **This is the hook library's killer feature** — see Phase 4. |
 | **`debug.txt` exposes a built-in developer mode**, many flags marked `[deactivated]` | Dormant dev/editor code paths likely still exist in the shipped assembly. High-value hook targets. |
@@ -51,9 +53,17 @@ realistic, not a multi-week slog.
       `-p` emits a `.csproj` with one file per type — which is what makes the
       result searchable with Grep/ripgrep like any normal codebase.
 - [ ] Confirm `decompiled/` is gitignored (it is) and never commit the output.
-- [ ] Read `Modding/ModdingTool Quick Guide.pdf` and inventory the `.xlsm`
-      sheet names. **Do this before writing any decompiler notes** — it may
-      document half the data model and save days.
+- [x] ~~Read `Modding/ModdingTool Quick Guide.pdf`~~ — checked; contains no
+      data-model documentation.
+- [x] **Inventory the ModdingTool workbook** — done, and it paid off: 53 sheets
+      each declaring the config file they write, with field schemas in their
+      header rows. See [`notes/02-modding-tool-data-model.md`](notes/02-modding-tool-data-model.md).
+- [ ] **Extract `xl/vbaProject.bin` (218 KB, `Module1`).** The export macros
+      are the developers' own serializer for every `Config/` file — field
+      order included. VBA source is RLE-compressed per MS-OVBA, so this needs
+      a real decompressor (`oletools`/`olevba`, or a CFB parser). Highest
+      remaining return on effort in Phase 0, and it may settle most of the
+      open schema questions outright.
 
 **Exit criteria:** can run a ripgrep query across decompiled C# and get hits.
 
@@ -66,6 +76,15 @@ realistic, not a multi-week slog.
 - [ ] Inventory namespaces and types by size; identify the god-classes (the
       `b__887_0` lambda index implies at least one class with ~900 methods).
       Those are the simulation cores and the eventual hook targets.
+- [ ] **Test the `C`-prefix hypothesis first.** `Cbuilding` is a confirmed
+      class name (leaked by the ModdingTool), so filtering for `C`-prefixed
+      types may partition game logic from engine and third-party code in one
+      query. Cheapest possible orientation step — do it before anything else.
+- [ ] **Anchor on the campaign scene graph.** The ModdingTool names a real
+      scene path, `campaignbase/gamecontroller/economy section`, so
+      `campaignbase` is the campaign-layer scene and `gamecontroller` its root
+      controller. Find the `MonoBehaviour` on `gamecontroller` and the
+      campaign tick loop should be immediately beneath it.
 - [ ] Classify every major type into: **simulation**, **UI**, **data loading**,
       **serialization**, **AI**, **rendering/glue**. UI is the bulk of most
       Unity games and is mostly noise for Goal 1 — but it matters for Goal 2,
@@ -93,9 +112,22 @@ Run two tracks in parallel, cheapest first:
 
 ### Track A — Data-driven mechanics (cheap, do first)
 
-The `Config/` files already name and quantify much of the design. For each
-file: identify its parser, recover the field-per-index schema, and document
-what each column *means*.
+The `Config/` files already name and quantify much of the design — and the
+ModdingTool sheets supply most of the schemas, so **the work here is no longer
+schema recovery but semantics**: for each file, confirm the field order against
+its parser, then document what each field actually *does* to the simulation.
+
+That reframing matters: field *names* are cheap now, but a name like
+`Production Factor` or `HA` tells you nothing about how the value is consumed.
+The parser tells you the shape; only the consuming code tells you the meaning.
+
+Open questions inherited from the ModdingTool inspection, worth resolving
+early because they affect every downstream number:
+
+- Which unit of each dual-unit pair is serialized (yd vs m, lb vs kg, ft/s vs
+  m/s)? Guessing wrong misscales every ballistic value.
+- Are the bare numeric header cells localization string IDs? If so, UI text is
+  addressed by ID, which the hook library must respect to add strings.
 
 Priority order, by how much mechanics they expose:
 
@@ -232,7 +264,26 @@ treat that boundary as inviolable.
 - [ ] Establish **fail-soft** as a rule: a failed patch disables that one
       feature and logs; it never takes down the game or the other patches.
 
-**Exit criteria:** sample mod prints on battle start, from a clean install.
+### A deterministic test harness, for free
+
+`debug.txt` can boot straight into a specific battle or campaign scenario at
+startup, and its "Debug Army Setup" mode loads the four ArmySetup files
+(`battledata.dat`, `groups.dat`, `nations.dat`, `regiments.dat`) from
+`Config/ArmySetup/` — exactly the files the ModdingTool emits.
+
+That's a **developer-supported path to a reproducible scenario**, which is
+normally the hardest part of testing game hooks. Set it up early:
+
+- [ ] Author a minimal two-unit battle via the ModdingTool; boot directly into
+      it through `debug.txt`.
+- [ ] Use it as the fixture for every hook test, so runs are comparable rather
+      than dependent on clicking through menus identically each time.
+
+Many `debug.txt` flags are marked `[deactivated]`, so confirm which still work
+in the shipped build before relying on them.
+
+**Exit criteria:** sample mod prints on battle start, from a clean install,
+booting into a fixed scenario without manual UI steps.
 
 ---
 
@@ -277,6 +328,22 @@ library's existence.
 - [ ] Reach the config parsers (Phase 1) and intercept post-parse.
 - [ ] Typed models per data file, generated from the Phase 2 schemas.
 - [ ] Conflict detection and a resolution policy.
+
+**Mirror the game's own layering rather than inventing one.** The data model
+already overrides: scenario-local `regiments/groups/battledata/nations.dat`
+take precedence over global `Config/`, and `debug.txt` notes that a scenario
+folder's `battleprefs`/`unitprefs` subfiles override the global copies. So the
+precedence chain to extend is:
+
+```
+Config/ (global)  →  scenario folder  →  [mod overrides]  →  effective value
+```
+
+- [ ] Map the existing precedence exactly before designing the API, so mod
+      overrides slot in as one more layer. Matching the game's semantics means
+      modders reason about one rule, not two — and it may let the override
+      system reuse the game's existing resolution logic rather than running a
+      competing one beside it.
 
 ### Also worth investigating
 
