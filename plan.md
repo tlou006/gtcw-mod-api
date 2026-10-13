@@ -364,10 +364,54 @@ Suggested order — combat first, since it's what modders most want to change:
    **engineer branch of arms has no mechanical effect**, and the perk
    "limited by policies and technologies" gating promised by the UI
    **does not exist** (`IsPerkUnlocked()` returns `true` and is never called).
-7. **AI** — strategic and battlefield decision-making. Partly pre-decoded by
-   the commanders pass: `AIBattle` runs **three** controllers per battle, the
-   third being the feud controller, and most micro-AI guards are written in
-   terms of `ai_feudstance`.
+7. **AI** — turned out to be two subsystems, so it gets two files.
+
+   7a. ✅ **Campaign AI** — see
+   [summary-ai-campaign](findings/summary-ai-campaign.md). A **36-step job
+   machine per faction**, one step per call, over seven AI alliances; the same
+   staggering idiom as the economy and the commander round-robin. Three spatial
+   representations: strategic zones **read from a texture asset** on
+   `Battlemap/Borders`, a 20×20 blurred influence grid, and raw positions.
+
+   Three facts dominate. **AI throughput scales with the square root of game
+   speed** (`floor(sqrt(gamespeed))` passes per frame), so fast-forwarding
+   gives the AI less thinking time per game-day. **It plans against where units
+   are going, not where they are** — every position read is
+   `GetLastTransmittedPathPos(ignoreorderdelay: true)`, including for enemy
+   units, so it intercepts a march before the order has been transmitted. And
+   **fog of war is one-directional**: the shared detection guard exempts
+   `alliance == playeralliance` from concealment, so the player's units are
+   never hidden and the AI's are.
+
+   The value map is **purely economic** — transport capacity (weight 1.0),
+   corporate turnover (0.00001), population (0.0001), plus a flat 750 for a
+   capital. No terrain, no defensibility. It attacks when it can assemble
+   **0.8× to 1.0× the enemy's morale-weighted strength** (commander initiative
+   is the dial), with `aiagressiveness[0] = 0` making chapter 0 a data-enforced
+   phoney war, and a **cubic anti-stall term** that forces action after about a
+   year of immobility.
+
+   Eight named doctrines per side plus two crisis doctrines, and
+   **`GetAIPersonality` re-decides on every call** — under fiscal or manpower
+   stress the AI swaps its whole agenda. Its economic brain is literally the
+   player's auto-manage autopilot.
+
+   Difficulty is two sliders (which answers the `casualtiesmodifier`
+   provenance question) plus **ten hardcoded cheat constants on `GameVars`** —
+   of which **two are discarded reads** and **one has an inverted guard**, so
+   it only applies in AI-vs-AI games.
+
+   Two problems worth fixing in the hook library: the campaign is **not
+   reproducible** (three `Random.InitState(DateTime.Now.Millisecond)` calls
+   inside the AI tick reseed the global RNG from the wall clock), and the
+   codebase has a **repo-wide off-by-one** — 39 instances of
+   `Random.Range(0, list.Count - 1)` against 36 correct ones, so the last
+   candidate in a list is never chosen.
+
+   7b. **Battle AI** — `AIBattle` (5,458 lines) and `Config/aistrategies.dat`
+   (176 records keyed by named map locations). Partly pre-decoded: it runs
+   **three** controllers per battle, the third being the feud controller, and
+   most micro-AI guards are written in terms of `ai_feudstance`.
 
 **Method:** the `Get*Tooltip` / `Get*Details` methods are the shortcut. A game
 that shows the player "why" a number is what it is must *compute the
@@ -621,7 +665,7 @@ GTCW.ModApi.Projects.Register("Repeating Rifles", effect => {
       prefab. This decides how far effect registration can actually reach.
 - [ ] Harvest `Policies.UpdateAllTooltips` and
       `Projects.GetProjectEffect(int id, float effect, float secondeffect)`
-      into `findings/21-policy-and-project-catalogue.md`. These build the player-facing
+      into `findings/22-policy-and-project-catalogue.md`. These build the player-facing
       effect strings, so they map id → meaning for free — the same trick as the
       `Get*Tooltip` methods in Phase 2.
 

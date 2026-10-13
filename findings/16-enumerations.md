@@ -306,6 +306,7 @@ ModApi: a single name whose meaning depends on where you read it.
 | Name | Meanings |
 | --- | --- |
 | `GameVars.currenttimefromstart` | **Hours since battle start** in a battle scene (`uniStormSystem.Hour + battlepasseddays × 24`); **years since 1860** in the campaign (`CampaignController`). `Commander.GetSeniority()` assumes the campaign meaning |
+| `BattleUnits.GetUnitVisibilityStateOnCampaignMap` | **Not a fog-of-war check**, despite the name. An echelon/rendering class: 0 = not drawn (a subordinate), 1 = movable formation, 2 = garrison division or Army-above-Corps, 3 = fleet. The campaign AI filters on `!= 0`, which is why it sees everything — see [20](20-ai-campaign.md) §3 |
 | `GameVars.Weapon` units | Metric fields for the battle layer, imperial for campaign/naval/UI, nothing keeping them in sync — see [11](11-combat-resolution.md) |
 | `cohesion` | Code: 1 = perfect order. Config labels: "cohesion" means *disorder* — see [13](13-morale-and-cohesion.md) |
 | `minpricereached` | A **quantity**, not a price — see [18](18-economy.md) |
@@ -351,6 +352,10 @@ what is already known.
 | `eodcycle` | 0 = normal play; 2 → 3 → 4 observed in the end-of-day chain. Suspends firing, melee, cohesion and fatigue accrual |
 | `cavalryorders` | 3 = guard duty (`desertioninfluenceguard`) |
 | `commander.status` | **Complete** — 0 active, 2 POW, 3 WIA, 4 KIA, 5 DLC-only; **1 is never assigned anywhere**. `> 0` is the universal "out of duty" test (campaign morale slot 9). See [19](19-commanders-and-perks.md) §5.1 |
+| `Regiment.campaignstance` | **Complete** — **0 = offensive, 1 = defensive**. Set by `AICampaign.CheckStanceSetting` via `SetCampaignStance`. Distinct from the battle `stance` (0–3) above |
+| `AICampaign.RaidForce.currentstate` | **Complete** — 0 idle, 1 raising, 2 searching for an objective, 3 moving, 4 on objective (burns depots), 5 aborting, 6 returning. See [20](20-ai-campaign.md) §11.1 |
+| `AICampaign.SeaInvasionForce.currentstate` | Partial — 1 raising, 2 moving to the embarkation spot, 3 embarked with escort |
+| `AICampaign.currentfactionupdatejob` | **0–35, with 17 unused** — the campaign AI's job scheduler; full table in [20](20-ai-campaign.md) §2 |
 | `IIP.IIPType` | `IIP.id_harbor` confirmed |
 | `CBuilding.BuildingType` | `id_supplydepot = 22` confirmed |
 | `weather.GetClimateData(pos, n)` | 100 = temperature; 105 = bad-weather measure (÷100) |

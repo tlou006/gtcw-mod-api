@@ -518,9 +518,13 @@ Shared: `ammoalertlevel`, `fatiguealertlevel`, `cohesionalertlevel`,
 
 1. **`losses[4]` and `losses[5]`** — declared, never consumed as far as found.
    Possibly sick-to-dead transitions or a save-format remnant.
-2. **`GameVars.casualtiesmodifier` provenance** — it is on `GameVars`, not
-   `GamePrefs`, so it is probably a difficulty setting from the options UI
-   rather than a config value. Worth confirming where the player sets it.
+2. ~~**`GameVars.casualtiesmodifier` provenance**~~ — **answered.** It is set
+   once in `MainMenu` from the campaign-start **bonus** slider:
+   `casualtiesmodifier = bonus × GamePrefs.casualtiesmodifierbonus`, where
+   `bonus` ranges over `[minstartbonus, maxstartbonus]` = **[0, 0.5]** from
+   `campaignprefs.txt`. The same slider sets `usedcampaignbonus` and
+   `usedcampaignbonusrunning`, the AI handicap multipliers. See
+   [20-ai-campaign](20-ai-campaign.md) §9.
 3. **Does `Autocalc` ever run during a manual battle?**
    `StartManualBattleFromAutocalc` goes one way; whether the reverse happens
    (autocalc resolving a detached skirmish while the player fights elsewhere)
