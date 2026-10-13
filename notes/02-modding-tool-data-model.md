@@ -136,8 +136,9 @@ The guide confirms and sharpens this: any `Config/` preference file may be
 copied into a scenario folder, and the scenario copy "is then loaded instead
 of" the global one.
 
-**Correction to an earlier assumption.** *Instead of* means **whole-file
-replacement, not field-level merge.** The game has no mechanism for
+**Correction to an earlier assumption — since verified in code**
+([`01-architecture.md` §4b](01-architecture.md)). *Instead of* means
+**whole-file replacement, not field-level merge.** The game has no mechanism for
 overriding an individual value — a scenario either supplies a complete file or
 inherits the global one entirely. So the override precedence is a two-entry
 chain of whole files, not a layered merge:
@@ -294,9 +295,12 @@ The workbook leaks real implementation detail:
    > ModdingTool spells it. Treat identifiers quoted in the tool and guide as
    > case-approximate and confirm against the assembly before searching.
 
-   This **confirms the `C`-prefix convention** for game classes, which gives
-   Phase 1 a cheap way to separate game logic from engine and third-party
-   code.
+   > **Correction (Phase 1):** this does *not* confirm a `C`-prefix
+   > convention. The full export shows only `CBuilding` and `CBuildingIcon`
+   > carry the prefix. Game code is instead identified by sitting in the
+   > **global namespace** while third-party code keeps its own — see
+   > [`01-architecture.md` §1](01-architecture.md). `CBuilding` is 3,271 lines,
+   > so it is a major type regardless.
 2. **Some mechanics live in prefabs, not in code or config.** Building
    identity, ranking and level progression are authored as scene/prefab data.
    This is a real limit on data-only modding — and a direct argument for the

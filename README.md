@@ -9,6 +9,14 @@ See [`plan.md`](plan.md) for the phased approach, and
 [`notes/00-build-provenance.md`](notes/00-build-provenance.md) for which build
 the findings apply to.
 
+### Findings so far
+
+| Note | Covers |
+| --- | --- |
+| [`00-build-provenance.md`](notes/00-build-provenance.md) | Which build was analyzed, and its hashes |
+| [`01-architecture.md`](notes/01-architecture.md) | Assembly map: god-classes, scene wiring, the config format, the policy/project effect dispatch |
+| [`02-modding-tool-data-model.md`](notes/02-modding-tool-data-model.md) | The `Config/` data model, recovered from the official ModdingTool and Quick Guide |
+
 ## What lives in this repo
 
 This repo tracks **original work only** — notes, analysis scripts, and

@@ -42,19 +42,25 @@ realistic, not a multi-week slog.
 
 **Goal:** a greppable decompiled source tree and a buildable project skeleton.
 
-- [ ] Install .NET SDK (check: `dotnet --version`) — needed for both `ilspycmd`
-      and building the hook library.
-- [ ] Install ILSpy CLI: `dotnet tool install -g ilspycmd`
-- [ ] Install **dnSpy** (interactive browsing + live debugger attach) and
-      **ILSpy** GUI. Record versions in `tools/README.md`.
-- [ ] Export the whole assembly to a browsable tree:
+- [x] Install .NET SDK (10.0.401) — needed for both `ilspycmd` and building
+      the hook library.
+- [x] Install ILSpy CLI: `dotnet tool install -g ilspycmd` (11.1.0.9782).
+      Note it is **not** in the ILSpy MSI, which ships the GUI only.
+- [x] **ILSpy** GUI (11.1.0.9782). Versions recorded in
+      [`tools/README.md`](tools/README.md).
+- [ ] Install **dnSpy** — still open. Wanted for live debugger attach, which
+      `ilspycmd` cannot do.
+- [x] Export the whole assembly to a browsable tree:
       ```powershell
       ilspycmd "game\The Civil War (1861-1865)_Data\Managed\Assembly-CSharp.dll" `
         -p -o decompiled\Assembly-CSharp
       ```
       `-p` emits a `.csproj` with one file per type — which is what makes the
       result searchable with Grep/ripgrep like any normal codebase.
-- [ ] Confirm `decompiled/` is gitignored (it is) and never commit the output.
+      `Assembly-CSharp-firstpass.dll` was exported too and turned out to be
+      **pure Unity Standard Assets — ignore it from here on.**
+- [x] Confirm `decompiled/` is gitignored (verified with `git check-ignore -v`
+      against real exported paths) and never commit the output.
 - [x] **Read `Modding/ModdingTool Quick Guide.pdf`** (via OCR text). No
       column-level schemas, but it supplies the *semantics* the workbook
       can't: what each file controls, which effects are hardcoded, scenario
@@ -69,7 +75,15 @@ realistic, not a multi-week slog.
       remaining return on effort in Phase 0, and it may settle most of the
       open schema questions outright.
 
+      > **Downgraded in priority.** The parsers themselves turned out to give
+      > exact field types, widths and order (see Phase 1 results), so the VBA
+      > is no longer the only route to the schemas. It remains the best source
+      > for the *dual-unit* question (yd/m, lb/kg, ft/s–m/s) and localization
+      > ids, since those live in the export macros' formatting, not in the
+      > game's reader.
+
 **Exit criteria:** can run a ripgrep query across decompiled C# and get hits.
+**Met** — 476 files, ~248k lines, greppable.
 
 ---
 
@@ -77,34 +91,46 @@ realistic, not a multi-week slog.
 
 **Goal:** know what exists and where, before studying anything closely.
 
-- [ ] Inventory namespaces and types by size; identify the god-classes (the
-      `b__887_0` lambda index implies at least one class with ~900 methods).
-      Those are the simulation cores and the eventual hook targets.
-- [ ] **Test the `C`-prefix hypothesis first.** `Cbuilding` is a confirmed
-      class name (leaked by the ModdingTool), so filtering for `C`-prefixed
-      types may partition game logic from engine and third-party code in one
-      query. Cheapest possible orientation step — do it before anything else.
-- [ ] **Anchor on the campaign scene graph.** The ModdingTool names a real
-      scene path, `campaignbase/gamecontroller/economy section`, so
-      `campaignbase` is the campaign-layer scene and `gamecontroller` its root
-      controller. Find the `MonoBehaviour` on `gamecontroller` and the
-      campaign tick loop should be immediately beneath it.
+Results are in [`notes/01-architecture.md`](notes/01-architecture.md).
+
+- [x] Inventory types by size; identify the god-classes. Found: `Regiment`
+      (28.5k lines) is the one the `b__887_0` lambda index pointed at, followed
+      by `BattleUnits`, `GamePrefs`, `GameVars`, `AICampaign`.
+- [x] ~~Test the `C`-prefix hypothesis first.~~ **Tested and disproved** —
+      only `CBuilding` and `CBuildingIcon` carry it. The real partition is
+      **global namespace = game code, namespaced = third-party**, with a
+      ~40-type exclusion list for third-party code that leaked into the global
+      namespace (UniStorm, EasyRoads3D, SimpleLOD). Cheap test, wrong
+      hypothesis, right answer in one query — which is what the step was for.
+- [x] **Anchor on the campaign scene graph.** Confirmed: 202 call sites do
+      `GameObject.Find("GameController").GetComponent<T>()`. The component set
+      is `BattleUnits`, `BattlefieldSetup`, `BattleUI`, `Economy`,
+      `SpottedEnemy`, `Smoke`, `FogOfWar`, `AIBattle`. Secondary anchors: `UI`,
+      `UICampaign`, `Cam_Pivot`, `SoundEngine`, `ProceduralObjects`.
 - [ ] Classify every major type into: **simulation**, **UI**, **data loading**,
-      **serialization**, **AI**, **rendering/glue**. UI is the bulk of most
-      Unity games and is mostly noise for Goal 1 — but it matters for Goal 2,
-      since mods want to add UI.
-- [ ] Find the entry points and the tick loop: `Update`/`FixedUpdate` on the
-      main controllers, the turn-advance method, the battle-tick method.
-      Everything in the simulation hangs off these.
-- [ ] Find the `Config/` parsers. Since the format is positional, these are
-      sequential readers — and each one is effectively a **schema definition**
-      for its data file. Mapping parser → file gives you the whole data model
-      almost for free.
-- [ ] Find the save/load path. Determines what mods can safely touch.
-- [ ] Write `notes/01-architecture.md`: the map, the god-classes, the tick
-      flow, the data-loading flow.
+      **serialization**, **AI**, **rendering/glue**. Partially done — the top
+      ~18 types are classified; the long tail is not.
+- [x] Find the entry points. **There is no `Main`** — standard Unity scene
+      load. `EntryPoint` is a false friend (a *battlefield* reinforcement entry
+      point). The lifecycle hub is `SceneManagement`, whose static
+      `Load*`/`Exit*`/`SaveAll` methods are the Phase 4 event surface.
+- [ ] Find the per-frame tick loop proper: `Update`/`FixedUpdate` on
+      `BattleUnits` and the campaign controllers, plus the turn-advance method.
+      Still open — `SceneManagement.UpdateBatchOperations` and its nested
+      `BatchOperation` deferred-work queue are the lead.
+- [x] Find the `Config/` parsers. Done, and better than hoped: paths are plain
+      relative string literals, the format is fully decoded (count header,
+      line-per-field, `;`-separated fixed-width list fields, `\n`/`\t` escapes),
+      and `projects.dat` is verified field-by-field against the shipped file.
+      Three `Tools` helpers encode the whole convention.
+- [x] Find the save/load path. `ImportExportUnitData` — ~25 paired
+      `Save*`/`Load*` methods, one per subsystem, plus the game's own
+      `CheckFileIntegrity` and a float save-version file.
+- [x] Write `notes/01-architecture.md`.
 
 **Exit criteria:** you can answer "where would I look to change X?" for any X.
+**Substantially met** for data, policies/projects, lifecycle and
+serialization; not yet for the per-frame simulation tick.
 
 ---
 
@@ -264,6 +290,13 @@ treat that boundary as inviolable.
       and compare against known-good hashes (`notes/00-build-provenance.md`).
       Mismatch → loud warning, continue in degraded mode. Never hard-crash
       someone's game over a version bump.
+
+      > **Hashing is not just the convenient option, it is the only one.**
+      > Phase 1 found there is no version constant in the assembly: the game
+      > parses its own version out of a `TextMeshProUGUI` label in the campaign
+      > UI (`MainMenuControls.currentversion`). That is far too late and too
+      > fragile to gate on. Read it if available, but only to phrase the
+      > mismatch in the user's own terms.
 - [ ] Land **one** end-to-end event (suggest `Battle.Started` — easy to trigger,
       easy to verify) and prove it reaches a sample mod.
 - [ ] Establish **fail-soft** as a rule: a failed patch disables that one
@@ -330,13 +363,22 @@ Benefits: mods stack, overrides survive game patches, conflicts are detectable
 and reportable, and nothing on disk is modified. This alone justifies the
 library's existence.
 
-- [ ] Reach the config parsers (Phase 1) and intercept post-parse.
+- [x] Reach the config parsers (Phase 1) — done; they are plain `StreamReader`
+      sequences against relative paths, so post-parse interception is
+      straightforward Harmony work with no Unity-specific machinery.
+- [ ] Intercept post-parse and expose the parsed models.
 - [ ] Typed models per data file, generated from the Phase 2 schemas.
 - [ ] Conflict detection and a resolution policy.
 
 **The game has no field-level merge** — a scenario copy of a prefs file
-*replaces* the global one wholesale. So mod overrides add a layer the game
-lacks entirely, rather than extending an existing merge:
+*replaces* the global one wholesale. **Verified in code**: the idiom
+throughout `GamePrefs` is to build the scenario-local path and, if the file is
+absent, reassign the path to `Config/` — one path wins entirely
+(`loadcampaigncontrols`, `loadunitprefs`, `loadcontrols`). `loadcontrols` also
+forces the `Config/` fallback when `SceneManagement.currentoperation` is 3 or
+8, which is the mechanism behind the scale-dependent prefs finding in
+`notes/02`. So mod overrides add a layer the game lacks entirely, rather than
+extending an existing merge:
 
 ```
 Config/ (global)  ─replaced by─►  scenario file  ─merged by us─►  mod overrides
@@ -349,6 +391,14 @@ Config/ (global)  ─replaced by─►  scenario file  ─merged by us─►  mo
 - [ ] Validate before injecting. The game's data layer fails hard — a missing
       or malformed file makes a scenario fail to load — so overrides must be
       checked and rejected individually rather than inheriting that behavior.
+      Phase 1 explains *why* it fails hard: `int.Parse`/`float.Parse`/
+      `bool.Parse` with no guards, and field offsets that shift silently when a
+      line count is wrong. Reuse the game's own
+      `ImportExportUnitData.CheckFileIntegrity` as a reference for what it
+      considers valid. **One exception to copy carefully:**
+      `Tools.GetIntPartitions` uses `int.TryParse` and silently *drops*
+      unparseable entries — so a typo'd id in a list field is invisible today.
+      Our validator should report it instead.
 
 ### Effect registration — the capability nothing else provides
 
@@ -367,9 +417,43 @@ GTCW.ModApi.Projects.Register("Repeating Rifles", effect => {
 
 - [ ] Map which hardcoded effects are already balanceable via
       `campaignprefs.txt` (the designated balance surface) versus which need
-      patching outright. That split defines the work.
-- [ ] Find the effect dispatch site for policies and projects, and establish
-      whether new IDs can be injected or only existing ones intercepted.
+      patching outright. That split defines the work. Phase 1 confirmed the
+      split is real: some switch arms read their magnitude from `GamePrefs`
+      (e.g. `machinegunprojectstock`, `project_propagandainfl`) while others
+      use literals.
+- [x] **Find the effect dispatch site for policies and projects, and establish
+      whether new IDs can be injected or only existing ones intercepted.**
+      Found, and the answer is the good one:
+
+      | | Site | Shape |
+      | --- | --- | --- |
+      | Policies, one-shot | `Policies.LaunchPolicyEffect(Policy, int alliance, float timediff, bool startupset)` | ~1,200-line `switch` on `policy.UniquePolicyID`, 117 arms |
+      | Policies, teardown | `Policies.DeactivatePolicyEffect(Policy, int alliance)` | mirror |
+      | Policies, recurring | `Policies.UpdatePolicyEffects(int alliance, float timediff, bool startsetup)` | per-tick |
+      | Projects, one-shot | `Projects.UpdateOneTimeProjectsEffects(int projectid, int alliance)` | `switch`, 12 arms |
+      | Projects, recurring | `Projects.UpdateProjectEffects()` | `switch` inside an alliance loop |
+
+      **Neither file has a single `default:` arm.** An unrecognised id falls
+      through, the game still accepts/researches/tracks the policy or project,
+      and nothing happens. So **new ids can be injected**, and a Harmony
+      *postfix* supplies their behaviour — composing with the game's switch
+      instead of replacing it. No transpiler, and none of the 117 existing arms
+      need reimplementing.
+
+      Policy ids also carry a **`+100` offset convention** for the second side
+      (`case 0: case 100:` → Union / Confederate instances of one policy), so a
+      registered effect must handle both id blocks or key off `alliance`.
+- [ ] **Resolve the prefab question — now the gating unknown.** `Policy` is a
+      `MonoBehaviour` authored on prefabs, carrying UI references alongside its
+      data, with static registries built by `Policy.InitializeStatics`. Decide
+      whether the ModApi can register a policy by cloning an existing `Policy`
+      at runtime and rewriting its fields, or whether modders must ship a
+      prefab. This decides how far effect registration can actually reach.
+- [ ] Harvest `Policies.UpdateAllTooltips` and
+      `Projects.GetProjectEffect(int id, float effect, float secondeffect)`
+      into `notes/03-policies-and-projects.md`. These build the player-facing
+      effect strings, so they map id → meaning for free — the same trick as the
+      `Get*Tooltip` methods in Phase 2.
 
 ### Also worth investigating
 
