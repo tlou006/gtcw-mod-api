@@ -178,8 +178,16 @@ The parser tells you the shape; only the consuming code tells you the meaning.
 Open questions inherited from the ModdingTool inspection, worth resolving
 early because they affect every downstream number:
 
-- Which unit of each dual-unit pair is serialized (yd vs m, lb vs kg, ft/s vs
-  m/s)? Guessing wrong misscales every ballistic value.
+- ~~Which unit of each dual-unit pair is serialized (yd vs m, lb vs kg, ft/s vs
+  m/s)? Guessing wrong misscales every ballistic value.~~ **Resolved, and the
+  premise was wrong** — see
+  [11-combat-resolution](findings/11-combat-resolution.md) §2. **Both** units
+  are serialized as separate fields (`range_yd` *and* `range_m`), and the
+  layers read different ones: the **battle** layer is metric, the **campaign,
+  naval and UI** layers are imperial, and several imperial fields are parsed
+  and never read. Nothing keeps the pairs in sync, so editing one silently
+  desynchronizes the simulation from the UI and the AI's own valuations. The
+  ModApi should expose one logical value per quantity and write both fields.
 - Are the bare numeric header cells localization string IDs? If so, UI text is
   addressed by ID, which the hook library must respect to add strings.
 
@@ -209,9 +217,17 @@ and the edge cases.
 
 Suggested order — combat first, since it's what modders most want to change:
 
-1. **Combat resolution** — fire resolution, hit probability, damage, casualty
-   allocation. (`Weapon`, `Accuracy`, `Reload`, `Damage`, `Casualt` all appear
-   in the string table.)
+1. ✅ **Combat resolution** — done, see
+   [summary-combat](findings/summary-combat.md). **There are two independent
+   damage models**: manual battles simulate real projectiles with ballistics
+   and per-block hits; `Autocalc` computes casualties in closed form from a
+   stance matrix and multiplicative stat influences. They share only
+   `Regiment.SufferCasualties` and read different weapon fields — firepower is
+   *linear* in one and *square-rooted* in the other — so a combat mod must
+   change both or they diverge. Almost every combat constant is already in
+   `GamePrefs`, which means balance is a data-modding problem and the hook
+   library's combat value is **structural** change plus keeping the two models
+   consistent. Melee is the one piece not yet traced.
 2. **Morale and cohesion** — morale change sources, rout/break thresholds,
    recovery. The decisive system in this genre.
 3. **Supply and logistics** — depots, supply range, attrition. (`Supply`
@@ -475,7 +491,7 @@ GTCW.ModApi.Projects.Register("Repeating Rifles", effect => {
       prefab. This decides how far effect registration can actually reach.
 - [ ] Harvest `Policies.UpdateAllTooltips` and
       `Projects.GetProjectEffect(int id, float effect, float secondeffect)`
-      into `findings/11-policy-and-project-catalogue.md`. These build the player-facing
+      into `findings/14-policy-and-project-catalogue.md`. These build the player-facing
       effect strings, so they map id → meaning for free — the same trick as the
       `Get*Tooltip` methods in Phase 2.
 

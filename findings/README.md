@@ -78,13 +78,24 @@ the evidence than in a central list.
 | --- | --- |
 | [10-simulation-tick](10-simulation-tick.md) | How the game is driven: the frame counter, the boot state machines, the four scheduling patterns |
 
+### Combat — [summary](summary-combat.md)
+
+| File | Contents |
+| --- | --- |
+| [11-combat-resolution](11-combat-resolution.md) | The two combat models, the weapon unit-system split, accuracy/casualty formulas, loss types |
+
 ## Planned
 
-- `11-policy-and-project-catalogue.md` — id → effect for all 117 policy arms
+Per `plan.md` Phase 2, one file per subsystem, in order: **combat ✅** →
+morale → supply → economy → politics → commanders → AI. Each joins a
+`summary-<subsystem>.md`.
+
+- `12-melee.md` — completes combat; the melee formula is the one piece of
+  combat resolution not yet traced.
+- `13-morale-and-cohesion.md` — the decisive system in this genre, and
+  cohesion is already an input to combat without its update rule being known.
+- `14-policy-and-project-catalogue.md` — id → effect for all 117 policy arms
   and every project id, harvested from `Policies.UpdateAllTooltips` and
   `Projects.GetProjectEffect`.
-- `12-game-state.md` — `GameVars.alliance[]` and `GameVars.nation[]` field
+- `15-game-state.md` — `GameVars.alliance[]` and `GameVars.nation[]` field
   maps: the state every effect writes to, and the ModApi's core data surface.
-- One file per simulation subsystem, per `plan.md` Phase 2: combat → morale →
-  supply → economy → politics → commanders → AI. These join
-  `summary-simulation`.

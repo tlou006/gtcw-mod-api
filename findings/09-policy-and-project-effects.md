@@ -170,7 +170,7 @@ counterpart to `Policies.UpdateAllTooltips`.
    question above. Everything else in the design depends on the answer.
 2. **The id → effect table for all 117 policy arms and every project id.**
    Harvest from `UpdateAllTooltips` and `GetProjectEffect`. Planned as
-   `11-policy-and-project-catalogue.md`.
+   `14-policy-and-project-catalogue.md`.
 3. **Which effects are `GamePrefs`-backed vs. literal.** Defines the patching
    workload.
 4. **`GameVars.alliance[]` and `GameVars.nation[]` field maps** — the state
