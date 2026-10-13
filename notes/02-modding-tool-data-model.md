@@ -282,11 +282,21 @@ fail soft and validate before injecting, rather than inheriting this behavior.
 
 The workbook leaks real implementation detail:
 
-1. **`Cbuilding` is a named game class.** The `BuildingTypes` sheet notes that
-   building names, ranking and levels are set "directly in the prefabs
-   [script: Cbuilding] in Unity". That is a confirmed class name, and it
-   suggests a **`C` prefix convention** for game classes — a strong starting
-   filter when searching the decompiled tree.
+1. **`CBuilding` is a named game class — now verified in the assembly.** The
+   `BuildingTypes` sheet notes that building names, ranking and levels are set
+   "directly in the prefabs [script: Cbuilding] in Unity". Decompiling that
+   name resolves to a real type: **`public class CBuilding : MonoBehaviour`**,
+   carrying nested types including an `AIPlacement` class with position,
+   rotation and radius/angle fields — so AI building placement is geometric
+   and lives on the building component itself.
+
+   > **Casing:** the real class is `CBuilding`, not `Cbuilding` as the
+   > ModdingTool spells it. Treat identifiers quoted in the tool and guide as
+   > case-approximate and confirm against the assembly before searching.
+
+   This **confirms the `C`-prefix convention** for game classes, which gives
+   Phase 1 a cheap way to separate game logic from engine and third-party
+   code.
 2. **Some mechanics live in prefabs, not in code or config.** Building
    identity, ranking and level progression are authored as scene/prefab data.
    This is a real limit on data-only modding — and a direct argument for the
