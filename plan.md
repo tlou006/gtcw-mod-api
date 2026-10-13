@@ -251,8 +251,32 @@ Suggested order — combat first, since it's what modders most want to change:
    half of the feature exists; (b) campaign morale slot 8 (high attrition) is
    computed and shown in the UI but **never applied** to morale. A modder
    tuning the cohesion values would see nothing happen.
-3. **Supply and logistics** — depots, supply range, attrition. (`Supply`
-   appears 46×; `GetClosestDepotsAndTowns` is a confirmed real method.)
+3. ✅ **Supply and logistics** — done, see
+   [summary-logistics](findings/summary-logistics.md). Two models again:
+   battlefield supply is a **multiplicative chain up the command hierarchy to a
+   map-edge `EntryPoint`**, cut by any enemy unit standing on the line (a real
+   geometric raycast); campaign supply state is the **minimum** across the four
+   stock types (small-arms ammo, artillery ammo, provisions, forage), fed by
+   depots that hold actual economy goods — so **local prices throttle
+   resupply**. Shortage never damages units directly: it degrades `condition`,
+   which raises fatigue and lowers accuracy, reload speed and drill rate. And
+   it bites on a **hardcoded 5% cliff**, not a gradient.
+
+   Closed two questions from the morale pass: **fatigue** (recovery is
+   unconditional; accrual comes from melee scaled by `inmelee` and from
+   marching via `terrainfatigue[currentterrain]`, multiplied by low condition)
+   and **training** (accumulated drill, distinct from experience, boosted by
+   project 118 and scaled by `conditionmen`). Also resolved **`unittyp`
+   completely** — `unitprefs.txt` declares all 19 types by name, which
+   retroactively explains every `<= 13`, `== 5` and `{1,2,4}` guard across
+   three subsystems. Collected that and six other sets in
+   [16-enumerations](findings/16-enumerations.md).
+
+   Two cross-layer couplings worth carrying into the economy and politics
+   passes: **building hospitals makes the army fight better** (treating wounded
+   raises state support, which caps `fightingspirit`), and **the AI raids
+   logistics using the same `GetClosestDepotsAndTowns` lookup** the player's
+   units use to find it.
 4. **Campaign economy** — production, trade, demand. (`GetHighestDemand`,
    `GetDemandProductionList`, `GetEconomyTooltip` confirmed.)
 5. **Politics and prestige** — (`GetPrestigeEarnedDetails` confirmed.)
@@ -512,7 +536,7 @@ GTCW.ModApi.Projects.Register("Repeating Rifles", effect => {
       prefab. This decides how far effect registration can actually reach.
 - [ ] Harvest `Policies.UpdateAllTooltips` and
       `Projects.GetProjectEffect(int id, float effect, float secondeffect)`
-      into `findings/16-policy-and-project-catalogue.md`. These build the player-facing
+      into `findings/20-policy-and-project-catalogue.md`. These build the player-facing
       effect strings, so they map id → meaning for free — the same trick as the
       `Get*Tooltip` methods in Phase 2.
 

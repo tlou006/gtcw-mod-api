@@ -91,21 +91,33 @@ the evidence than in a central list.
 | --- | --- |
 | [13-morale-and-cohesion](13-morale-and-cohesion.md) | The 18 battle and 14 campaign morale slots, the rally/cap pipeline, `fightingspirit` as a politics→combat link, cohesion, and two unwired features |
 
+### Logistics — [summary](summary-logistics.md)
+
+| File | Contents |
+| --- | --- |
+| [14-supply-and-logistics](14-supply-and-logistics.md) | The two supply models, depots as economy buildings, the 5% shortage cliff |
+| [15-attrition-and-condition](15-attrition-and-condition.md) | Condition, sickness, desertion, wounded recovery, fatigue and training |
+| [16-enumerations](16-enumerations.md) | Cross-cutting reference: `unittyp`, branches, stance, ammo, loss types, supply slots, perk-id reuse |
+
 ## Planned
 
 Per `plan.md` Phase 2, one file per subsystem, in order: **combat ✅** →
-**morale ✅** → supply → economy → politics → commanders → AI. Each joins a
-`summary-<subsystem>.md`.
+**morale ✅** → **supply ✅** → economy → politics → commanders → AI. Each
+joins a `summary-<subsystem>.md`.
 
-- `14-fatigue.md` — fatigue feeds morale, accuracy, autocalc casualties and
-  melee, but its own update rule is untraced. Smallest remaining gap in the
-  battle model; may fold into supply.
-- `15-enumerations.md` — `movementmode`, `currentterrain`, `formation`,
-  `unittyp`, `combatbehavior`, loss types, perk ids per unit type. Each has
-  been decoded piecemeal across combat and morale; they are load-bearing in
-  dozens of guards and a single reference table would pay for itself.
-- `16-policy-and-project-catalogue.md` — id → effect for all 117 policy arms
+- `17-economy.md` — production, trade, demand and prices. Already reached from
+  two directions: depot throughput is priced through `Economy.GetLocalPrice`,
+  and army supply purchases register as trade data at the nearest node. `IIP`
+  is the junction and needs decoding here.
+- `18-politics-and-support.md` — `GameVars.nation[state].support[]` already
+  turns out to cap battle morale via `fightingspirit` and to amplify
+  desertion, so this is a higher priority than its position in the order
+  suggests. `AdjustSupport` reason codes belong here.
+- `19-commanders-and-perks.md` — needs the per-unit-type perk catalogue first
+  (see [16-enumerations](16-enumerations.md)); that is the largest single gap
+  left in Phase 2.
+- `20-policy-and-project-catalogue.md` — id → effect for all 117 policy arms
   and every project id, harvested from `Policies.UpdateAllTooltips` and
   `Projects.GetProjectEffect`.
-- `17-game-state.md` — `GameVars.alliance[]` and `GameVars.nation[]` field
+- `21-game-state.md` — `GameVars.alliance[]` and `GameVars.nation[]` field
   maps: the state every effect writes to, and the ModApi's core data surface.

@@ -23,6 +23,7 @@ a summary:**
 | [Simulation](findings/summary-simulation.md) | How the game is driven: the frame counter, the boot state machines, the four scheduling patterns |
 | [Combat](findings/summary-combat.md) | The three combat models, the weapon unit-system split, `firepower[3]`, accuracy, melee and casualty formulas |
 | [Morale](findings/summary-morale.md) | The morale slots and rally pipeline, `fightingspirit` as a politics→combat cap, cohesion, two unwired features |
+| [Logistics](findings/summary-logistics.md) | The two supply models, depots as economy buildings, the 5% shortage cliff, attrition, fatigue, training, and the enumerations reference |
 
 [`findings/00-build-provenance.md`](findings/00-build-provenance.md) records
 which build everything was written against.
