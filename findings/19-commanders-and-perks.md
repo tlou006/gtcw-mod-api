@@ -346,10 +346,13 @@ its four siblings.
 | `GetNumberOfFamedSeniorOfficers()` | +1 per famous ancestor, −1 per defamed | UI |
 
 > **`GetSeniority()` depends on a dual-unit global.**
-> `GameVars.currenttimefromstart` is **hours since battle start** in a battle
-> scene (`uniStormSystem.Hour + battlepasseddays × 24`) and **years since
-> 1860** in the campaign (`CampaignController`). `GetSeniority` only makes
-> sense in the campaign; called from a battle scene it returns nonsense.
+> `GameVars.currenttimefromstart` is **hours since midnight of battle day 0**
+> in a battle scene (`uniStormSystem.Hour + battlepasseddays × 24` — not since
+> the battle started) and **years since 1860** in the campaign
+> (`CampaignController` ~490, which is `GetCampaignFloatingDate() − 1860 −
+> debugmonthadjustment`). `GetSeniority` only makes sense in the campaign;
+> called from a battle scene it returns nonsense.
+> ([23](23-game-state.md) §10.1)
 
 ---
 
@@ -364,6 +367,19 @@ its four siblings.
 `navyranktext[10]`: 0 Master, 1 Lieutenant, 2 Commander, 3 Captain,
 4 Flag Officer, **5–9 empty** — the navy stops at rank 4, which matches the
 Fleet row of `ranks.txt`.
+
+Two authored tables sit alongside them and are **completely dead**:
+
+`GameVars.NavyRankChangeToBDatePerAlliance` = `float[10]` with slot 0 =
+`1862.6f` and slots 1–9 = `9999f`; `…ToCDatePerAlliance` the same with slot 0 =
+`1864.1f`.
+
+Those are the two real US Navy rank reforms (the 1862 grades act and the 1864
+vice-admiral act), authored for alliance 0 and sentinelled off for everyone
+else — so Confederate naval ranks would never have changed. **Neither array
+has a single consumer anywhere in the assembly**, which puts them with
+`ranks.txt` rows 0–9 and `changeofexp[7]` on the list of authored
+commander data the game never reads ([23](23-game-state.md) §10.2).
 
 `Config/ranks.txt` holds four 19-entry tables — min and max rank per
 `unittyp`, pre- and post-organisation-reform — selected by

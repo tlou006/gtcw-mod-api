@@ -135,6 +135,12 @@ the evidence than in a central list.
 | --- | --- |
 | [22-policy-and-project-catalogue](22-policy-and-project-catalogue.md) | All 117 policies and 125 projects by id, with chapters, prerequisites and effects; the reset-and-replay effect contract; the five ladders and the ten dead pref arrays; support and national-morale reason codes mapped to their writers; the state-index table; the AI's policy queues and project lotteries |
 
+### Game state — [summary](summary-game-state.md)
+
+| File | Contents |
+| --- | --- |
+| [23-game-state](23-game-state.md) | `GameVars.alliance[]` and `GameVars.nation[]` field maps; the two `nations.dat` formats and what a save does and does not overwrite; the 12-game-hour per-alliance master campaign tick; the three recompute idioms that decide whether a write survives; treasury, taxes and the subsidy trio; the national-morale/state-support coupling; the top-level statics and the two meanings of `currenttimefromstart` |
+
 ## Planned
 
 Per `plan.md` Phase 2, one file per subsystem, in order: **combat ✅** →
@@ -147,11 +153,10 @@ The AI turned out to be two subsystems rather than one, so the planned
 `20-ai.md` became [20-ai-campaign](20-ai-campaign.md) plus
 [21-ai-battle](21-ai-battle.md). **Phase 2 as planned is complete**, and the
 policy and project catalogue it fed into is now written as
-[22-policy-and-project-catalogue](22-policy-and-project-catalogue.md). What
-remains:
+[22-policy-and-project-catalogue](22-policy-and-project-catalogue.md), and the
+state those effects write to as
+[23-game-state](23-game-state.md). What remains:
 
-- `23-game-state.md` — `GameVars.alliance[]` and `GameVars.nation[]` field
-  maps: the state every effect writes to, and the ModApi's core data surface.
 - A `campaign-objectives` file. `CampaignObjective` writes support reason codes
   7 and 8 and national-morale codes 6–12 and 14, gates chapter 3 and the
   foreign-intervention script, and has no findings file yet. It surfaced as an

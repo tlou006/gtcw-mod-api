@@ -407,6 +407,13 @@ This is the rule [09](09-policy-and-project-effects.md) left implicit, and it
 matters more than the dispatch site itself:
 
 1. a postfix on `LaunchPolicyEffect` runs **every tick**, not once;
+   The cadence is now pinned: `UpdatePolicyEffects` is called from
+   `BattleUnits.UpdateAllianceData`, which processes **one alliance per
+   campaign heartbeat, round-robin**, and refuses to advance until
+   `GamePrefs.updaterhythmalliancedata = 0.50` **days** have passed for that
+   alliance — so "every tick" means **once per 12 game hours per alliance**,
+   with `timediff` ≈ `0.5/365` campaign years
+   ([23](23-game-state.md) §6.1);
 2. anything it accumulates into must be reset somewhere, or it will grow
    without bound — the thirteen fields above are reset for you, nothing else
    is;

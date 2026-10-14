@@ -73,6 +73,8 @@ interleaved to advance the progress bar. A sample of the campaign sequence:
 | 7 | `InitCampaignBattleUnits` |
 | 8 | `Policies.UpdatePolicyEffects(..., startsetup: true)` for both alliances; full UI init |
 | 11–12 | `initializeregiments` → `allregimentsinitialized` |
+| 13 | `GameVars.ResetPopulationValues()` — **only when `currentoperation == 0`**, i.e. a new campaign; a loaded save keeps its saved `population` ([23](23-game-state.md) §5.1) |
+| 21 | `DiaryReference.Initialize()` |
 | 25 | Load every saved subsystem (buildings, garrisons, spottings, towns, charts, railroads, AI, weather) |
 | 30 | Initial ownerships; frontlines; **`currentoperation = 2`** (campaign now running) |
 | 31–34 | Subsidies, weapon stock, campaign data runs |

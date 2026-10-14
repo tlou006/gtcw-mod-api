@@ -51,7 +51,9 @@ supply behaviour. What it did not say is **how often the postfix runs**.
 2. calls `LaunchPolicyEffect` for **every completed policy and act**;
 3. calls `DeactivatePolicyEffect` for acts no longer held.
 
-So a policy's effect is **recomputed from scratch, every tick**. The game's own
+So a policy's effect is **recomputed from scratch** once per **12 game hours
+per alliance** — the cadence of `UpdateAllianceData`'s round-robin
+([23-game-state](23-game-state.md) §6.1). The game's own
 cases handle this in one of two ways: guard with
 `if (!alreadyactivatedacts.Contains(policy))` to fire once, or multiply by
 `timediff` to apply a rate. A mod must do the same, and anything it accumulates

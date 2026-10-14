@@ -157,7 +157,7 @@ way a slot becomes negative is the same path that makes it NaN.
 | --- | --- |
 | `fightingspirit` | **Caps battle morale** in both combat models ([13-morale-and-cohesion](13-morale-and-cohesion.md) §5) |
 | Desertion | `(desertionfactorstatesupport − 1) / (1 + support) + 1` multiplies desertions ([15-attrition-and-condition](15-attrition-and-condition.md) §2c) |
-| Volunteer pool | **Linearly proportional** (§5) |
+| Volunteer pool | Linear in the inner term, then `3 × raw^0.9` (§5) |
 | Draft pool | Hard gate at `statesupportrecruiting` (§5) |
 | National morale | Reason code 33, "State Support" (§3) |
 | `GetBalance` | Via the `LoyalStatesSlider` and `NationalSupportSlider` (§6) |
@@ -320,6 +320,15 @@ volunteers[i] = floor(f) − volunteersrecruited[i];
 > The diminishing-returns term means large pools are compressed — doubling
 > population does not double volunteers.
 
+**The constants, resolved** (see [23-game-state](23-game-state.md) §5.2):
+`adjvolpoolshighnumberslin = 3`, `adjvolpoolshighnumbersexp = 0.1`, so the
+pool is `3 × raw^0.9`. The two cross at `raw = 3¹⁰ = 59,049`: **below a raw
+pool of ~59 k the "reduction" multiplies the pool up**, and only above it does
+it compress. `recruitratevolunteersfullsupport = 0.016`,
+`recruitratedraftsfullmobilization = 0.04`, `statesupportrecruiting = 0.3`.
+So volunteers are linear in support only through the inner term; the pool as a
+whole is a power law.
+
 ### Hardcoded state names
 
 ```csharp
@@ -453,8 +462,11 @@ Progress is tracked in static fields on the class itself:
 
 ### Still open
 
-1. **`AddTradeWarfare(int type, float value)`** has its own accounting and
-   feeds the `TradeWarfareSlider`. Belongs with the economy.
+1. ~~**`AddTradeWarfare(int type, float value)`**~~ **Resolved:** a 10-slot
+   accumulator with slot 0 recomputed as the total of 1–9, no clamping at all,
+   and two orphaned statements (`Mathf.Abs(value);`, `_ = 1000000f;`) where a
+   magnitude guard used to be. Same idiom as `AdjustSupport` and
+   `AdjustNationalMorale`. ([23](23-game-state.md) §8)
 2. **POW camps** — ~~support reason 33~~ **resolved, and the answer is
    negative:** nothing in the assembly ever writes reason code 33, so
    "Condition of enemy POW camps" is a breakdown label with no mechanic behind
@@ -462,6 +474,10 @@ Progress is tracked in static fields on the class itself:
    value and its "overcrowded" message are still unexamined, and commanders
    captured in melee do become POWs ([19](19-commanders-and-perks.md) §5.1), so
    there is a mechanic there — it just does not touch state support.
+   `Alliance.powratio` is now mapped: total prisoners over camp capacity,
+   computed once per alliance pass — and its denominator **assigns** instead of
+   accumulating, so only the last camp's capacity counts
+   ([23](23-game-state.md) §6.2).
 3. ~~**Which policies map to which support/national-morale reason codes.**~~
    **Done** — support codes 9–31 and national-morale codes 5 and 20–31 are
    mapped to their writing policies in

@@ -352,6 +352,13 @@ raids (`AddShortages`, `ResetShortages`).
 2. **`UpdateEconomyAllianceData` and `UpdateEconomyEstimates`** (~145 and ~35
    lines) hold the actual production/demand aggregation. The *structure* is
    mapped here; the aggregation arithmetic is not.
+   What is now known is the publication step: the per-town sweep accumulates
+   into `privateincometemp` / `totalpopulationtemp` / `averageworkforceleveltemp`
+   / `averagesupporttemp` and publishes all four when the cursor wraps
+   ([23](23-game-state.md) §9.1). `privateincome` is therefore a **per-capita**
+   figure, `averagesupport` is population-weighted and counts only towns held
+   by a belligerent, and `averageworkforcelevel` carries a
+   `unemploymentmultiplier` the config itself labels "for stats purposes".
 3. **`UpdateFilterMaps`** (~270 lines) builds the spatial resource/workforce
    maps and is run `GamePrefs.workforcemapupdates` times per frame
    ([10](10-simulation-tick.md) §4) — the most expensive economy code, and the
@@ -361,10 +368,21 @@ raids (`AddShortages`, `ResetShortages`).
    `tradeandsupply`, `supply`) are `FilterMap` components, the engine-wide 2-D
    field type documented in [21-ai-battle](21-ai-battle.md) §8 — including the
    byte quantisation and the fact that `Clear()` is a buffer swap, not a wipe.
-4. **Taxation.** `excisetax`, `tariffs` and `RewriteTaxValues` are present; the
-   player-facing tax controls and their effects were not followed.
+4. ~~**Taxation.**~~ **The revenue model is resolved** in
+   [23-game-state](23-game-state.md) §7.2: `revenue_pa(i) = base(i) * tax[i] *
+   taxcaps[i] * taxrevenuemodifier[i]` over five types, with
+   `taxrevenuemodifier = {8, 5, 1, 2.5, 0.7}` and every cap set exclusively by
+   policy — income and corporate tax ship at cap **0** and are unusable until
+   the Revenue Acts. `GetCurrentTaxValuePa(-1)` omits
+   `taxrevenuemodifier[corporate]` that the per-type branch includes. What is
+   still untraced is the resource-level plumbing: `excisetax_tmp` /
+   `tariffs_tmp` on `Economy.resources[].productalliancedata[]` and
+   `Resource.RewriteTaxValues`.
 5. **Blockade and trade warfare.** `UpdateBlockades`, `lossestradewarfare`,
-   `AddTradeWarfare`, `GetTradeRatios`. The naval side of the economy.
+   `GetTradeRatios`. The naval side of the economy. `AddTradeWarfare` itself is
+   resolved — a 10-slot accumulator with slot 0 as the recomputed total, no
+   clamping, and two orphaned statements where a guard used to be
+   ([23](23-game-state.md) §8).
 6. **`Town` vs `IIP` vs `CBuilding`.** All three appear as trade
    counterparties with their own stock; the division of responsibility is
    unclear.
