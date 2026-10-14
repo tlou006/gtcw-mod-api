@@ -443,6 +443,36 @@ Suggested order — combat first, since it's what modders most want to change:
    `GameVars.nation[n]`; chapters 0–3 and the fact that **Militia Act I is the
    act that starts the war**; and the twenty AI doctrines' actual agendas.
 
+
+9. **Game state ✅** — [23-game-state](findings/23-game-state.md),
+   [summary-game-state](findings/summary-game-state.md). The state every effect
+   above writes to, and therefore the ModApi's core data surface:
+   `GameVars.alliance[]` (8, 183 fields each) and `GameVars.nation[]`
+   (52–54 depending on scenario, **never hardcode 53**). `nations.dat` has an
+   authored format and a save format under one filename, which fixes exactly
+   which scenario edits survive an existing save. The master campaign tick is
+   `UpdateAllianceData`'s round-robin, so "replayed every tick" means **once
+   per 12 game hours per alliance** — and three recompute idioms
+   (double-buffered sweep, reset-then-accumulate, trailing average) decide
+   whether a hook's write survives at all. Two of them make a direct write
+   futile, which is the single most important fact for the ModApi's write path.
+
+10. **Campaign objectives ✅** — [24-campaign-objectives](findings/24-campaign-objectives.md),
+    [summary-campaign-objectives](findings/summary-campaign-objectives.md).
+    Data-driven like projects, not prefab-authored like policies: **38 records,
+    20 lines each**, and a new objective with a town list needs no code at all.
+    Holds the campaign's end conditions — including the **1864 election**, the
+    only loss condition in the game that is a date rather than a threshold —
+    and the half of the foreign-intervention trigger findings/20 could not
+    reach. Closes the last reason-code gaps: national morale 4–12 and 14,
+    support 7, 8 and 41.
+
+**Phase 2 is complete.** Every major campaign and battle subsystem has a
+findings file. What remains before Phase 3 is narrower and recorded as open
+questions in the files themselves: the newspaper / `historicalevents.dat`
+system, the 7,932-line `DLC_WL` layer, and a handful of questions that now need
+a Unity asset dump rather than more decompiling.
+
 **Method:** the `Get*Tooltip` / `Get*Details` methods are the shortcut. A game
 that shows the player "why" a number is what it is must *compute the
 breakdown*, so those methods enumerate the real contributing factors in one

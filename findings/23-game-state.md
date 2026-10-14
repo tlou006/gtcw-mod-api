@@ -278,9 +278,13 @@ in the save format; "Derived" = recomputed from other state.
 > the active state-set changes. Everything that matches a state **by name**
 > then silently stops matching: `Nation.SearchNationByName`, policy 30's
 > volunteer bonus (§5.2), and policy 30's crop list in `Policies`
-> (findings/22 §10). `statesetname` is blank in all shipped records, so this
-> is latent rather than live — but a scenario that fills it will break those
-> name matches.
+> (findings/22 §10). **Not latent after all:** `Campaigns/001/A` fills
+> `statesetname` for Kansas ("Kansas Territory", sets 1–2) and Minnesota
+> ("Minnesota Territory", sets 0–1), and Kansas is one of policy 30's five
+> name-matched states. It does not bite in the shipped game only because the
+> sets are chronological and an 1861 campaign starts at set 3, where Kansas is
+> "Kansas" again — and campaign objectives are what change the set
+> ([24](24-campaign-objectives.md) §8).
 
 ### 4.2 Support and influence
 

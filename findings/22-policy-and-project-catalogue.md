@@ -1134,9 +1134,12 @@ A deterministic sibling, `AIPersonality.GetNextProject`, scores by
    Worth checking for truncation.
 6. `GameVars.alliance[].maxslaveryfactor` (policies 70, 132) has no documented
    consumer yet.
-7. `CampaignObjective` writes support codes 7 and 8 and national-morale codes
-   6–12 and 14. The objective system is undocumented and is the last major
-   campaign subsystem with no findings file.
+7. ~~`CampaignObjective` writes support codes 7 and 8 and national-morale codes
+   6–12 and 14.~~ **Done** — [24-campaign-objectives](24-campaign-objectives.md)
+   maps all 38 objectives and every reason code they write (national morale
+   4–12 and 14, support 7, 8 and 41), including the three sites for support
+   code 8 that §8.1 here inferred: objective 14 → state 39, 15 → state 14,
+   16 → state 22, each a **snap up to a 0.75 floor** rather than an increment.
 8. `historicalevents.dat` records carry a `policyid`
    (`Newspaper.cs:196`), so the newspaper is policy-driven. The event catalogue
    — including ids 115–118 used by the AI emergencies and the chapter events

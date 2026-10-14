@@ -141,6 +141,12 @@ the evidence than in a central list.
 | --- | --- |
 | [23-game-state](23-game-state.md) | `GameVars.alliance[]` and `GameVars.nation[]` field maps; the two `nations.dat` formats and what a save does and does not overwrite; the 12-game-hour per-alliance master campaign tick; the three recompute idioms that decide whether a write survives; treasury, taxes and the subsidy trio; the national-morale/state-support coupling; the top-level statics and the two meanings of `currenttimefromstart` |
 
+### Campaign objectives — [summary](summary-campaign-objectives.md)
+
+| File | Contents |
+| --- | --- |
+| [24-campaign-objectives](24-campaign-objectives.md) | All 38 objectives by id with chapters, dates, prerequisites and prestige; the 1862 and 1864 elections, and the only loss condition in the game that is a date; the other half of the intervention trigger; national-morale codes 4–12/14 and support codes 7/8/41 mapped to their writing objectives; how objectives choose the map state set |
+
 ## Planned
 
 Per `plan.md` Phase 2, one file per subsystem, in order: **combat ✅** →
@@ -155,10 +161,32 @@ The AI turned out to be two subsystems rather than one, so the planned
 policy and project catalogue it fed into is now written as
 [22-policy-and-project-catalogue](22-policy-and-project-catalogue.md), and the
 state those effects write to as
-[23-game-state](23-game-state.md). What remains:
+[23-game-state](23-game-state.md), and the last untouched campaign subsystem as
+[24-campaign-objectives](24-campaign-objectives.md).
 
-- A `campaign-objectives` file. `CampaignObjective` writes support reason codes
-  7 and 8 and national-morale codes 6–12 and 14, gates chapter 3 and the
-  foreign-intervention script, and has no findings file yet. It surfaced as an
-  open question in [22](22-policy-and-project-catalogue.md) §16 and is the last
-  major campaign subsystem untouched.
+**Every major campaign and battle subsystem now has a findings file.** What
+remains is narrower, and each item is recorded as an open question in the file
+it belongs to:
+
+- **The newspaper and historical-event system.** `Newspaper`,
+  `historicalevents.dat` and its `policyid`, and the
+  `Headlines[5]`/`PictureID`/`HeadlinePicture` half of
+  [24](24-campaign-objectives.md). Open in both
+  [22](22-policy-and-project-catalogue.md) and
+  [24](24-campaign-objectives.md); they belong in one write-up.
+- **The DLC layer.** `DLC_WL` is 7,932 lines and every other file defers to it:
+  the prestige economy, incidents, staff, companions, the entirely DLC-gated
+  `CheckCurrentOrderUpdate` of [21](21-ai-battle.md) §14, and the
+  defensive-facing subsystem that [21](21-ai-battle.md) found is gated off in
+  the base game.
+- **An asset dump.** Several questions now need one rather than more
+  decompiling: the policy panel hierarchy
+  ([22](22-policy-and-project-catalogue.md) §16),
+  `Frontline2.FrontlineTextureDateToBeUsedFrom`
+  ([24](24-campaign-objectives.md) §12), `PerksShownGroup`/`PerksShownFleet`
+  ([19](19-commanders-and-perks.md)).
+- **Phase 0 leftovers:** dnSpy, and `xl/vbaProject.bin` from the ModdingTool
+  workbook.
+
+After that, Phase 3 — the hook library itself — is the next body of work;
+`plan.md` has the design.

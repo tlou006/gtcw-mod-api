@@ -146,8 +146,11 @@ used to be — closing findings/18's question about it: no guard, no clamp.
 - **`nation[].name` is mutated at runtime** by `statesetname` when the active
   state-set changes. Everything that matches a state by string then silently
   stops matching, including `SearchNationByName` and policy 30's five-state
-  volunteer bonus. Blank in all shipped records, so latent — but a scenario
-  that fills it breaks those matches.
+  volunteer bonus. **Shipped data fills it** for Kansas and Minnesota, and
+  campaign objectives are what change the set
+  ([24-campaign-objectives](24-campaign-objectives.md) §8); it escapes being a
+  live bug only because the territorial names belong to sets that precede the
+  campaign start date.
 - **`menfielded` is the player's men from that state**, not the state's total,
   and recomputing it walks the whole unit hierarchy once per state.
 - **`new Alliance()` depends on `GameVars.weapon` already being loaded** and on

@@ -1,0 +1,509 @@
+# Campaign objectives
+
+**Build:** see [00-build-provenance](00-build-provenance.md)
+**Source:** `decompiled/Assembly-CSharp/CampaignObjective.cs` (1,158 lines),
+`BattlefieldSetup.cs`, `Frontline2.cs`; `game/Config/campaignobjectives.dat`,
+`game/Config/campaignprefs.txt`
+**Summary:** [summary-campaign-objectives](summary-campaign-objectives.md)
+
+The last untouched campaign subsystem. `CampaignObjective` is where the war's
+narrative arc is encoded: it decides when the campaign ends, drives the
+chapter machine, writes nine of the national-morale reason codes and three of
+the support codes, and holds the trigger for foreign intervention.
+
+---
+
+## 1. Architecture: data-driven, unlike `Policy`
+
+findings/22 found two architectures for one feature — a `Policy` is an
+inspector-authored prefab that config only *overrides*, while a project is
+defined entirely by its data file. **`CampaignObjective` is the project
+model**: one prefab, instantiated once per record, with every field filled
+from the file.
+
+```csharp
+// InitializeObjectives(GameObject prefab, GameObject parentfolder)
+StreamReader streamReader = new StreamReader("config/campaignobjectives.dat");
+int num = int.Parse(streamReader.ReadLine());
+for (int i = 0; i < num; i++) { … Object.Instantiate(prefab) … }
+```
+
+Three things about that line:
+
+- **The path is hardcoded, lowercase, and global.** No scenario folder is
+  consulted, so the whole-file override scheme of findings/05 does not apply —
+  `Config/campaignobjectives.dat` is shared by every scenario, and per-scenario
+  selection happens through the record's own `ObjectiveScenario` field instead.
+- **It is the one loader in the file set that omits `Encoding.Default`.**
+  Every other importer passes it explicitly; `StreamReader(string)` defaults to
+  UTF-8, so the Windows-1252 bytes in the shipped prose decode as U+FFFD. It
+  is visible in the shipped text — objective 0's newspaper body contains
+  "the Union<?>s victorious forces".
+- Objective names resolve with `Town.GetTownFromGameObjectName` and then
+  `IIP.GetIIPFromObjectName`, **by string**, and a name that resolves to
+  neither is **silently dropped** — the same failure mode as
+  `Tools.GetIntPartitions` (findings/06). An objective whose whole town list
+  fails to resolve becomes `objectives.Count == 0`, which changes its
+  evaluation path entirely (§5.3).
+
+### 1.1 Record layout — 20 lines
+
+| # | Field | Note |
+| --- | --- | --- |
+| 1 | `UniqueObjectiveID` | |
+| 2 | `ObjectiveName` | |
+| 3 | `ObjectiveTooltipHeadline` | |
+| 4 | `ObjectiveTooltip` | |
+| 5 | `ObjectiveChapters` | 4-char groups, `Substring(j*4, 3)`; **empty = all chapters** |
+| 6 | `ObjectiveAlliance` | 0 Union, 1 Confederacy |
+| 7 | `ObjectiveScenario` | `Tools.GetStringPartitions`, matched against `GamePrefs.leveltoload` |
+| 8 | `validfromdate` | `Tools.Date.ConvertString` |
+| 9 | `validtodate` | |
+| 10 | town/IIP list | `Tools.GetStringSeparation`, resolved by name |
+| 11 | prerequisite ids | `Tools.GetIntPartitions`, resolved in a **second pass** |
+| 12 | `influenceprestige` | DLC prestige award |
+| 13–17 | `Headlines[5]` | newspaper variants |
+| 18 | `PictureID` | |
+| 19 | `HeadlinePicture` | |
+| 20 | `Content` | newspaper body, `\n`/`\t` expanded by `Tools.TransformToLineBreaks` |
+
+Verified: `1 + 38 × 20 = 761` lines in `Config/campaignobjectives.dat`. ✔
+
+Records whose `ObjectiveScenario` does not contain the current
+`GamePrefs.leveltoload` are `Destroy`ed and removed from `allcampaignobjectives`
+at the end of initialization — so the live list is scenario-filtered, while
+`IsDeactivated` *also* re-tests the same condition at runtime.
+
+### 1.2 `Awake()` resets the global war progress
+
+Every instance's `Awake` clears the eleven statics that track war progress:
+
+```
+confederacyinvaded, unionfirstvictory, csafirstvictory, unioncapturedforts,
+csacapturedtowns, csavictoryenemysoil, consecutivevictories[4],
+winmajorbattleintervention = -1, victoryagainstgb, victoryagainstfr,
+unioncasualties
+```
+
+During `InitializeObjectives` that happens 38 times in a row, which is
+harmless because nothing has accumulated yet. It is a hazard for a mod:
+**instantiating a `CampaignObjective` prefab at runtime wipes the whole war's
+progress**, including the intervention trigger. Add objectives through the data
+file, or clone and restore the statics around the call.
+
+`Start()` and `Update()` are both empty — evaluation is driven externally by
+`CheckAccomplishmentOfAllObjectives()`.
+
+---
+
+## 2. The 38 objectives
+
+Two distinct sets, split cleanly by scenario.
+
+### 2.1 Main campaign (`001`) — ids 0–28
+
+Strategic war goals. **All have an empty town list and `influenceprestige = 0`**,
+and every one is hardcoded as its own `if (UniqueObjectiveID == N)` block in
+`CheckIfAccomplished`.
+
+| id | Name | Side | Chapters | Condition |
+| --- | --- | --- | --- | --- |
+| 0 | Break Confederate Morale | 0 | 0–3 | `alliance[1].nationalmorale < breakmoraletrigger (0.25)` → **campaign ends** |
+| 1 | Break Union Morale | 1 | 0–3 | mirror, on `alliance[0]` |
+| 2 | Capture Montgomery, AL | 0 | 0–3 | CSA capital; live **only while policy 170 is not researched** |
+| 3 | Capture Richmond, VA | 0 | 0–3 | live **only once policy 170 is researched** and Virginia is not Union |
+| 4 | Capture Washington, D.C. | 1 | 0–3 | |
+| 5 | Pre-emptive Action | 0 | 0 | gated to **on or after 14 Apr 1861** |
+| 6 | Invade the Confederacy | 0 | 1 | |
+| 7 | Win a Major Battle | 0 | 1 | deactivated once `csafirstvictory` |
+| 8 | Win a Major Battle | 1 | 1 | deactivated once `unionfirstvictory` |
+| 9 | Maintain Support Above 60 | 0 | 1 | **the 1862 midterms**, 4 Nov: `averagesupport >= republicanmajoritysupportlevel (0.60)`, §3.1 |
+| 10 | Union Support Below 60 | 1 | 1 | mirror |
+| 11 | Capture 10 Forts | 0 | 1 | `unioncapturedforts >= 10` |
+| 12 | Capture 3 Cities | 1 | 1–2 | `csacapturedtowns >= 3` |
+| 13 | Invade the North | 1 | 1 | |
+| 14 | Capture Western Virginia | 0 | 1 | off if Virginia is Union or sublevel `E`; **selects state set 4** |
+| 15 | Capture Kentucky | 1 | 1–3 | off if state 14 is already CSA **or** its CSA support < 0.45 |
+| 16 | Capture Missouri | 1 | 1–3 | same for state 22 |
+| 17 | Cut Confederacy in Half | 0 | 1–2 | off in sublevel `E` |
+| 18 / 19 | Win 5 Consecutive Land Battles | 0 / 1 | 1–3 | `consecutivelandbattlesamount = 5` |
+| 20 / 21 | Win 5 Consecutive Naval Battles | 0 / 1 | 1–3 | `consecutiveseabattlesamount = 5` |
+| 22 | Defeat the British | 0 | 1–3 | requires GB at war with the Union |
+| 23 | Defeat the French | 0 | 1–3 | requires France at war with the Union |
+| 24 | Gain a Major Victory | 0 | 1–3 | **intervention trigger**, §4 |
+| 25 | Gain a Major Victory | 1 | 1–3 | **intervention trigger**, §4 |
+| 26 | Maintain Morale Above 50 | 0 | 2 | **the 1864 election**, §3.2 |
+| 27 | Union Morale below 50 | 1 | 2 | mirror |
+| 28 | Inflict 50,000 casualties | 1 | 3 | `unioncasualties >= bleedthemoutcasualties (50,000)` |
+
+Objectives 2 and 3 are the **Confederate capital move modelled as a policy
+switch**: policy 170 ("The Old Dominion", the one findings/22 found gated on
+Virginia still being Union) flips which city the Union must take.
+
+### 2.2 Scenario `002` — ids 29–37
+
+A different shape entirely: **town/IIP lists, no id-specific logic (except
+29/30), and prestige awards of 500–2,500.** Prestige is paid through
+`DLC_WL.AdjustPrestige`, gated on `DLC_WL.dlc_scenarioactive` and on the
+objective's alliance matching the chosen commander's — so these are the
+DLC theatre campaign's objectives.
+
+| id | Name | Side | Valid from | Pre | Prestige | Objectives |
+| --- | --- | --- | --- | --- | --- | --- |
+| 29 | West Virginia | 0 | 1850 | — | 500 | Grafton, Charleston, Wheeling, Parkersburg, Lewisburg, Beverly, Romney |
+| 30 | West Virginia | 1 | 1850 | — | 1000 | Charleston, Grafton, Lewisburg, Romney |
+| 31 | Shenandoah Valley | 0 | 1850 | — | 1000 | Winchester, Martinsburg, Strasburg, New Market |
+| 32 | Baltimore & Ohio Lines | 1 | 1850 | — | 1000 | Cumberland, Hagerstown, Berkeley Springs, Martinsburg, Harpers Ferry |
+| 33 | Maryland Campaign | 1 | 1862 | 32 | 1000 | Hagerstown, Frederick |
+| 34 | Pennsylvania Campaign | 1 | **1863** | 32 | **2500** | Hagerstown, Harrisburg, Chambersburg, Carlisle, Gettysburg, York |
+| 35 | Coastal Operations | 0 | 1862 | — | 1000 | New Bern, Plymouth |
+| 36 | Salt Wars | 0 | 1862 | 29 | 500 | Saltville |
+| 37 | Invasion of Norfolk | 0 | 1862 | — | 1000 | Norfolk, Portsmouth, Suffolk |
+
+Objectives 29 and 30 are the only pair that is **mutually exclusive and
+self-deactivating**: each is switched off by the other's accomplishment *and by
+its own*. On completion they call
+
+```csharp
+GameVars.SetNationToNewAlliance(39, 0 /* or 1 */, handovertowns: false,
+                                handoverbuildings: false, handoveriips: false);
+```
+
+— **West Virginia (state 39) changes sides without any property changing
+hands**, plus a symmetric ±`dlcwl_westvirginiasupportchange` on both of state
+39's support slots under reason code **41** ("Objective: West Virginia", the
+last entry in `supportdescr`).
+
+---
+
+## 3. Two elections
+
+### 3.1 The 1862 midterms — objective 9
+
+Objective 9 "Maintain Support Above 60" keys off **4 November 1862**, the real
+midterm date, and tests `GameVars.alliance[0].averagesupport` — the
+population-weighted figure from findings/23 §8 — against
+`republicanmajoritysupportlevel = 0.60`. Before the date it can only be marked
+*failed*; on and after it, meeting the threshold completes it, and **failing it
+charges `republicanmajorityunionmorale` (−0.01) per week for the rest of the
+campaign** under national-morale code 8. There is no end-of-campaign branch —
+the midterms bleed, the presidential election kills. Chapter 2 begins the next
+day, 5 Nov 1862 (findings/22 §3).
+
+### 3.2 The 1864 election is the Union's hard loss condition
+
+Objectives 26 and 27 are not scored like the others. Both key off
+**9 November 1864**, plus one day (`0.002739726f` ≈ 1/365.25):
+
+```
+before election day + 1
+    26: accomplished  = (alliance[0].nationalmorale >= lincolnmaintainmoraleabove 0.50)
+    27: accomplished  = false
+    (and flag2 = false before the election date itself, which suppresses the
+     newspaper message for an objective that is merely "currently true")
+
+on or after election day + 1, while not accomplished
+    one-shot, guarded by lastupdate < electionDate + 1:
+        26: alliance[0].AdjustNationalMorale(8, lincolninfluenceunionmorale −0.20)
+        27: alliance[0].AdjustNationalMorale(8, demoralizevotersunionmoraleinfluence −0.20)
+    27 additionally sets accomplished when nationalmorale < demoralizevotersunionmoralelevel 0.50
+
+    if the date passes 4 March 1865:
+        bunits.SetEndOfCampaign(playeralliance == 0 ? 1 : 0)   // the Union loses
+```
+
+So: **hold Union national morale at or above 0.50 on 9 November 1864 or Lincoln
+loses re-election** — a −0.20 national morale hit immediately, and the campaign
+ends in a Confederate victory on **inauguration day, 4 March 1865**. The
+roughly four-month gap between the two dates is the player's last chance to
+recover morale, because the end-of-campaign branch is re-tested every update
+and only fires while `!accomplished`.
+
+This is the only loss condition in the game that is a *date* rather than a
+threshold, and it is invisible in the objective's own tooltip text.
+
+---
+
+## 4. Foreign intervention: the other half of the script
+
+findings/20 found that the intervention script requires **both**
+`GetInterventionProbability >= 1` **and**
+`CampaignObjective.winmajorbattleintervention == <side>`. This is where the
+second condition is produced and consumed.
+
+`winmajorbattleintervention` is a `static int`, reset to −1 in `Awake`, written
+by the battle-result path, and **saved and loaded** with the objective state
+(`LoadAll`/`SaveAll`). Objectives 24 and 25 read it:
+
+```csharp
+if (UniqueObjectiveID == 24 && !deactivated && !alreadyAccomplished) {
+    if (winmajorbattleintervention == 0) {
+        accomplished = true;
+        GameVars.alliance[0].AdjustInterventionLevel(winbattleinterventionlevelunion −0.10);
+    }
+}
+// 25: winmajorbattleintervention == 1 → alliance[1], winbattleinterventionlevelcsa +0.25
+```
+
+Both are deactivated outright if **any** of Great Britain, France or Spain is
+already at war with either belligerent — they are strictly *pre*-intervention
+objectives — and each needs its own patron close to committing:
+
+| id | Side | Extra gate |
+| --- | --- | --- |
+| 24 | Union | `GetInterventionProbability(4) >= 0.75` — **Spain** |
+| 25 | Confederacy | `GetInterventionProbability(2) >= 0.75` **or** `(3) >= 0.75` — Great Britain or France |
+
+That matches findings/17 §4: Spain intervenes for the Union, Britain and
+France for the Confederacy. Note the **asymmetric payoff**: the Union's major
+victory moves intervention levels by −0.10 while the Confederacy's moves them
+by +0.25, two and a half times as much.
+
+A "major battle" is defined in `campaignprefs.txt` as **each army at least
+10,000 strong and at least 2,000 total casualties**
+(`minsizemajorbattle`, `mincasualtiesmajorbattle`), and the winning army's
+commander also gains **+0.50 fame** on a first major victory.
+
+---
+
+## 5. Evaluation
+
+### 5.1 `IsDeactivated()` — the generic gates
+
+Recomputed at the top of every `CheckIfAccomplished`:
+
+1. `ObjectiveChapters` does not contain `Policy.CurrentChapter` — **unless the
+   list is empty**, in which case the objective is valid in every chapter
+   (`list.Count > 0` is part of the test).
+2. `ObjectiveScenario` does not contain `GamePrefs.leveltoload`.
+3. The campaign date is outside `validfromdate … validtodate`.
+4. Any id-specific rule from §2.
+5. **Any prerequisite in `precampaignobjectives` is not accomplished.**
+
+Everything else in the class treats `deactivated` as "do not evaluate", so a
+deactivated objective keeps whatever `accomplished` value it last had.
+
+### 5.2 Chapter coupling
+
+findings/22 §3 has chapter 3 arriving on 9 November 1864 "with objective 26
+done and 27 not". Both of those are the election objectives of §3.2, so the
+chapter machine and the Union's loss condition read the same two flags on the
+same date. `GetObjectiveAccomplishment(uniqueid, bool usechaptercheck = true)`
+is the accessor; the `usechaptercheck: false` form is what callers outside the
+chapter machine use, notably `BattlefieldSetup`'s state-set selection (§6).
+
+### 5.3 The generic town-list path
+
+For the nine scenario-`002` objectives, accomplishment is uniform:
+
+```csharp
+if (objectives.Count > 0 && !deactivated) {
+    bool all = every Town.Owner == ObjectiveAlliance
+            && every IIP.allianceowner == ObjectiveAlliance;
+    if (!all)        accomplished = false;
+    else if (!flag3) accomplished = true;     // flag3 = "an id-specific block ran"
+}
+```
+
+So the town list can only ever **veto** an objective that an id-specific block
+has already decided, and it can only *grant* one that has no id-specific block.
+Objectives 0–28 have empty lists, so the two paths never overlap — except for
+29 and 30, whose id-specific block sets `accomplished = true` unconditionally
+and is then immediately corrected by the town check. That block is therefore
+**redundant in the shipped data**, and actively dangerous if someone empties
+29 or 30's town list: with `objectives.Count == 0` the veto never runs and the
+objective completes the moment it becomes valid, handing West Virginia over.
+
+### 5.4 Dispatch
+
+`CheckIfAccomplished` is **not** a `switch`. It is a flat chain of about
+thirty-eight `if (UniqueObjectiveID == N && !deactivated)` blocks, every one
+of which is evaluated on every call, for every objective. With 38 objectives
+that is ~1,400 integer comparisons per sweep — cheap, but it means a hook
+cannot intercept "the block for objective N"; there is only the whole method.
+It is the same no-dispatch shape as findings/09's `default`-less switch in
+`Policies.LaunchPolicyEffect`.
+
+---
+
+## 6. Reason codes written here
+
+This closes the last gaps in findings/17's and findings/22's tables.
+
+### 6.1 National morale (`AdjustNationalMorale(code, value)`)
+
+| Code | Label | Written by | Pref | Value |
+| --- | --- | --- | --- | --- |
+| 4 | Loss of capital | obj 2, 3 (→ CSA), 4 (→ Union) | `capturecapitalnationalmorale` | −0.20 |
+| 5 | Militia Act not triggered | obj 5 | `militiaactmoraledrop` | −0.01 **per day** |
+| 6 | Enemy on own soil | obj 6 | `invadeconfederacyunionmoraledrop` | −0.005 **per week** |
+| 7 | First major battle | obj 7 / 8 | `winfirstmajorbattleinfluenceunion` / `csawin…` | +0.025 / −0.05 |
+| 8 | Elections | obj 9 (rate), 26, 27 | `republicanmajorityunionmorale`, `lincolninfluenceunionmorale`, `demoralizevotersunionmoraleinfluence` | −0.01/wk, −0.20, −0.20 |
+| 9 | Captured forts / cities | obj 11 / 12 | `capturefortsnationalmorale` / `capturecitiesnationalmorale` | +0.05 each |
+| 10 | Battles won | obj 13, 18–23 | `invadenorthunionmorale`, `consecutivelandbattlesmorale`, `consecutiveseabattlesmorale`, `winbattleagainsteurope` | −0.025, +0.05, +0.025, +0.025 |
+| 11 | States seceding | obj 14, 15, 16 | `westvirginiacsanationalmorale`, `secedeunionmorale` | −0.025, −0.05 |
+| 12 | Casualties | obj 28 | `bleedthemoutinfluencenationalmorale` | −0.10 |
+| 14 | Confederacy cut in half | obj 17 | `confederacyhalfunionmorale` | +0.05 |
+
+Codes 5, 6 and 9 (objective 9's arm) are **rates**, multiplied by the elapsed
+campaign time since `lastupdate` and rescaled — `× 365` for the per-day pref
+and `× 52` for the per-week ones. The rest are one-shots, guarded by the
+`!alreadyAccomplished` test.
+
+Note **objective 13 ("Invade the North") and the consecutive-battle and
+anti-European objectives all share code 10**, so the player's morale breakdown
+collapses four different mechanics into one line.
+
+### 6.2 State support (`AdjustSupport(alliance, value, code)`)
+
+| Code | Label | Written by |
+| --- | --- | --- |
+| 7 | Enemy on own soil | obj 6, `invadeconfederacycsasupport` +0.01/week for alliance 1 **in all slave states** while the Confederacy is invaded |
+| 8 | State secession | obj 14 → state 39 for the Union; obj 15 → state 14; obj 16 → state 22 |
+| 41 | Objective: West Virginia | obj 29 / 30, DLC, symmetric ± on state 39 |
+
+Code 8's form is a **snap to a floor, not an increment**:
+
+```csharp
+GameVars.nation[14].AdjustSupport(1, Mathf.Max(0f, secedecsasupport − nation[14].support[1]), 8);
+```
+
+with `secedecsasupport = 0.75`. So Kentucky's and Missouri's Confederate
+support jumps to 0.75 if it is below that and is left alone if above — a
+one-way ratchet expressed through the normal clamped adder. This is the
+mechanism findings/22 §8.1 inferred for "code 8 *is* written by
+`CampaignObjective` for states 39/14/22"; here are the three sites and the
+shape.
+
+---
+
+## 7. State indices confirmed
+
+Spot-checked against `game/Campaigns/001/A/nations.dat` and the table in
+findings/22 §11.1: **14 Kentucky, 22 Missouri, 38 Virginia, 39 West Virginia.**
+Objectives 14/15/16 and 29/30 index them as bare integers, and objective 3's
+deactivation reads `GameVars.nation[38].alliance == 0`.
+
+---
+
+## 8. The state-set rename, live
+
+findings/23 §4.1 flagged `Nation.statesetname[6]` as a latent trap:
+`BattlefieldSetup` rewrites `nation[i].name` whenever the active state set
+changes, breaking everything that matches a state by string. The shipped data
+makes it **real, not hypothetical** — `Campaigns/001/A/nations.dat` fills it
+for two states:
+
+| State | set 0 | set 1 | set 2 | set 3 | sets 4–5 |
+| --- | --- | --- | --- | --- | --- |
+| Kansas | *(blank)* | Kansas Territory | Kansas Territory | Kansas | *(blank)* |
+| Minnesota | Minnesota Territory | Minnesota Territory | Minnesota | *(blank)* | *(blank)* |
+
+The set is chosen in `BattlefieldSetup.UpdateStateOccupation`:
+
+```csharp
+int num = frontline2script.GetStateSetIDFromDate(GetCampaignFloatingDate());
+if (leveltoload == "001") {
+    if (CampaignObjective.GetObjectiveAccomplishment(14, usechaptercheck: false)) num = 4;
+    else if (num > 3 && subleveltoload != "D" && subleveltoload != "E")          num = 3;
+}
+if (leveltoload == "002")
+    num = GetObjectiveAccomplishment(29, usechaptercheck: false) ? 1 : 0;
+```
+
+so **campaign objectives choose the map's state set**: objective 14 ("Capture
+Western Virginia") forces set 4 in the main campaign, and objective 29 flips
+scenario 002 between sets 0 and 1.
+
+`GetStateSetIDFromDate` walks `Frontline2.FrontlineTextureDateToBeUsedFrom`, an
+inspector-serialized string array that is **not in the assembly** — reading the
+actual cut-over dates needs an asset dump. The names are consistent with
+chronological sets (Minnesota was admitted in 1858, Kansas in January 1861), so
+sets 0–2 are antebellum and the 1861 campaign starts at set 3.
+
+**That is why the trap has not bitten in the shipped game.** Policy 30's
+volunteer bonus (findings/17, findings/23 §5.2) matches the literal string
+`"Kansas"`, and at set 3 and above the name *is* "Kansas". A blank
+`statesetname` entry leaves the previous name in place rather than restoring
+the authored one, so once set 3 has been reached Kansas stays "Kansas" through
+sets 4 and 5 as well. A scenario that starts earlier, or that fills more
+`statesetname` slots, would silently disable the bonus.
+
+---
+
+## 9. Persistence
+
+`SaveAll(folder)` / `LoadAll(folder)` round-trip per objective `accomplished`,
+`deactivated` and `lastupdate`, plus the eleven global statics including
+`winmajorbattleintervention`. Because `Awake` zeroes those statics and
+`InitializeObjectives` runs before the load, the ordering is load-after-init
+and therefore correct — but it is the reason the §1.2 hazard matters.
+
+---
+
+## 10. Mod seams
+
+1. **`Config/campaignobjectives.dat` is additive for the *data* half.** New
+   records get a prefab, chapters, dates, scenario filter, prerequisites,
+   newspaper text and prestige for free. What they do **not** get is a win
+   condition: an id with no block in `CheckIfAccomplished` and an empty town
+   list is evaluated by nothing and can never complete.
+2. **A new objective with a town/IIP list works with no code at all** — the
+   generic path of §5.3 handles it. This is the cheapest way to add content,
+   and it is how all nine scenario-`002` objectives work.
+3. **`CheckIfAccomplished` is the hook for a new scripted condition**, as a
+   postfix keyed on `UniqueObjectiveID`. Set `accomplished` and let the base
+   method's tail fire the newspaper and prestige.
+4. **`GetObjectiveAccomplishment(int, bool)` and `GetObjectiveFromID(int)`**
+   are `public static` and the natural read API for the ModApi to re-export.
+5. **`LaunchNewspaperMessage(int)` is `public static`** — usable on its own
+   for mod-authored events, independently of objectives.
+6. Avoid instantiating the prefab (§1.2).
+
+---
+
+## 11. Defects and oddities
+
+1. **The loader omits `Encoding.Default`** (§1), corrupting every non-ASCII
+   character in the shipped newspaper prose. A one-argument fix.
+2. **`Awake` resets global war progress per instance** (§1.2).
+3. **Objectives 29/30's id-specific block is redundant** and becomes a
+   give-away-West-Virginia bug if their town lists are emptied (§5.3).
+4. **Four unrelated mechanics share national morale code 10** (§6.1), so the
+   player's breakdown cannot distinguish an invasion of the North from a naval
+   winning streak.
+5. **Unresolvable town names are silently dropped** at load (§1), and a list
+   that empties completely flips the objective onto a different evaluation
+   path rather than failing loudly.
+6. **The intervention payoff is asymmetric by 2.5×** (§4) — probably
+   deliberate, since the Confederacy needs intervention more, but it is not
+   stated anywhere the player can see.
+7. **`CheckIfAccomplished` evaluates all 38 id tests per objective** (§5.4).
+
+---
+
+## 12. Open questions
+
+- **Who writes the eleven statics.** `unioncapturedforts`, `csacapturedtowns`,
+  `consecutivevictories[4]`, `winmajorbattleintervention`, `unioncasualties`,
+  `confederacyinvaded`, `csavictoryenemysoil`, `victoryagainstgb/fr` are all
+  read here and set elsewhere — almost certainly
+  `ImportExportUnitData.ExportBattleResultData` and the town/fort capture
+  paths. The `consecutivevictories` array has **four** slots for two sides and
+  two battle kinds; which index is which is unconfirmed.
+- **`Frontline2.FrontlineTextureDateToBeUsedFrom`** — the state-set cut-over
+  dates are inspector data; an asset dump would close §8 completely.
+- **`Newspaper` and `historicalevents.dat`.** `LaunchNewspaperMessage` and the
+  `Headlines[5]`/`PictureID`/`HeadlinePicture` fields are one half of the
+  newspaper system; findings/22's open question about `historicalevents.dat`
+  and its `policyid` is the other. They should be written up together.
+- **`influenceprestige` and `DLC_WL.AdjustPrestige`** — the DLC prestige
+  economy (also open in findings/22 as `CalculatePrestigeCost*`).
+- **`IsPositionWithinRangeOfTownObjective` and `IsPartOfObjective`** are public
+  helpers used elsewhere (campaign AI target weighting?); their call sites were
+  not traced.
+- **`GetAvailableObjectives(allianceid, includeaccomplished, mintownobjectives)`**
+  — the `mintownobjectives` parameter suggests the UI or the AI asks for
+  objectives with a minimum number of towns; unexamined.
+- Scenario `002` has **no `Campaigns/002` folder in this install**, consistent
+  with it being DLC content; objectives 29–37 are therefore unreachable here.

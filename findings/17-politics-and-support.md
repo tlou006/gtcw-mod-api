@@ -383,10 +383,14 @@ so that range returns an empty string.
 
 ## 7. Objectives drive both variables
 
-`CampaignObjective` is prefab-authored like `Policy`
-([09](09-policy-and-project-effects.md)), with `validfromdate`/`validtodate`,
-`precampaignobjectives` prerequisites, `influenceprestige`, and a
-`List<object> objectives` of conditions.
+**Now written up in full: [24-campaign-objectives](24-campaign-objectives.md).**
+One correction to what this section said originally: `CampaignObjective` is
+**not** prefab-authored like `Policy` — it is data-driven like a project, one
+prefab instantiated once per record from `Config/campaignobjectives.dat`
+(38 records, 20 lines each). The fields are `validfromdate`/`validtodate`,
+`ObjectiveChapters`, `ObjectiveScenario`, `precampaignobjectives`
+prerequisites, `influenceprestige`, and a `List<object> objectives` of towns
+and IIPs resolved by name.
 
 Progress is tracked in static fields on the class itself:
 `confederacyinvaded`, `unionfirstvictory`, `csafirstvictory`,
