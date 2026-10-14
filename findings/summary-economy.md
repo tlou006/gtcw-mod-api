@@ -157,7 +157,9 @@ blockades, and raids via `AddShortages`.
    not.
 3. **`UpdateFilterMaps`** (~270 lines, run `workforcemapupdates` times per
    frame) — the spatial resource and workforce maps, and the most expensive
-   economy code.
+   economy code. All ten of them are `FilterMap` components, the shared 2-D
+   field type described in [21-ai-battle](21-ai-battle.md) §8; the arithmetic
+   that fills them is still untraced.
 4. **Taxation** — `excisetax`, `tariffs`, `RewriteTaxValues` exist; the player
    controls and their effects were not followed.
 5. **Blockade and trade warfare** — the naval side.

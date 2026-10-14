@@ -230,5 +230,7 @@ Two ModApi design constraints fall out:
    campaign and fleet availability lists need an asset dump to confirm.
 6. **`AvatarManagement`** (1,792 lines) contains what looks like a commander
    *editor* writing attributes directly — possibly a scenario-authoring tool.
-7. **`fametrigger[]` / `defamedtrigger[]`** are indexed by a battle-result
-   enumeration that has not been catalogued.
+7. ~~**`fametrigger[]` / `defamedtrigger[]`** are indexed by a battle-result
+   enumeration that has not been catalogued.~~ **Resolved** —
+   [minor victory, major victory, minor defeat, major defeat], see
+   [21-ai-battle](21-ai-battle.md) §14.2.

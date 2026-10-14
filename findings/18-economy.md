@@ -354,8 +354,13 @@ raids (`AddShortages`, `ResetShortages`).
    mapped here; the aggregation arithmetic is not.
 3. **`UpdateFilterMaps`** (~270 lines) builds the spatial resource/workforce
    maps and is run `GamePrefs.workforcemapupdates` times per frame
-   ([10](10-simulation-tick.md) §4) — the most expensive economy code, and
-   untraced.
+   ([10](10-simulation-tick.md) §4) — the most expensive economy code, and the
+   arithmetic is still untraced. The *container* is now known: all ten maps
+   (`fertilitymapfilter[]` per resource, `availableworkforce`, `slavery`,
+   `availablecapital`, `transportbottlenecks`, `marketcapacity`, `hospitals`,
+   `tradeandsupply`, `supply`) are `FilterMap` components, the engine-wide 2-D
+   field type documented in [21-ai-battle](21-ai-battle.md) §8 — including the
+   byte quantisation and the fact that `Clear()` is a buffer swap, not a wipe.
 4. **Taxation.** `excisetax`, `tariffs` and `RewriteTaxValues` are present; the
    player-facing tax controls and their effects were not followed.
 5. **Blockade and trade warfare.** `UpdateBlockades`, `lossestradewarfare`,

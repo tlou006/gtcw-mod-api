@@ -117,31 +117,31 @@ the evidence than in a central list.
 | --- | --- |
 | [19-commanders-and-perks](19-commanders-and-perks.md) | The three perk namespaces and the full perk catalogue; the attribute pipeline; ranks and promotion; fame and defame; casualties and succession; `campaignranking` and the commander-in-chief; feuds; `commanders.txt` |
 
-### AI — [summary](summary-ai-campaign.md)
+### Campaign AI — [summary](summary-ai-campaign.md)
 
 | File | Contents |
 | --- | --- |
 | [20-ai-campaign](20-ai-campaign.md) | The 36-step job scheduler; the texture-derived zone map, the value map and the heatmaps; offensive and defensive operations; recruiting; AI personalities; the difficulty sliders and the ten hardcoded cheats; intervention as a script; two determinism problems |
+
+### Battle AI — [summary](summary-ai-battle.md)
+
+| File | Contents |
+| --- | --- |
+| [21-ai-battle](21-ai-battle.md) | The three `AIBattle` instances and their two clocks; the 30-slot micro task wheel; the macro stance ladder; `ai_stance` as a second stance enumeration; objective chains, flanks and reserves; `aistrategies.dat`; navmesh carving and the order-delay bypass; `FilterMap` as the engine-wide 2-D field type; what a stance does to your own units |
 
 ## Planned
 
 Per `plan.md` Phase 2, one file per subsystem, in order: **combat ✅** →
 **morale ✅** → **supply ✅** → **politics ✅** (taken early, since state
 support kept turning up as an input to everything else) → **economy ✅** →
-**commanders ✅** → **AI (campaign ✅, battle pending)**. Each joins a
+**commanders ✅** → **AI ✅** (campaign and battle). Each joins a
 `summary-<subsystem>.md`.
 
 The AI turned out to be two subsystems rather than one, so the planned
-`20-ai.md` became [20-ai-campaign](20-ai-campaign.md) plus:
+`20-ai.md` became [20-ai-campaign](20-ai-campaign.md) plus
+[21-ai-battle](21-ai-battle.md). **Phase 2 as planned is complete.** What
+remains:
 
-- `21-ai-battle.md` — `AIBattle` (5,458 lines) and
-  `Config/aistrategies.dat` (176 records, 7,393 lines, keyed by named map
-  locations such as "SudleySprings", "MatthewsHill", "HenryHill"). Partly
-  pre-decoded already: it runs **three** controllers per battle, the third
-  being the feud controller ([19](19-commanders-and-perks.md) §7), and most of
-  its micro-AI guards are written in terms of `ai_feudstance`. The AI handicap
-  constants it shares with the campaign layer are catalogued in
-  [20](20-ai-campaign.md) §9.2.
 - `22-policy-and-project-catalogue.md` — id → effect for all 117 policy arms
   and every project id, harvested from `Policies.UpdateAllTooltips` and
   `Projects.GetProjectEffect`. Also needs to map each policy to its support and

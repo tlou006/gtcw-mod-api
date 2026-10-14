@@ -1079,9 +1079,16 @@ superior-influence factor.
 8. **`Tools.AddToAverage(current, value, 0.25f, timediff)`** — the 0.25
    constant appears in every tracker call and in `AdjustLastAttributes`. Its
    semantics (a time constant? a weight?) were not derived.
-9. **Which `resulttype` values `fametrigger[]` and `defamedtrigger[]` are
-   indexed by** — presumably the battle-result enumeration, which has not been
-   catalogued.
+9. ~~**Which `resulttype` values `fametrigger[]` and `defamedtrigger[]` are
+   indexed by.**~~ **Resolved** in [21-ai-battle](21-ai-battle.md) §14.2 from
+   the `battleprefs.txt` comments: **[minor victory, major victory, minor
+   defeat, major defeat]**, with `fametrigger = {0.025, 0.02, 0.03, 0.04}` and
+   `defamedtrigger = {−0.0018, −0.0027, −0.0016, −0.0015}`, and
+   `famefactorleveladjustment = {brigade 0.005, division 0.0065, corps 0.009,
+   army 0.013}`. The matching victory thresholds are vp ratio ≥ 0.7 / ≥ 0.8 /
+   ≤ 0.3 / ≤ 0.2. It is therefore *easier* to become famous in a minor victory
+   than a major one, and *harder* to escape defame in a major victory than in a
+   major defeat.
 10. **`PerksShownGroup` and `PerksShownFleet` are prefab arrays**, so the
     campaign and fleet perk availability lists could not be read from the
     assembly. They need an asset dump (or a runtime probe) to confirm all 18

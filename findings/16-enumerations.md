@@ -311,6 +311,9 @@ ModApi: a single name whose meaning depends on where you read it.
 | `cohesion` | Code: 1 = perfect order. Config labels: "cohesion" means *disorder* — see [13](13-morale-and-cohesion.md) |
 | `minpricereached` | A **quantity**, not a price — see [18](18-economy.md) |
 | `historicalbranch` | Three values on `Regiment`, five on `Commander` (above) |
+| `stance` | Two enumerations in opposite orders: `stance`/`macroai` is 0 assault…3 retreat, `ai_stance` is 0 none…4 assault — see the `ai_stance` section below |
+| `formation` | Two id spaces, translated per unit class by `BattleUnits.SetFormation`; the AI's label array names the *requested* id — see below |
+| `FilterMap.Clear()` | **A double-buffer swap that publishes `tempmap`, not a wipe.** Shared by the campaign zone map, the battle hotspot map, the battlefield support/precipitation textures and ten `Economy` maps — see [21](21-ai-battle.md) §8 |
 
 ---
 
@@ -345,8 +348,8 @@ what is already known.
 
 | Enumeration | Known values |
 | --- | --- |
-| `formation` | 1 = skirmish; 2 = (used in `AssignChargeTarget` offsets); 4 = **anti-cavalry square** — the only formation that suppresses cavalry melee shock. Indexes `meleeformationmodifier[]` and `meleeformationmodifiercav[]` |
-| `movementmode` | 3 = charge order; 5 = **sets cohesion to 0 outright**; 6 = charge target assigned |
+| `formation` | See the dedicated section below — the **requested** ids are complete, the stored ids are not |
+| `movementmode` | **Complete** — see the dedicated section below |
 | `combatbehavior` | 0–2 use `GetFireRange(calcusedfirerange: true)`; 7 = normal artillery fire; 8 = canister-hold (switches to 7 inside `canisterrange`), also "counter-battery" for shell probability; 9 = bombardment |
 | `currentterrain` | 3, 4, 5, 8 = embarked (`fightingstrengthembarked`). Indexes `terraininfluenceoncohesion[]` and `terrainfatigue[]` |
 | `eodcycle` | 0 = normal play; 2 → 3 → 4 observed in the end-of-day chain. Suspends firing, melee, cohesion and fatigue accrual |
@@ -398,28 +401,146 @@ infantry 0–7, cavalry 8–13, artillery 14–18.
 
 `GameVars.maxperklevels = 3`, and levels are 0-based, so `perklevel` is 0–2
 ("I", "II", "III").
+---
+
+## `movementmode` — complete
+
+`Regiment.SetMovementMode(int newmode = 0)` and
+`Regiment.UpdateUnitStatus()` together pin the whole set. The bugle calls in
+`SetMovementMode` name four of them outright, and `UpdateUnitStatus` maps each
+to an `unitstatustext[]` entry.
+
+| Mode | Meaning | Bugle | `unitstatus` shown |
+| --- | --- | --- | --- |
+| 0 | normal movement | "charge off" on leaving 6 | 2 Marching / 3 Running / 19 Double Quick |
+| 1 | **advance** (on foot) | advance | 7 Advancing |
+| 2 | **fall back** (on foot) | fall back | 8 Falling back |
+| 3 | advance (mounted) — remap of 1 | — | 2 Marching |
+| 4 | **retreat / fall back** (mounted) — remap of 2 | retreat order / order complete | 9 Retreating |
+| 5 | rout movement | — | 10 Routed |
+| 6 | **charge** (target assigned) | charge / cavalry charge / cavalry attack routed | 4 Charging |
+
+The remap is the trap:
+
+```csharp
+if (unittyp <= 13 && mounted > 0) {
+    if (newmode == 2) newmode = 4;
+    if (newmode == 1) newmode = 3;
+}
+```
+
+So **a mounted unit ordered to advance ends up in mode 3 and its status reads
+"Marching", and one ordered to fall back ends up in mode 4 and reads
+"Retreating"** — the label table was never extended to follow the remap. Any
+UI or API that reports "what is this unit doing" has to undo this.
+
+Mode 5 is the one that **sets cohesion to 0 outright**
+([13-morale-and-cohesion](13-morale-and-cohesion.md)); mode 3 is what the
+micro AI sets to *offer* a charge, and `Regiment.UpdateChargeTarget` promotes
+it to 6 once the strength ratio clears `microaitriggerforcharge`
+([21](21-ai-battle.md) §12.1).
+
+---
+
+## `formation` — two id spaces
+
+There are **two** formation numberings and `BattleUnits.SetFormation`
+translates between them, differently per unit class. The battle AI's own debug
+label array is
+
+```
+{ "Line", "Double Line", "Successive Lines", "Attack Column", "March Column" }
+```
+
+which describes the **requested** id, not the stored one. The remap
+(`BattleUnits.SetFormation`, ~12258, then `CheckFormationRestrictions`):
+
+| Requested | → stored, `unittyp <= 13` | → stored, `unittyp >= 14` |
+| --- | --- | --- |
+| 0 | 2 | 3 |
+| 1 | 4 | 1 |
+| 2 | — | 1 |
+| 3 | — | 2 |
+| 4 | 3 | 4 |
+| 5 | 0 | 0 |
+| 6 | 1 | — |
+
+Consequences: for formations, requests **1 and 2 both store 1**, so the AI's
+"Double Line" and "Successive Lines" are the same thing; and the stored values
+are what index `meleeformationmodifier[]` / `meleeformationmodifiercav[]`,
+where 1 = skirmish and **4 = anti-cavalry square** (the only formation that
+suppresses cavalry melee shock) were already known from
+[12-melee](12-melee.md).
+
+The battle AI requests 0–3 only; it never asks for March Column. Which it
+requests per group stance is in [21](21-ai-battle.md) §4.3.
+
+---
+
+## `oobunitsymbolid` — complete
+
+`Regiment.GetUnitSymbolData()` (~19253). The order-of-battle symbol class,
+and the key the battle AI sorts its formations by.
+
+| Value | Meaning |
+| --- | --- |
+| 0 | Infantry |
+| 1 | Cavalry |
+| 2 | Artillery |
+| 3 | Horse artillery (`unittyp == 2 && ishorseartillery`) |
+| 4 | Skirmishers / Scouts (`unittyp` 3 or 4) |
+
+For a formation (`unittyp >= 14`) it is derived from `GetMaxUnitType()` — the
+dominant subordinate type — so only 0, 1 and 2 ever occur, and
+`Regiment.groupunittype` is written alongside it. That is why
+`AIBattle.SeparateUnitsToGroups` handles only 1 and 2, and why only
+infantry-dominant formations are allowed to assault.
+
+---
+
+## `ai_stance` — the group stance, **distinct from `stance`**
+
+`GameVars.groupstancename = { "none", "screen", "defend", "attack", "assault" }`,
+and `unitstatustext[20..23]` carries the same four names for display. This is
+the player- and AI-facing formation stance, written by
+`BattleUnits.ChangeStance` into `Regiment.ai_stance` / `ai_stanceordered`, with
+`ai_feudstance` as the feud controller's shadow copy.
+
+**It is a different enumeration from `stance` / `macroai`, in the opposite
+order.** Side by side:
+
+| | 0 | 1 | 2 | 3 | 4 |
+| --- | --- | --- | --- | --- | --- |
+| `Regiment.stance`, `grp[].stance`, `AIBattle.macroai` | assault | attack | defend | retreat | — |
+| `Regiment.ai_stance`, `ai_stanceordered`, `ai_feudstance` | none | screen | defend | attack | assault |
+| `GamePrefs.minimummoraleforaistances` index (`ai_stance - 1`) | screen 0.45 | defend 0.40 | attack 0.60 | assault 0.75 | — |
+
+Only `defend` happens to agree, at 2. Everything that passes "a stance" as an
+`int` must state which space it is in. See [21](21-ai-battle.md) §4.
+
+Order-queue encoding, from `ChangeStance` and `ChangeCombatBehavior`:
+a stance change is queued as `ai_stance + 3` (codes **3–7**) and a combat
+behaviour change as `combatbehavior + 30`.
+
 
 ---
 
 ## Open questions
 
-- Complete `formation`, `movementmode`, `combatbehavior` and `currentterrain`.
-  All four index `GamePrefs` arrays, so **the array lengths in
-  `unitprefs.txt` bound each set** — reading the parser's loop counts would
-  give the sizes immediately, which is the cheapest way to finish them.
+- Complete `combatbehavior` and `currentterrain`. Both index `GamePrefs`
+  arrays, so **the array lengths in `unitprefs.txt` bound each set** — reading
+  the parser's loop counts would give the sizes immediately, which is the
+  cheapest way to finish them. `formation` and `movementmode` are now done
+  (see above); what is still missing for `formation` is the meaning of each
+  **stored** id for `unittyp <= 13`.
 - `overridesymbol` (echelon, compared against `supplytoplevelbf`).
 - ~~The perk catalogue per unit type~~ — **done**, see
   [19-commanders-and-perks](19-commanders-and-perks.md) §1. What remains is the
   prefab-authored `PerksShownGroup` / `PerksShownFleet` availability lists,
   which are scene data and need an asset dump.
-- The battle-result enumeration that `fametrigger[]`, `defamedtrigger[]` and
-  `famefactorleveladjustment[]` are indexed by.
 - Which policy maps to which support / national-morale reason code. The label
   tables name the policies, so this is mechanical; it belongs in the planned
   policy catalogue.
-- `unitstatustext[20..23]` (Screen / Defend / Attack / Assault) look like a
-  stance set distinct from the auto-resolve `usedstance` values. Worth
-  confirming they are separate.
 
 ### Resolved since first writing
 
@@ -427,3 +548,14 @@ infantry 0–7, cavalry 8–13, artillery 14–18.
   all 42 are hardcoded in `GameVars.supportdescr`.
 - ~~`encamped` / `entrenched` / `winterquarters` derivation.~~ **Resolved** —
   they are campaign unit statuses 12, 8 and 14 in `unitstatustextcamp[28]`.
+- ~~The battle-result enumeration that `fametrigger[]`, `defamedtrigger[]` and
+  `famefactorleveladjustment[]` are indexed by.~~ **Resolved** from the
+  `battleprefs.txt` comments — `fametrigger[]` and `defamedtrigger[]` are
+  **[minor victory, major victory, minor defeat, major defeat]**;
+  `famefactorleveladjustment[]` is **[brigade, division, corps, army]**. See
+  [21-ai-battle](21-ai-battle.md) §14.2.
+- ~~`unitstatustext[20..23]` (Screen / Defend / Attack / Assault) look like a
+  stance set distinct from the auto-resolve `usedstance` values.~~
+  **Confirmed separate** — they are `ai_stance` 1–4, a five-value enumeration
+  in the reverse order from `stance`. See the `ai_stance` section above.
+- ~~Complete `formation` and `movementmode`.~~ **Resolved** — sections above.

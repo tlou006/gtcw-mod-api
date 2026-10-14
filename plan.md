@@ -408,10 +408,23 @@ Suggested order — combat first, since it's what modders most want to change:
    `Random.Range(0, list.Count - 1)` against 36 correct ones, so the last
    candidate in a list is never chosen.
 
-   7b. **Battle AI** — `AIBattle` (5,458 lines) and `Config/aistrategies.dat`
-   (176 records keyed by named map locations). Partly pre-decoded: it runs
-   **three** controllers per battle, the third being the feud controller, and
-   most micro-AI guards are written in terms of `ai_feudstance`.
+   7b. **Battle AI ✅** — [21-ai-battle](findings/21-ai-battle.md),
+   [summary-ai-battle](findings/summary-ai-battle.md). `AIBattle` is **three
+   components on `GameController`**: the enemy AI, the **player's own
+   auto-pilot** (any formation you give a stance to), and the feud controller.
+   It runs two lanes on different clocks — a **game-time-gated macro lane**
+   (0.015 game hours) and a **frame-gated 30-slot micro task wheel**, so
+   fast-forwarding a battle starves the unit-level AI and leaves the
+   army-level AI untouched. There are **two stance enumerations in opposite
+   orders** (`stance`/`macroai` vs `ai_stance`). `Config/aistrategies.dat` is
+   176 records × 42 lines, keyed to **scene GameObject names** with an
+   **absolute battle-clock hour** per objective; a scripted chain is a
+   prologue that reverts to a **greedy nearest-objective** engine with no
+   value weighting. Two unlisted AI advantages: long AI moves **skip the order
+   delay**, and the AI **temporarily carves the navmesh** to route around
+   covered crossings. `FilterMap` turns out to be the engine-wide 2-D field
+   type, shared with the campaign zone map and **ten `Economy` maps** — which
+   closes the `UpdateFilterMaps` question in findings/18.
 
 **Method:** the `Get*Tooltip` / `Get*Details` methods are the shortcut. A game
 that shows the player "why" a number is what it is must *compute the
