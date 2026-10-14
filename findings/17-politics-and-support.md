@@ -455,10 +455,15 @@ Progress is tracked in static fields on the class itself:
 
 1. **`AddTradeWarfare(int type, float value)`** has its own accounting and
    feeds the `TradeWarfareSlider`. Belongs with the economy.
-2. **POW camps** (support reason 33, "Condition of enemy POW camps") — a
-   mechanic with its own condition value and an "overcrowded" message, not
-   examined. Note that commanders captured in melee become POWs
-   ([19](19-commanders-and-perks.md) §5.1), so the two systems meet.
-3. **Which policies map to which support/national-morale reason codes.** The
-   label tables name them, so this is mechanical to finish and belongs in the
-   planned policy catalogue.
+2. **POW camps** — ~~support reason 33~~ **resolved, and the answer is
+   negative:** nothing in the assembly ever writes reason code 33, so
+   "Condition of enemy POW camps" is a breakdown label with no mechanic behind
+   it ([22](22-policy-and-project-catalogue.md) §8.1). The camp's own condition
+   value and its "overcrowded" message are still unexamined, and commanders
+   captured in melee do become POWs ([19](19-commanders-and-perks.md) §5.1), so
+   there is a mechanic there — it just does not touch state support.
+3. ~~**Which policies map to which support/national-morale reason codes.**~~
+   **Done** — support codes 9–31 and national-morale codes 5 and 20–31 are
+   mapped to their writing policies in
+   [22](22-policy-and-project-catalogue.md) §8. Support code 9 and
+   national-morale code 32 turn out to have no writer at all.

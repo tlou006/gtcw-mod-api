@@ -175,10 +175,12 @@ uncovered**, returning an empty string for that band.
 
 ## Still open
 
-1. **Which policy maps to which reason code.** The labels name them, so this is
-   mechanical and belongs in the policy catalogue.
-2. **POW camps** — support reason 33, "Condition of enemy POW camps", with an
-   "overcrowded" message. Commanders captured in melee become POWs, so the two
-   systems meet.
+1. ~~**Which policy maps to which reason code.**~~ **Done** — see
+   [22-policy-and-project-catalogue](22-policy-and-project-catalogue.md) §8.
+   Support codes 9–31 and national-morale codes 5, 20–31 are the policy block;
+   support 9, support 33 and national morale 32 have no writer anywhere.
+2. **POW camps** — the camp condition value and its "overcrowded" message are
+   unexamined, but **support reason 33 is dead**: nothing writes it, so POW
+   camp conditions do not move state support.
 3. **`AddTradeWarfare(...)`** surfaces in the strategy UI and belongs with the
    economy.

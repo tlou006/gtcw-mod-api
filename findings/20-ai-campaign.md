@@ -569,7 +569,7 @@ Force-structure limits, all from `campaignprefs.txt`:
 | Pref | Value |
 | --- | --- |
 | new-army composition (inf / cav / art) | 0.65 / 0.10 / 0.25 |
-| max corps per army, pre-reform → post | **3 → 10** |
+| max corps per army, pre-reform → post | **3 → 10** (the reform is **project 90**, see [22](22-policy-and-project-catalogue.md) §12.4) |
 | max divisions per corps | 3 |
 | max brigades per division | 4 |
 | `minimumgroupstrengthformovement` | 5,000 men |
@@ -961,14 +961,20 @@ value.
    not followed. It is probably the AI's answer to "don't send the Army of the
    Potomac to Missouri".
 5. **`CheckArmyGroupManagement`** — pairs with the Army Group gap left open in
-   [19](19-commanders-and-perks.md).
-6. **`emergencyairecruitingtrigger`** is compared against a *count of states*,
-   so its units are states, not a ratio. Worth confirming the shipped value is
-   sensible at that scale.
-7. **`aipersonalities.dat` content** — only the ids, names and record layout
-   were read. The 20 pre-war policies, 80 policies and 100 weighted projects
-   per doctrine are the actual strategic agendas and belong in the planned
-   policy/project catalogue.
+   [19](19-commanders-and-perks.md). The *unlock* is now known: the
+   `allowarmygroups` flag plus project 88 or 89
+   ([22](22-policy-and-project-catalogue.md) §12.4).
+6. ~~**`emergencyairecruitingtrigger`**~~ **Resolved** — the config labels it
+   *"Trigger for launching low recruiting emergency AI, number of small
+   brigades, below"* and it ships **4**; `emergencyaicredittrigger` is **0.4**.
+   See [22](22-policy-and-project-catalogue.md) §13.2.
+7. ~~**`aipersonalities.dat` content**~~ **Done** — the pre-war picks, policy
+   queue heads, tax/subsidy focus and project-spending ratios for all twenty
+   doctrines are in [22](22-policy-and-project-catalogue.md) §13.1, along with
+   the finding that only the *Historical* doctrine differs between the sides and
+   that 17 of the 20 pre-war slots are never read. What is still unread is the
+   full 80-entry policy order and the 100 weighted project entries per
+   doctrine.
 8. **`iswithinfog`'s own derivation.** §3.1 shows the AI is exempt from
     concealment, but what sets `iswithinfog` on the campaign map (as opposed to
     the battle `FogOfWar` / `SpottedEnemy` components) was not traced. It

@@ -325,7 +325,7 @@ label tables hardcoded in the assembly. Full tables in
 
 | Array | Size | Labels |
 | --- | --- | --- |
-| `Nation.supportinfluence[10, 50]` | 10 alliances × 50 slots, 42 named | `GameVars.supportdescr[42]` — 23 of the live codes are policies |
+| `Nation.supportinfluence[10, 50]` | 10 alliances × 50 slots, 42 named | `GameVars.supportdescr[42]` — codes 9–31 are the policy block; see [22](22-policy-and-project-catalogue.md) §8.1 |
 | `Alliance.nationalmoraleinfluence[50]` | 50 slots, 35 named | `GameVars.Alliance.nationalmoraledescr[35]` — slots 13 and 15–19 are empty |
 
 Known support reason codes referenced elsewhere in these findings: **1** =
@@ -538,9 +538,6 @@ behaviour change as `combatbehavior + 30`.
   [19-commanders-and-perks](19-commanders-and-perks.md) §1. What remains is the
   prefab-authored `PerksShownGroup` / `PerksShownFleet` availability lists,
   which are scene data and need an asset dump.
-- Which policy maps to which support / national-morale reason code. The label
-  tables name the policies, so this is mechanical; it belongs in the planned
-  policy catalogue.
 
 ### Resolved since first writing
 
@@ -559,3 +556,10 @@ behaviour change as `combatbehavior + 30`.
   **Confirmed separate** — they are `ai_stance` 1–4, a five-value enumeration
   in the reverse order from `stance`. See the `ai_stance` section above.
 - ~~Complete `formation` and `movementmode`.~~ **Resolved** — sections above.
+- ~~Which policy maps to which support / national-morale reason code.~~
+  **Done** — [22-policy-and-project-catalogue](22-policy-and-project-catalogue.md)
+  §8 maps support codes 9–31 and national-morale codes 5 and 20–31 to their
+  writing policies, and 34–37 to projects 91–94. Three codes have labels and
+  **no writer anywhere**: support 9 ("Policy: Agriculture"), support 33
+  ("Condition of enemy POW camps") and national morale 32 ("Industrialization
+  (Policy)").

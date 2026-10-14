@@ -219,9 +219,10 @@ Two ModApi design constraints fall out:
    unwired feature alongside `cohesionbyfire`.
 2. **`bonusmalusexp`** parks promotion experience overflow and is never read
    back; the config says it decays over time and no decay exists.
-3. **Army Groups** bypass the whole appointment path
-   (`CheckArmyGroupPromotion`, `allowarmygroups`,
-   `minimumexpcommanderarmygroup`) and were not followed.
+3. **Army Groups** bypass the whole appointment path and were not followed —
+   though the unlock is now known: `AllowsArmyGroups()` needs the
+   `allowarmygroups` flag **plus project 88 or 89**
+   ([22](22-policy-and-project-catalogue.md) §12.4).
 4. **`campaignranking` has two producers with inverted semantics** — a packed
    6-digit key (higher is better) and a 1-based bucket ordinal (1 is best). The
    second is reachable only from the `Statistics` panel, and whether it can

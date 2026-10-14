@@ -367,7 +367,10 @@ Fleet row of `ranks.txt`.
 
 `Config/ranks.txt` holds four 19-entry tables — min and max rank per
 `unittyp`, pre- and post-organisation-reform — selected by
-`alliance.HasOrganizationReform()`. `MinMaxRanks.ImportMinMaxRanks` loads
+`alliance.HasOrganizationReform()`, which is **project 90** in a stock build
+(see [22-policy-and-project-catalogue](22-policy-and-project-catalogue.md)
+§12.4; project 89 is the variant for `commandhierarchyshift == -1` and is
+unreachable while the shift ships 0). `MinMaxRanks.ImportMinMaxRanks` loads
 `ranks<i>.txt` per alliance and falls back to `ranks.txt`:
 
 > Only `ranks0.txt` ships, so **alliance 0 (Union) has its own table and
@@ -696,6 +699,10 @@ if (alliance.ltgenpolicy)                   level = min(level, 18);
 else if (alliance.HasOrganizationReform())  level = min(level, 16);
 else                                        level = min(level, 15);
 ```
+
+> `HasOrganizationReform()` here is **project 90**, and `ltgenpolicy` is
+> **policy 42**, the Lieutenant General Act
+> ([22](22-policy-and-project-catalogue.md) §7.2, §12.4).
 
 > Before `ltgenpolicy`, the C-in-C's level-18 advantage is clamped away and he
 > competes on rank and experience like everyone else. **After it, he outranks
@@ -1066,8 +1073,12 @@ superior-influence factor.
    **Needs a runtime check to resolve**; it is the one finding in this file
    that static reading cannot settle.
 5. **`armygroupcols.dat` / `ArmyGroup` / `CheckArmyGroupPromotion`** — Army
-   Groups bypass `GetSuitableCommander` and have their own promotion path,
-   gated on `GameVars.allowarmygroups` and `minimumexpcommanderarmygroup`. Not
+   Groups bypass `GetSuitableCommander` and have their own promotion path. The
+   **gate is now known**: `Alliance.AllowsArmyGroups()` needs the alliance's
+   `allowarmygroups` flag **and** project 88 (Command Reform) or 89
+   (Organization Reform) — see
+   [22-policy-and-project-catalogue](22-policy-and-project-catalogue.md) §12.4.
+   The promotion path itself and `minimumexpcommanderarmygroup` were still not
    followed.
 6. **`Config/avatar.dat` and `Config/CommanderDummies/`** — the dummy name
    pools and the avatar/portrait system (`AvatarManagement`, 1,792 lines) were

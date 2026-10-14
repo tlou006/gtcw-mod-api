@@ -129,6 +129,12 @@ the evidence than in a central list.
 | --- | --- |
 | [21-ai-battle](21-ai-battle.md) | The three `AIBattle` instances and their two clocks; the 30-slot micro task wheel; the macro stance ladder; `ai_stance` as a second stance enumeration; objective chains, flanks and reserves; `aistrategies.dat`; navmesh carving and the order-delay bypass; `FilterMap` as the engine-wide 2-D field type; what a stance does to your own units |
 
+### Policies and projects — [summary](summary-policies-and-projects.md)
+
+| File | Contents |
+| --- | --- |
+| [22-policy-and-project-catalogue](22-policy-and-project-catalogue.md) | All 117 policies and 125 projects by id, with chapters, prerequisites and effects; the reset-and-replay effect contract; the five ladders and the ten dead pref arrays; support and national-morale reason codes mapped to their writers; the state-index table; the AI's policy queues and project lotteries |
+
 ## Planned
 
 Per `plan.md` Phase 2, one file per subsystem, in order: **combat ✅** →
@@ -139,13 +145,15 @@ support kept turning up as an input to everything else) → **economy ✅** →
 
 The AI turned out to be two subsystems rather than one, so the planned
 `20-ai.md` became [20-ai-campaign](20-ai-campaign.md) plus
-[21-ai-battle](21-ai-battle.md). **Phase 2 as planned is complete.** What
+[21-ai-battle](21-ai-battle.md). **Phase 2 as planned is complete**, and the
+policy and project catalogue it fed into is now written as
+[22-policy-and-project-catalogue](22-policy-and-project-catalogue.md). What
 remains:
 
-- `22-policy-and-project-catalogue.md` — id → effect for all 117 policy arms
-  and every project id, harvested from `Policies.UpdateAllTooltips` and
-  `Projects.GetProjectEffect`. Also needs to map each policy to its support and
-  national-morale reason code, which the label tables name, and to the
-  scene-object and state names some policies key off.
 - `23-game-state.md` — `GameVars.alliance[]` and `GameVars.nation[]` field
   maps: the state every effect writes to, and the ModApi's core data surface.
+- A `campaign-objectives` file. `CampaignObjective` writes support reason codes
+  7 and 8 and national-morale codes 6–12 and 14, gates chapter 3 and the
+  foreign-intervention script, and has no findings file yet. It surfaced as an
+  open question in [22](22-policy-and-project-catalogue.md) §16 and is the last
+  major campaign subsystem untouched.

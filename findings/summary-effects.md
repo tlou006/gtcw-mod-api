@@ -64,22 +64,34 @@ worth building.
 > **Can the ModApi register a policy by cloning an existing `Policy` at runtime
 > and rewriting its fields, or must modders ship prefabs?**
 
-Cloning would inherit working UI wiring — exactly the hard part — but depends
-on load order relative to `InitializeStatics` and on whether the registries are
-rebuilt per scene. Everything else in the effect-registration design depends on
-this answer, so it is the next thing to settle.
+Cloning would inherit working UI wiring — exactly the hard part.
 
-## The cheap documentation win
+**Largely answered** in
+[22-policy-and-project-catalogue](22-policy-and-project-catalogue.md) §15:
+`Policy.InitializeStatics()` is `public static` and rebuilds `allpolicies` from
+every `Policy` component under the `UI` GameObject, so a clone placed there and
+followed by that call should register. Three things still need a live build:
+whether the clone is found, whether `ButtonTooltipRef` and
+`markedasgrandpolicy` survive cloning, and what the panel does with a button it
+has no layout slot for. Note also that `InitializeStatics` runs
+`ImportPolicyData` immediately afterwards, which overwrites the clone's fields
+if `policies.dat` carries that id.
 
-Two methods map **id → meaning** directly, because they generate the
-player-facing effect text:
+## The cheap documentation win — half right
 
-- `Policies.UpdateAllTooltips(int activatedpolicies = -1)`
-- `Projects.GetProjectEffect(int id, float effect, float secondeffect = 0f)`
+Two methods looked like they map **id → meaning** directly, because they
+generate the player-facing effect text:
 
-Harvesting both yields a full catalogue of all 117 policy arms and every
-project id for a fraction of the cost of reading the switches. Planned as
-`22-policy-and-project-catalogue.md`.
+- `Projects.GetProjectEffect(int id, float effect, float secondeffect = 0f)` —
+  **yes.** It is the id → pref mapping for the 26 numeric-modifier projects.
+- `Policies.UpdateAllTooltips(int activatedpolicies = -1)` — **no.** It only
+  appends research-speed text; each policy's description is a prefab string and
+  its mechanics exist only inside `LaunchPolicyEffect`.
+
+So the policy half of the catalogue had to be read out of the 1,200-line switch
+after all. It is done:
+[22-policy-and-project-catalogue](22-policy-and-project-catalogue.md), with the
+correction recorded in its §3.1.
 
 ## A useful nuance
 

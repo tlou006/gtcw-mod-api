@@ -426,6 +426,23 @@ Suggested order — combat first, since it's what modders most want to change:
    type, shared with the campaign zone map and **ten `Economy` maps** — which
    closes the `UpdateFilterMaps` question in findings/18.
 
+8. **Policies and projects ✅** — [22-policy-and-project-catalogue](findings/22-policy-and-project-catalogue.md),
+   [summary-policies-and-projects](findings/summary-policies-and-projects.md).
+   Taken next because it was the last subsystem the ModApi's effect-registration
+   design was blocked on. **117 policies and 125 projects**, built two
+   completely different ways: a policy is a `MonoBehaviour` whose config file
+   only *overrides* it, while a project's config record *is* the project — and
+   56 project ids ship as `PLACEHOLDER`. `LaunchPolicyEffect` is **replayed
+   every tick** after a thirteen-field reset, which is the contract any hook
+   must honour. The five policy ladders each do exactly one thing, and
+   **ten pref arrays describing their further effects are parsed and never
+   read** — the single biggest "documented but absent" finding in the project
+   so far. Also resolved: support reason codes 9–31 and national-morale codes
+   5, 20–31 mapped to their writing policies (three codes have labels and no
+   writer); the 53-entry state-index table that decodes every hardcoded
+   `GameVars.nation[n]`; chapters 0–3 and the fact that **Militia Act I is the
+   act that starts the war**; and the twenty AI doctrines' actual agendas.
+
 **Method:** the `Get*Tooltip` / `Get*Details` methods are the shortcut. A game
 that shows the player "why" a number is what it is must *compute the
 breakdown*, so those methods enumerate the real contributing factors in one
@@ -670,17 +687,29 @@ GTCW.ModApi.Projects.Register("Repeating Rifles", effect => {
       Policy ids also carry a **`+100` offset convention** for the second side
       (`case 0: case 100:` → Union / Confederate instances of one policy), so a
       registered effect must handle both id blocks or key off `alliance`.
-- [ ] **Resolve the prefab question — now the gating unknown.** `Policy` is a
-      `MonoBehaviour` authored on prefabs, carrying UI references alongside its
-      data, with static registries built by `Policy.InitializeStatics`. Decide
-      whether the ModApi can register a policy by cloning an existing `Policy`
-      at runtime and rewriting its fields, or whether modders must ship a
-      prefab. This decides how far effect registration can actually reach.
-- [ ] Harvest `Policies.UpdateAllTooltips` and
-      `Projects.GetProjectEffect(int id, float effect, float secondeffect)`
-      into `findings/22-policy-and-project-catalogue.md`. These build the player-facing
-      effect strings, so they map id → meaning for free — the same trick as the
-      `Get*Tooltip` methods in Phase 2.
+- [x] **Resolve the prefab question — was the gating unknown.** Answered in
+      [22-policy-and-project-catalogue](findings/22-policy-and-project-catalogue.md)
+      §15. **Projects need no prefab at all**: `projects.dat` is the whole
+      definition and ids 20–29 and 42–87 ship as `PLACEHOLDER`. **Policies
+      cannot be added from config** — `policies.dat` only overrides ids the
+      scene already carries — but `Policy.InitializeStatics()` is
+      `public static` and rebuilds `allpolicies` from every `Policy` component
+      under the `UI` GameObject, so cloning a policy GameObject there and
+      calling that method is the registration route. Three things still need a
+      live build before the ModApi commits to a public policy-registration
+      surface: whether the clone is found, whether `ButtonTooltipRef` and
+      `markedasgrandpolicy` survive cloning, and what the panel does with a
+      button it has no layout slot for.
+- [x] Harvest the id → effect catalogue into
+      [findings/22-policy-and-project-catalogue.md](findings/22-policy-and-project-catalogue.md).
+      All 117 policies and 125 projects, with chapters, prerequisites,
+      reason codes, the state-index table and the AI agendas. One correction to
+      the plan: `Projects.GetProjectEffect` is a real rosetta stone, but
+      `Policies.UpdateAllTooltips` is **not** — it only appends research-speed
+      text, so the policy half had to be read out of the 1,200-line switch.
+      Also note the effect contract: `UpdatePolicyEffects` resets thirteen
+      fields and **replays every policy's effect each tick**, so a postfix must
+      either guard on `alreadyactivatedacts` or scale by `timediff`.
 
 ### Also worth investigating
 

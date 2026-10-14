@@ -95,7 +95,7 @@ All static, all hookable:
 | `DeactivatePolicyEffect(Policy, int alliance)` | The teardown mirror. **A registered effect needs a path here too**, or it will persist after the policy is removed. |
 | `UpdatePolicyEffects(int alliance, float timediff, bool startsetup)` | Recurring per-tick application, distinct from the one-shot launch. Registration needs both. |
 | `CanBeActivated(int alliance, Policy policy)` | Gating — the hook point for custom prerequisites. |
-| `UpdateAllTooltips(int activatedpolicies = -1)` | **The tooltip generator** — the authoritative description of what each policy claims to do. The cheapest route to documenting all 117 effects. |
+| `UpdateAllTooltips(int activatedpolicies = -1)` | Appends research-speed text to each policy's tooltip. **Not** an id → effect map — the description lives in the prefab's `Tooltip` field and the mechanics only in `LaunchPolicyEffect`. Corrected in [22](22-policy-and-project-catalogue.md) §3.1. |
 | `AddResearch` / `RemoveResearch` / `UpdatePolicyResearch` / `UpdateCounter` | Research progress plumbing. |
 | `UpdatePolicyResearch(int alliance, float timediff)` | Research advance per tick. |
 | `CheckAIPolicyChange(int alliance)` | How the AI chooses policies — a mod adding policies must teach the AI about them, or cede them to the player only. |
@@ -152,8 +152,10 @@ private string GetProjectEffect(int id, float effect, float secondeffect = 0f)
 
 Builds the human-readable effect string per project id. **This maps id →
 meaning directly**, and is the cheapest possible route to documenting every
-project — the same trick as the `Get*Tooltip` methods elsewhere, and the
-counterpart to `Policies.UpdateAllTooltips`.
+project — the same trick as the `Get*Tooltip` methods elsewhere. It has **no
+policy-side counterpart**: `Policies.UpdateAllTooltips` only appends research
+speed, so the policy catalogue had to be derived from `LaunchPolicyEffect`
+itself. See [22](22-policy-and-project-catalogue.md) §3.1 and §12.3.
 
 ### Other `Projects` members
 
@@ -166,11 +168,16 @@ counterpart to `Policies.UpdateAllTooltips`.
 
 ## Open questions
 
-1. **Can a policy be registered without shipping a prefab?** The gating
-   question above. Everything else in the design depends on the answer.
-2. **The id → effect table for all 117 policy arms and every project id.**
-   Harvest from `UpdateAllTooltips` and `GetProjectEffect`. Planned as
-   `22-policy-and-project-catalogue.md`.
+1. ~~**Can a policy be registered without shipping a prefab?**~~ **Answered** in
+   [22](22-policy-and-project-catalogue.md) §15: not from `policies.dat`, which
+   only overrides ids the scene already has — but `Policy.InitializeStatics()`
+   is `public static` and rebuilds `allpolicies` from the `Policy` components
+   under `UI`, so a runtime clone plus that call is the route. Projects need no
+   prefab at all, and 56 ids ship as `PLACEHOLDER`.
+2. ~~**The id → effect table for all 117 policy arms and every project id.**~~
+   **Done** — [22-policy-and-project-catalogue](22-policy-and-project-catalogue.md).
+   Note the harvest route in this file was half wrong: `GetProjectEffect` is a
+   real rosetta stone, `UpdateAllTooltips` is not.
 3. **Which effects are `GamePrefs`-backed vs. literal.** Defines the patching
    workload.
 4. **`GameVars.alliance[]` and `GameVars.nation[]` field maps** — the state
