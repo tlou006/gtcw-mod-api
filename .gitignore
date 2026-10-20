@@ -115,3 +115,9 @@ Thumbs.db
 desktop.ini
 $RECYCLE.BIN/
 .DS_Store
+
+# The official game manual, converted to markdown for cross-referencing.
+# The publisher's copyrighted document — cross-reference it, never commit it.
+# Findings drawn from it live in mechanics-findings/manual-vs-code.md.
+game-manual.*
+*Quick Guide*
