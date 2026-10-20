@@ -1,8 +1,13 @@
-# Findings
+# Code findings
 
-Research write-ups, one file per topic. This is the knowledge output of goal 1
-("collect information on game mechanics and behaviour") and the input to
-goal 2 (the hook library).
+Research write-ups, one file per topic, answering **what the code does**. This
+is the knowledge output of goal 1 ("collect information on game mechanics and
+behaviour") and the input to goal 2 (the hook library).
+
+Its companion is [`mechanics-findings/`](../mechanics-findings/README.md), which
+translates the same facts into **what they mean as gameplay**. Write the
+mechanism here; write the consequence for a player there, and source it back to
+the section here that supports it.
 
 ## Conventions
 
@@ -35,6 +40,11 @@ update. Decompiled output lives in `decompiled/`, which is gitignored.
 or when a different decompiler version is used; treat them as "roughly here",
 not as addresses. Record a new build in
 [00-build-provenance](00-build-provenance.md) when the game updates.
+
+**`findings/NN` in prose means a file in this folder.** The numbered series
+lives only here, so the older shorthand ("as findings/19 has it") still
+resolves unambiguously; `mechanics-findings/` files are named, not numbered, and
+are always referred to by name.
 
 **Keep open questions in the file they belong to.** Each one ends with an
 "Open questions" section — that is the backlog, and it is more useful next to
@@ -194,6 +204,11 @@ it belongs to:
   ([25](25-newspaper-and-events.md) §9).
 - **Phase 0 leftovers:** dnSpy, and `xl/vbaProject.bin` from the ModdingTool
   workbook.
+
+Running alongside all of it: **the mechanics translation layer**, now
+scaffolded as [`mechanics-findings/`](../mechanics-findings/README.md) with its
+conventions and a planned index. It does not need more decompiling — every
+planned file is backed by a file in here that already exists.
 
 After that, Phase 3 — the hook library itself — is the next body of work;
 `plan.md` has the design.

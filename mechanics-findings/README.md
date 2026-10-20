@@ -1,0 +1,80 @@
+# Mechanics findings
+
+How the code's behaviour translates into **gameplay**. This is the player- and
+designer-facing layer over [`code-findings/`](../code-findings/README.md), which
+is the code-facing one.
+
+The split exists because the two answer different questions:
+
+| Folder | Question it answers | Written for |
+| --- | --- | --- |
+| [`code-findings/`](../code-findings/README.md) | *What does the code do?* | Someone about to patch a method |
+| `mechanics-findings/` | *What does that mean at the table?* | Someone about to play a turn, or decide what is worth changing |
+
+A `code-findings` file says `fightingspirit` caps battle morale at
+`0.5 + support * 0.5`. A `mechanics-findings` file says: **if your state
+support is low, your troops fight as if permanently shaken, and no commander,
+drill or terrain can lift them out of it** — then points back at the code file
+for the formula.
+
+## Conventions
+
+**Every claim is sourced.** Each one cites the `code-findings` file and section
+it comes from, so a reader can always descend to the mechanism, and so nothing
+here drifts into folklore. A mechanics file is a *translation*, never an
+independent claim.
+
+**Tag the standing of every non-obvious claim:**
+
+| Tag | Meaning |
+| --- | --- |
+| **Derived** | Follows from the code. The default; cite the section. |
+| **Observed** | Seen in play. Say which build, scenario and date. |
+| **Untested** | Follows from the code but has a plausible failure mode a real game would expose — a prefab value, an unverified sprite, a path no shipped scenario reaches. Say what test would settle it. |
+
+Untagged prose is **Derived**. Keep **Untested** visible rather than rounding
+it up: a confident wrong number is worse here than in `code-findings`, because
+a player will act on it.
+
+**Speak in the player's units, not the engine's.** Real minutes, not frames.
+Men, not `strength` floats. Percentage points of support, not `[0, 1]`. Where
+the game's own UI shows a different number than the simulation uses, that gap
+is itself a finding.
+
+**Give the decision, not just the model.** The useful output of a mechanics
+write-up is what a player should *do* differently, and what a modder should
+consider *worth* changing. State it.
+
+**No decompiled source.** `code-findings` already holds the line at signatures
+and short snippets; this layer is prose, tables and numbers, so it has no
+reason to go near source at all.
+
+**Naming:** `<topic>.md`, kebab-case, named after the player's concern rather
+than the code's subsystem — `why-units-break.md`, not `13-morale.md`. These
+files are not a sequence, so they are not numbered; the code files are, and
+cross-folder links should name the file, not a number.
+
+## Index
+
+Nothing written yet. This README is the folder's contract; the first write-ups
+come next.
+
+## Planned
+
+Ordered by how much the code already decided, which is roughly how much value a
+translation adds. Each is backed by a `code-findings` file that already exists.
+
+| Topic | Translates | The gap worth closing |
+| --- | --- | --- |
+| `ui-vs-simulation.md` | all of them | Numbers the game **shows** that are not the numbers it **uses** — `meleestrength` is display-only, the support breakdown is NaN-poisoned, the battle newspaper's morale paragraph is a constant. The highest-value file in the folder, and the one a player cannot possibly derive from playing. |
+| `time-and-speed.md` | [10](../code-findings/10-simulation-tick.md) | What a game day costs in real minutes at each speed, what pausing actually stops, and which systems tick on the clock rather than the frame. |
+| `why-units-break.md` | [13](../code-findings/13-morale-and-cohesion.md), [12](../code-findings/12-melee.md) | Morale vs. cohesion as two different things the player confuses; the politics→battle cap; what rallying can and cannot recover. |
+| `what-kills-your-men.md` | [11](../code-findings/11-combat-resolution.md), [15](../code-findings/15-attrition-and-condition.md) | Combat is often not the largest column. Sickness, desertion and the wounded-recovery pipeline, in men per week. |
+| `supply-in-practice.md` | [14](../code-findings/14-supply-and-logistics.md) | What a depot is *for*, the 5% shortage cliff, and why an army can starve inside friendly territory. |
+| `the-manpower-tap.md` | [17](../code-findings/17-politics-and-support.md), [23](../code-findings/23-game-state.md) | State support as the thing that actually limits your army, the 42 reasons it moves, and which of them you control. |
+| `how-you-lose.md` | [17](../code-findings/17-politics-and-support.md), [24](../code-findings/24-campaign-objectives.md) | National morale as the real loss condition, the 1862 and 1864 elections, and the one loss condition that is simply a date. |
+| `policy-order.md` | [22](../code-findings/22-policy-and-project-catalogue.md), [9](../code-findings/09-policy-and-project-effects.md) | Which policies and projects are worth their cost, which ladders are abandoned dead ends, and the prerequisites the UI does not surface. |
+| `commanders-worth-having.md` | [19](../code-findings/19-commanders-and-perks.md) | Which perks touch the simulation and which are flavour; how promotion, fame and feuds actually resolve. |
+| `fighting-the-ai.md` | [20](../code-findings/20-ai-campaign.md), [21](../code-findings/21-ai-battle.md) | What the difficulty sliders change, the ten hardcoded cheats, and what an enemy stance commits the AI to — including what your *own* stance does to your units. |
+| `the-war-economy.md` | [18](../code-findings/18-economy.md) | Local markets and why prices differ by node, boolean production recipes, and the debt→rating→interest loop. |
+| `events-and-the-press.md` | [25](../code-findings/25-newspaper-and-events.md) | Which historical events can still fire from your start date, what gates the rest, and why eleven of them never will. |

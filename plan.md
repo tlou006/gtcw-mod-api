@@ -10,7 +10,7 @@
 
 The two goals feed each other: Goal 1 produces the map, Goal 2 turns the map
 into a stable surface other people can build on. Goal 1 output lives in
-`findings/`; Goal 2 output lives in `src/`.
+`code-findings/`; Goal 2 output lives in `src/`.
 
 ---
 
@@ -22,7 +22,7 @@ These facts set the strategy, and all of them are favorable:
 | --- | --- |
 | **Mono backend**, Unity 2021.3.16f1 | Managed CIL. Decompiles to near-source C#. No IL2CPP dumping, no Ghidra, no address math. |
 | **Not obfuscated** — 6,717 readable PascalCase identifiers, intact lambda names (`>b__887_0`) | Original type, method and field names survive. Comprehension is reading, not puzzle-solving. |
-| **Official ModdingTool** — 53 sheets, each declaring the `Config/` file it writes, with field schemas in its header rows | Modding is sanctioned, **and the data model is largely handed to us.** Most schemas no longer need reversing out of the game's parsers. [Details](findings/07-config-data-model.md). |
+| **Official ModdingTool** — 53 sheets, each declaring the `Config/` file it writes, with field schemas in its header rows | Modding is sanctioned, **and the data model is largely handed to us.** Most schemas no longer need reversing out of the game's parsers. [Details](code-findings/07-config-data-model.md). |
 | **Policy and project *effects* are hardcoded** — data files carry only descriptions, costs and prerequisites | **New policies/projects with real effects are impossible via data modding.** Only code patching reaches them, which makes this the hook library's headline capability. |
 | **Scenario overrides replace whole files**, with no field-level merge | Field-level additive overrides are genuinely new capability, not a reimplementation — and it explains why data mods conflict so badly today. |
 | **Prefs are scale-dependent**: weapon ranges tuned to map size, lethality to unit echelon | No weapon number means anything without stating its scale. Affects every combat note. |
@@ -67,7 +67,8 @@ realistic, not a multi-week slog.
       layout, and several stated limits on modding. Essential reading.
 - [x] **Inventory the ModdingTool workbook** — done, and it paid off: 53 sheets
       each declaring the config file they write, with field schemas in their
-      header rows. See [`findings/07-config-data-model.md`](findings/07-config-data-model.md).
+      header rows. See
+      [`code-findings/07-config-data-model.md`](code-findings/07-config-data-model.md).
 - [ ] **Extract `xl/vbaProject.bin` (218 KB, `Module1`).** The export macros
       are the developers' own serializer for every `Config/` file — field
       order included. VBA source is RLE-compressed per MS-OVBA, so this needs
@@ -91,7 +92,7 @@ realistic, not a multi-week slog.
 
 **Goal:** know what exists and where, before studying anything closely.
 
-Results are in [`findings/`](findings/README.md) — see [summary-architecture](findings/summary-architecture.md), [summary-data-layer](findings/summary-data-layer.md) and [summary-effects](findings/summary-effects.md).
+Results are in [`code-findings/`](code-findings/README.md) — see [summary-architecture](code-findings/summary-architecture.md), [summary-data-layer](code-findings/summary-data-layer.md) and [summary-effects](code-findings/summary-effects.md).
 
 - [x] Inventory types by size; identify the god-classes. Found: `Regiment`
       (28.5k lines) is the one the `b__887_0` lambda index pointed at, followed
@@ -128,7 +129,7 @@ Results are in [`findings/`](findings/README.md) — see [summary-architecture](
       point). The lifecycle hub is `SceneManagement`, whose static
       `Load*`/`Exit*`/`SaveAll` methods are the Phase 4 event surface.
 - [x] Find the per-frame tick loop proper. Done — see
-      [summary-simulation](findings/summary-simulation.md). **There is no fixed
+      [summary-simulation](code-findings/summary-simulation.md). **There is no fixed
       timestep**: 192 of 211 game types use `Update()`, only two use
       `FixedUpdate` and `Regiment.FixedUpdate` is an empty stub. The
       controllers' `Update` methods are **boot state machines** (~50 numbered
@@ -146,11 +147,11 @@ Results are in [`findings/`](findings/README.md) — see [summary-architecture](
 - [x] Find the save/load path. `ImportExportUnitData` — ~25 paired
       `Save*`/`Load*` methods, one per subsystem, plus the game's own
       `CheckFileIntegrity` and a float save-version file.
-- [x] Write up the findings — split across `findings/01`–`09` with three summaries.
+- [x] Write up the findings — split across `code-findings/01`–`09` with three summaries.
 
 **Exit criteria:** you can answer "where would I look to change X?" for any X.
 **Met.** ✅ Phase 1 complete — all nine items closed, results in
-[`findings/`](findings/README.md) across 11 detail files and four summaries.
+[`code-findings/`](code-findings/README.md) across 11 detail files and four summaries.
 
 Two items were closed by disproving their premise rather than by confirming
 it: the `C`-prefix convention does not exist, and there is no fixed timestep.
@@ -160,7 +161,7 @@ Both reframed later phases, which is what the breadth-first pass was for.
 
 ## Phase 2 — Document mechanics (Goal 1)
 
-**Goal:** `findings/` explains the simulation well enough to predict its behavior.
+**Goal:** `code-findings/` explains the simulation well enough to predict its behavior.
 
 Run two tracks in parallel, cheapest first:
 
@@ -181,7 +182,7 @@ early because they affect every downstream number:
 - ~~Which unit of each dual-unit pair is serialized (yd vs m, lb vs kg, ft/s vs
   m/s)? Guessing wrong misscales every ballistic value.~~ **Resolved, and the
   premise was wrong** — see
-  [11-combat-resolution](findings/11-combat-resolution.md) §2. **Both** units
+  [11-combat-resolution](code-findings/11-combat-resolution.md) §2. **Both** units
   are serialized as separate fields (`range_yd` *and* `range_m`), and the
   layers read different ones: the **battle** layer is metric, the **campaign,
   naval and UI** layers are imperial, and several imperial fields are parsed
@@ -202,23 +203,23 @@ Priority order, by how much mechanics they expose:
 | `historicalevents.dat` | 136 | Event scripting and triggers |
 | `campaignprefs.txt` | 125 | **Promoted.** The designated balance surface for hardcoded policy effects — likely a large table of tuning constants keyed to them |
 | `battleprefs.txt` | 41 | Battle tuning; **rescales with map size** (4×4 vs 8×8 miles) |
-| `commanders.txt` | 544 | **Schema decoded** — 1,906 historical officers, 66 lines each; see [19](findings/19-commanders-and-perks.md) §10. Perks live in three separate `Perk*Tooltips.txt` files, not here |
+| `commanders.txt` | 544 | **Schema decoded** — 1,906 historical officers, 66 lines each; see [19](code-findings/19-commanders-and-perks.md) §10. Perks live in three separate `Perk*Tooltips.txt` files, not here |
 | `projects.dat`, `buildingtypes.dat`, `resources.dat` | 59 | Economy model |
 
 > Document the **schema and the meaning**, with representative values to make
-> ranges clear. Don't bulk-copy these files into `findings/` — they're the
+> ranges clear. Don't bulk-copy these files into `code-findings/` — they're the
 > publisher's data, and `.gitignore` deliberately keeps them out of the repo.
 
 ### Track B — Code-driven mechanics (the real reversing)
 
-For each subsystem, write `findings/NN-<subsystem>.md` covering: inputs, the
+For each subsystem, write `code-findings/NN-<subsystem>.md` covering: inputs, the
 formula or algorithm, where the constants come from (hardcoded vs `Config/`),
 and the edge cases.
 
 Suggested order — combat first, since it's what modders most want to change:
 
 1. ✅ **Combat resolution** — done, see
-   [summary-combat](findings/summary-combat.md). **There are two independent
+   [summary-combat](code-findings/summary-combat.md). **There are two independent
    damage models**, and melee makes three: manual battles simulate real projectiles with ballistics
    and per-block hits; `Autocalc` computes casualties in closed form from a
    stance matrix and multiplicative stat influences. They share only
@@ -232,7 +233,7 @@ Suggested order — combat first, since it's what modders most want to change:
    indexed by **ammunition type** (solid shot / shell / canister), and
    auto-resolve reaches the same index via a stance-derived closeness band.
 2. ✅ **Morale and cohesion** — done, see
-   [summary-morale](findings/summary-morale.md). Two systems write one `[0,1]`
+   [summary-morale](code-findings/summary-morale.md). Two systems write one `[0,1]`
    value: 18 effect slots in battle, 14 in the campaign, each a **rate**
    applied inline and scaled by elapsed game time, over a continuous rally
    recovery. Losses (never gains) are amplified by a factor experience and
@@ -252,7 +253,7 @@ Suggested order — combat first, since it's what modders most want to change:
    computed and shown in the UI but **never applied** to morale. A modder
    tuning the cohesion values would see nothing happen.
 3. ✅ **Supply and logistics** — done, see
-   [summary-logistics](findings/summary-logistics.md). Two models again:
+   [summary-logistics](code-findings/summary-logistics.md). Two models again:
    battlefield supply is a **multiplicative chain up the command hierarchy to a
    map-edge `EntryPoint`**, cut by any enemy unit standing on the line (a real
    geometric raycast); campaign supply state is the **minimum** across the four
@@ -270,7 +271,7 @@ Suggested order — combat first, since it's what modders most want to change:
    completely** — `unitprefs.txt` declares all 19 types by name, which
    retroactively explains every `<= 13`, `== 5` and `{1,2,4}` guard across
    three subsystems. Collected that and six other sets in
-   [16-enumerations](findings/16-enumerations.md).
+   [16-enumerations](code-findings/16-enumerations.md).
 
    Two cross-layer couplings worth carrying into the economy and politics
    passes: **building hospitals makes the army fight better** (treating wounded
@@ -278,7 +279,7 @@ Suggested order — combat first, since it's what modders most want to change:
    logistics using the same `GetClosestDepotsAndTowns` lookup** the player's
    units use to find it.
 4. ✅ **Campaign economy** — done, see
-   [summary-economy](findings/summary-economy.md). Three layers. **`IIP` nodes**
+   [summary-economy](code-findings/summary-economy.md). Three layers. **`IIP` nodes**
    are a spatial network of local markets — nine node types, each with its own
    stock, prices, transport capacity and trade ledger, where IIPs, buildings,
    towns *and armies* all trade as counterparties. **`Resource`** gives goods a
@@ -306,7 +307,7 @@ Suggested order — combat first, since it's what modders most want to change:
    cannot receive these effects at all. Policy 30 shows the better pattern —
    membership of a `northernroutes` list.
 5. ✅ **Politics and prestige** — done out of order, see
-   [summary-politics](findings/summary-politics.md). Three variables, each with
+   [summary-politics](code-findings/summary-politics.md). Three variables, each with
    its own accounting array: **state support** (per state × alliance, 42
    hardcoded reason codes, 23 of them policies), **national morale** (per
    alliance, 35 codes, and the campaign-loss condition via
@@ -333,7 +334,7 @@ Suggested order — combat first, since it's what modders most want to change:
    A postfix recomputing it as `sign(amount) * sqrt(|amount|)` fixes a visible
    bug with zero balance impact.
 6. ✅ **Commanders and perks** — see
-   [summary-commanders](findings/summary-commanders.md). The perk blocker is
+   [summary-commanders](code-findings/summary-commanders.md). The perk blocker is
    gone: there are **three perk namespaces** (19 battle, 18 army campaign, 11
    fleet), selected by one line — `unittyp <= 13` gets **one** battle perk,
    anything higher gets **four** campaign or fleet perks. The id "collisions"
@@ -367,7 +368,7 @@ Suggested order — combat first, since it's what modders most want to change:
 7. **AI** — turned out to be two subsystems, so it gets two files.
 
    7a. ✅ **Campaign AI** — see
-   [summary-ai-campaign](findings/summary-ai-campaign.md). A **36-step job
+   [summary-ai-campaign](code-findings/summary-ai-campaign.md). A **36-step job
    machine per faction**, one step per call, over seven AI alliances; the same
    staggering idiom as the economy and the commander round-robin. Three spatial
    representations: strategic zones **read from a texture asset** on
@@ -408,8 +409,8 @@ Suggested order — combat first, since it's what modders most want to change:
    `Random.Range(0, list.Count - 1)` against 36 correct ones, so the last
    candidate in a list is never chosen.
 
-   7b. **Battle AI ✅** — [21-ai-battle](findings/21-ai-battle.md),
-   [summary-ai-battle](findings/summary-ai-battle.md). `AIBattle` is **three
+   7b. **Battle AI ✅** — [21-ai-battle](code-findings/21-ai-battle.md),
+   [summary-ai-battle](code-findings/summary-ai-battle.md). `AIBattle` is **three
    components on `GameController`**: the enemy AI, the **player's own
    auto-pilot** (any formation you give a stance to), and the feud controller.
    It runs two lanes on different clocks — a **game-time-gated macro lane**
@@ -424,10 +425,10 @@ Suggested order — combat first, since it's what modders most want to change:
    delay**, and the AI **temporarily carves the navmesh** to route around
    covered crossings. `FilterMap` turns out to be the engine-wide 2-D field
    type, shared with the campaign zone map and **ten `Economy` maps** — which
-   closes the `UpdateFilterMaps` question in findings/18.
+   closes the `UpdateFilterMaps` question in code-findings/18.
 
-8. **Policies and projects ✅** — [22-policy-and-project-catalogue](findings/22-policy-and-project-catalogue.md),
-   [summary-policies-and-projects](findings/summary-policies-and-projects.md).
+8. **Policies and projects ✅** — [22-policy-and-project-catalogue](code-findings/22-policy-and-project-catalogue.md),
+   [summary-policies-and-projects](code-findings/summary-policies-and-projects.md).
    Taken next because it was the last subsystem the ModApi's effect-registration
    design was blocked on. **117 policies and 125 projects**, built two
    completely different ways: a policy is a `MonoBehaviour` whose config file
@@ -444,8 +445,8 @@ Suggested order — combat first, since it's what modders most want to change:
    act that starts the war**; and the twenty AI doctrines' actual agendas.
 
 
-9. **Game state ✅** — [23-game-state](findings/23-game-state.md),
-   [summary-game-state](findings/summary-game-state.md). The state every effect
+9. **Game state ✅** — [23-game-state](code-findings/23-game-state.md),
+   [summary-game-state](code-findings/summary-game-state.md). The state every effect
    above writes to, and therefore the ModApi's core data surface:
    `GameVars.alliance[]` (8, 183 fields each) and `GameVars.nation[]`
    (52–54 depending on scenario, **never hardcode 53**). `nations.dat` has an
@@ -457,25 +458,26 @@ Suggested order — combat first, since it's what modders most want to change:
    whether a hook's write survives at all. Two of them make a direct write
    futile, which is the single most important fact for the ModApi's write path.
 
-10. **Campaign objectives ✅** — [24-campaign-objectives](findings/24-campaign-objectives.md),
-    [summary-campaign-objectives](findings/summary-campaign-objectives.md).
+10. **Campaign objectives ✅** — 
+    [24-campaign-objectives](code-findings/24-campaign-objectives.md),
+    [summary-campaign-objectives](code-findings/summary-campaign-objectives.md).
     Data-driven like projects, not prefab-authored like policies: **38 records,
     20 lines each**, and a new objective with a town list needs no code at all.
     Holds the campaign's end conditions — including the **1864 election**, the
     only loss condition in the game that is a date rather than a threshold —
-    and the half of the foreign-intervention trigger findings/20 could not
+    and the half of the foreign-intervention trigger code-findings/20 could not
     reach. Closes the last reason-code gaps: national morale 4–12 and 14,
     support 7, 8 and 41.
 
 11. **Newspaper and historical events ✅** —
-    [25-newspaper-and-events](findings/25-newspaper-and-events.md),
-    [summary-newspaper](findings/summary-newspaper.md). The game's one
+    [25-newspaper-and-events](code-findings/25-newspaper-and-events.md),
+    [summary-newspaper](code-findings/summary-newspaper.md). The game's one
     full-screen narrative channel: one queued panel with **four producers** —
     the 119-record `historicalevents.dat` catalogue, the policy records, the
     objective records, and a procedurally written battle report. Closes the
-    open question shared by findings/22 and findings/24. Pins `endbattle` and
+    open question shared by code-findings/22 and code-findings/24. Pins `endbattle` and
     `battleresulttype` (now in
-    [16-enumerations](findings/16-enumerations.md)), finds **eleven authored
+    [16-enumerations](code-findings/16-enumerations.md)), finds **eleven authored
     events no shipped campaign start can reach**, and finds that two prefs set
     two orders of magnitude out of range make the morale paragraph of every
     battle newspaper a constant string.
@@ -493,6 +495,35 @@ breakdown*, so those methods enumerate the real contributing factors in one
 place. Start every subsystem from its tooltip method and work outward.
 
 **Exit criteria per subsystem:** you could reimplement it from the note alone.
+
+---
+
+## Phase 2b — Translate the code into mechanics (Goal 1)
+
+**Goal:** `mechanics-findings/` explains the game well enough to play it
+better, and to tell a modder which numbers are worth touching.
+
+`code-findings/` is written to be searched by someone about to patch a method.
+It is the wrong artifact for the other two audiences this project has: a player
+who wants to know what the simulation rewards, and a modder deciding where to
+spend a hook. [`mechanics-findings/`](mechanics-findings/README.md) is that
+second layer — same facts, player's units, decisions stated.
+
+The translation is cheap because the hard part is done: every planned file is
+backed by a `code-findings` file that already exists. The conventions and the
+planned index are in [`mechanics-findings/README.md`](mechanics-findings/README.md).
+
+**Start with `ui-vs-simulation.md`** — the numbers the game *shows* that are not
+the numbers it *uses*. Three already found: `meleestrength` is display-only
+([12](code-findings/12-melee.md)), the support breakdown is NaN-poisoned
+([17](code-findings/17-politics-and-support.md)), and the battle newspaper's
+morale paragraph is a constant string ([25](code-findings/25-newspaper-and-events.md)).
+These are the findings a player cannot possibly reach by playing, which makes
+them the highest-value thing decompiling produced.
+
+**Exit criteria per file:** a reader who has never opened `code-findings/` can
+act on it, and every claim in it can be traced back to a section that supports
+it.
 
 ---
 
@@ -575,7 +606,7 @@ treat that boundary as inviolable.
 - [ ] Scaffold the three projects under `src/`, plus `samples/HelloWorldMod`.
 - [ ] Verify BepInEx loads against this build; get a log line out of the game.
 - [ ] Implement the **version gate**: on startup, hash `Assembly-CSharp.dll`
-      and compare against known-good hashes (`findings/00-build-provenance.md`).
+      and compare against known-good hashes (`code-findings/00-build-provenance.md`).
       Mismatch → loud warning, continue in degraded mode. Never hard-crash
       someone's game over a version bump.
 
@@ -665,7 +696,7 @@ absent, reassign the path to `Config/` — one path wins entirely
 (`loadcampaigncontrols`, `loadunitprefs`, `loadcontrols`). `loadcontrols` also
 forces the `Config/` fallback when `SceneManagement.currentoperation` is 3 or
 8, which is the mechanism behind the scale-dependent prefs finding in
-`findings/07-config-data-model.md`. So mod overrides add a layer the game lacks entirely, rather than
+`code-findings/07-config-data-model.md`. So mod overrides add a layer the game lacks entirely, rather than
 extending an existing merge:
 
 ```
@@ -732,7 +763,7 @@ GTCW.ModApi.Projects.Register("Repeating Rifles", effect => {
       (`case 0: case 100:` → Union / Confederate instances of one policy), so a
       registered effect must handle both id blocks or key off `alliance`.
 - [x] **Resolve the prefab question — was the gating unknown.** Answered in
-      [22-policy-and-project-catalogue](findings/22-policy-and-project-catalogue.md)
+      [22-policy-and-project-catalogue](code-findings/22-policy-and-project-catalogue.md)
       §15. **Projects need no prefab at all**: `projects.dat` is the whole
       definition and ids 20–29 and 42–87 ship as `PLACEHOLDER`. **Policies
       cannot be added from config** — `policies.dat` only overrides ids the
@@ -745,7 +776,7 @@ GTCW.ModApi.Projects.Register("Repeating Rifles", effect => {
       `markedasgrandpolicy` survive cloning, and what the panel does with a
       button it has no layout slot for.
 - [x] Harvest the id → effect catalogue into
-      [findings/22-policy-and-project-catalogue.md](findings/22-policy-and-project-catalogue.md).
+      [code-findings/22-policy-and-project-catalogue.md](code-findings/22-policy-and-project-catalogue.md).
       All 117 policies and 125 projects, with chapters, prerequisites,
       reason codes, the state-index table and the AI agendas. One correction to
       the plan: `Projects.GetProjectEffect` is a real rosetta stone, but
@@ -792,7 +823,7 @@ day analysis started. Mitigations, in order of value:
    which patches drifted. Turns "the mod is broken, somewhere" into a
    30-second diff — and it's the highest-leverage piece of tooling in this
    whole plan.
-3. **Keep every note tied to a build** via `findings/00-build-provenance.md`.
+3. **Keep every note tied to a build** via `code-findings/00-build-provenance.md`.
 4. **Version-gate at runtime**, degrade loudly rather than crashing.
 5. Prefer patching **stable, semantically-named** methods over volatile
    internals; avoid transpilers (IL-offset-fragile) where a prefix/postfix works.
@@ -877,7 +908,7 @@ concern to navigate. Remaining diligence:
 
 - Read the EULA's reverse-engineering and modding clauses before public
   release, and respect any distribution limits it sets.
-- Keep `findings/` descriptive: explain mechanisms and document schemas rather
+- Keep `code-findings/` descriptive: explain mechanisms and document schemas rather
   than pasting decompiled source. A note should be readable without the
   original code beside it.
 - The developers have been modding-friendly; engaging their community early is
@@ -890,6 +921,6 @@ concern to navigate. Remaining diligence:
 1. Read `Modding/ModdingTool Quick Guide.pdf` — may hand over the data model.
 2. Install .NET SDK + `ilspycmd`; export `decompiled/Assembly-CSharp`.
 3. Set Steam to update-on-launch only.
-4. Phase 1 namespace/type inventory → `findings/` (done).
+4. Phase 1 namespace/type inventory → `code-findings/` (done).
 5. Locate the `Config/` parsers — best single return on effort, since it
    unlocks both the data schemas (Goal 1) and the override system (Goal 2).

@@ -6,28 +6,30 @@ interoperability purposes.
 **Goals:** document the game's mechanics from its code, and ship a C# hook
 library so other modders can extend the game without reversing it themselves.
 See [`plan.md`](plan.md) for the phased approach, and
-[`findings/00-build-provenance.md`](findings/00-build-provenance.md) for which build
+[`code-findings/00-build-provenance.md`](code-findings/00-build-provenance.md) for which build
 the findings apply to.
 
 ### Findings so far
 
-Research write-ups live in [`findings/`](findings/README.md), split into
-detailed `NN-<topic>.md` files and `summary-<topic>.md` overviews. **Start with
-a summary:**
+Research is written up in two layers. [`code-findings/`](code-findings/README.md)
+answers *what the code does* — detailed `NN-<topic>.md` files with
+`summary-<topic>.md` overviews. [`mechanics-findings/`](mechanics-findings/README.md)
+answers *what that means at the table*, in the player's units rather than the
+engine's. **Start with a summary:**
 
 | Summary | Covers |
 | --- | --- |
-| [Architecture](findings/summary-architecture.md) | Game code vs. third-party, the god classes, scene wiring and lifecycle, version identification |
-| [Data layer](findings/summary-data-layer.md) | Config paths and override resolution, the exact file format, the `Config/` data model, the save/load surface |
-| [Effects](findings/summary-effects.md) | Policy and project effect dispatch — and why new ids can be injected |
-| [Simulation](findings/summary-simulation.md) | How the game is driven: the frame counter, the boot state machines, the four scheduling patterns |
-| [Combat](findings/summary-combat.md) | The three combat models, the weapon unit-system split, `firepower[3]`, accuracy, melee and casualty formulas |
-| [Morale](findings/summary-morale.md) | The morale slots and rally pipeline, `fightingspirit` as a politics→combat cap, cohesion, two unwired features |
-| [Logistics](findings/summary-logistics.md) | The two supply models, depots as economy buildings, the 5% shortage cliff, attrition, fatigue, training, and the enumerations reference |
-| [Politics](findings/summary-politics.md) | State support as the manpower tap, national morale and the loss condition, foreign intervention, and the broken support breakdown |
-| [Economy](findings/summary-economy.md) | `IIP` nodes as local markets, S-curve pricing, boolean production recipes, and the debt→rating→interest loop |
+| [Architecture](code-findings/summary-architecture.md) | Game code vs. third-party, the god classes, scene wiring and lifecycle, version identification |
+| [Data layer](code-findings/summary-data-layer.md) | Config paths and override resolution, the exact file format, the `Config/` data model, the save/load surface |
+| [Effects](code-findings/summary-effects.md) | Policy and project effect dispatch — and why new ids can be injected |
+| [Simulation](code-findings/summary-simulation.md) | How the game is driven: the frame counter, the boot state machines, the four scheduling patterns |
+| [Combat](code-findings/summary-combat.md) | The three combat models, the weapon unit-system split, `firepower[3]`, accuracy, melee and casualty formulas |
+| [Morale](code-findings/summary-morale.md) | The morale slots and rally pipeline, `fightingspirit` as a politics→combat cap, cohesion, two unwired features |
+| [Logistics](code-findings/summary-logistics.md) | The two supply models, depots as economy buildings, the 5% shortage cliff, attrition, fatigue, training, and the enumerations reference |
+| [Politics](code-findings/summary-politics.md) | State support as the manpower tap, national morale and the loss condition, foreign intervention, and the broken support breakdown |
+| [Economy](code-findings/summary-economy.md) | `IIP` nodes as local markets, S-curve pricing, boolean production recipes, and the debt→rating→interest loop |
 
-[`findings/00-build-provenance.md`](findings/00-build-provenance.md) records
+[`code-findings/00-build-provenance.md`](code-findings/00-build-provenance.md) records
 which build everything was written against.
 
 ## What lives in this repo
@@ -39,7 +41,8 @@ copyrighted by the publisher and are excluded by `.gitignore`.
 
 | Path | Tracked | Contents |
 | --- | --- | --- |
-| `findings/` | yes | Research write-ups: formats, structures, call graphs, behavior |
+| `code-findings/` | yes | Research write-ups: formats, structures, call graphs, behavior |
+| `mechanics-findings/` | yes | What that behavior means as gameplay, sourced back to `code-findings/` |
 | `scripts/` | yes | Parsers and analysis tooling written here |
 | `game/` | **no** (README only) | A copy of the game install — see `game/README.md` |
 | `decompiled/`, `extracted/` | no | Decompiler and asset-extractor output |
@@ -53,16 +56,17 @@ fresh clone still shows what belongs where.
 
 ```
 decompile-gtcw/
-├── findings/       # research write-ups, plus summary-*.md overviews
-├── scripts/        # analysis / parsing tooling
-├── tools/          # (ignored) IL2CPP dumpers, AssetRipper, dnSpy, ILSpy, ...
-├── game/           # (ignored) local copy of the game
-└── decompiled/     # (ignored) generated output
+├── code-findings/      # what the code does, plus summary-*.md overviews
+├── mechanics-findings/ # what that means as gameplay
+├── scripts/            # analysis / parsing tooling
+├── tools/              # (ignored) IL2CPP dumpers, AssetRipper, dnSpy, ILSpy, ...
+├── game/               # (ignored) local copy of the game
+└── decompiled/         # (ignored) generated output
 ```
 
 ## Setup
 
-Nothing to track here, but for reproducibility record in `findings/` which
+Nothing to track here, but for reproducibility record in `code-findings/` which
 tool versions you used:
 
 - The game build (version string, store, install date) under analysis
@@ -72,10 +76,12 @@ tool versions you used:
 
 1. Keep a pristine copy of the game install outside this repo, or in `game/`.
 2. Run dumpers/extractors into `decompiled/` or `extracted/`.
-3. Write what you *learned* into `findings/` — file formats, struct layouts,
+3. Write what you *learned* into `code-findings/` — file formats, struct layouts,
    protocol shapes, logic descriptions. Quote only the small snippets a note
    actually needs to make sense.
-4. Put any parser or reimplementation you write in `scripts/`.
+4. Translate it into `mechanics-findings/` once a subsystem is understood —
+   what the behavior means for a player, sourced back to the code file.
+5. Put any parser or reimplementation you write in `scripts/`.
 
 ## Scope
 
