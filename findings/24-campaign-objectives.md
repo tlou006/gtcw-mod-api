@@ -493,10 +493,18 @@ and therefore correct — but it is the reason the §1.2 hazard matters.
   two battle kinds; which index is which is unconfirmed.
 - **`Frontline2.FrontlineTextureDateToBeUsedFrom`** — the state-set cut-over
   dates are inspector data; an asset dump would close §8 completely.
-- **`Newspaper` and `historicalevents.dat`.** `LaunchNewspaperMessage` and the
+- ~~**`Newspaper` and `historicalevents.dat`.** `LaunchNewspaperMessage` and the
   `Headlines[5]`/`PictureID`/`HeadlinePicture` fields are one half of the
   newspaper system; findings/22's open question about `historicalevents.dat`
-  and its `policyid` is the other. They should be written up together.
+  and its `policyid` is the other. They should be written up together.~~
+  **Done** — [25-newspaper-and-events](25-newspaper-and-events.md). It confirms
+  this file's `Encoding.Default` finding by contrast: the event loader *does*
+  pass `Encoding.Default` and its data relies on it, so `campaignobjectives.dat`
+  is the exception. It also notes that the objective path has **no enemy
+  filter** (unlike the policy path's `ShowNewspaperMessageEnemy`) and always
+  datelines from the player's own capital, and that objectives 0 and 1 are the
+  only consumers of `Newspaper.IsNewspaperOpened()`, which they use to hold the
+  end of the campaign until the queue drains.
 - **`influenceprestige` and `DLC_WL.AdjustPrestige`** — the DLC prestige
   economy (also open in findings/22 as `CalculatePrestigeCost*`).
 - **`IsPositionWithinRangeOfTownObjective` and `IsPartOfObjective`** are public

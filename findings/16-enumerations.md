@@ -147,6 +147,62 @@ From consumption sites ([11-combat-resolution](11-combat-resolution.md) §6).
 
 ---
 
+## `endbattle` / `battleendtype` — complete
+
+`BattleUnits.endbattle`, exported as `BattleMonument.battleendtype`.
+`SetEndOfBattle(int action)` is the only writer and refuses to overwrite a
+settled value unless the current one is `< 0` or one of the transient states
+`{3, 4, 5, 8, 10, 12}`. **`action == 11` does not change `endbattle`** — it
+only sets `BattleController.quitbattlescene`.
+
+| # | Meaning |
+| --- | --- |
+| −1 | none / prompt dismissed |
+| 0 | enemy retreat timer expired while the enemy was below the victory trigger — **enemy routed** |
+| 1 | DLC career-panel outcome `LEFTFIELD0` |
+| 2 | **enemy** side withdraws or is annihilated |
+| 3 | player pressed **Retreat** — prompt stage |
+| 4 | player retreat confirmed during the end-of-day cycle |
+| 5 | player pressed **Surrender** — prompt stage, and the value that survives to export |
+| 6 | **AI surrenders** automatically (`casualtiesrateforsurrender` / `maxmoraleforsurrender`) |
+| 7 | **player** side withdraws or is annihilated |
+| 8 | the player's side fell below the victory trigger — retreat timer starts |
+| 9 | **never assigned** |
+| 10 | player pressed **Cease Fire** — prompt stage |
+| 11 | quit the battle scene (leaves `endbattle` untouched) |
+| 12 | a non-player AI side's retreat timer starts |
+| 13 | enemy retreat timer expired while the enemy was **not** below the trigger — **enemy withdraws in order** |
+
+3, 8, 10 and 12 are transient — `BattleUnits.Update` ~1595 excludes 3, 8 and 12
+from the end-of-battle pause; 8 and 3 resolve into 7 or 4, 12 into 0 or 13, and
+10 into −1 plus `triggerendofday`. The values that reach
+`ExportBattleResultData` are **0, 1, 2, 4, 5, 6, 7, 13** from a played battle
+and **0, 2, 7, 8** from a land autocalc; naval autocalc uses only **0** and
+**8**. See [25-newspaper-and-events](25-newspaper-and-events.md) §4.1.
+
+## `battleresulttype` — complete
+
+Always **from the player's point of view**, whichever side won.
+
+| # | Meaning |
+| --- | --- |
+| 0 | Victory |
+| 1 | Glorious victory |
+| 2 | Defeat |
+| 3 | Disaster |
+
+`BattleUnits.GetBattleResultType()` compares victory-point relations, promotes
+to 1 or 3 on a `casualtyratio` vs `losstriggersown` / `losstriggersenemy` test,
+then overrides: `endbattle ∈ {2, 13}` forces a win, `endbattle ∈ {4, 7}` forces
+a loss, `endbattle == 6` forces **1** (only the AI can reach 6).
+`Autocalc.FinishLandBattle` ignores that method and derives the type straight
+from its own `endbattle`: **2 → 0, 0 → 1, 7 → 2, 8 → 3**.
+
+Values **5 and 6 are never produced**, but `BattleMonument.GetNewspaperImageID`
+tests for them — see [25](25-newspaper-and-events.md) §5.6.
+
+---
+
 ## `usedstance` (auto-resolve) — complete
 
 From the force-balance thresholds in `Autocalc.CalculateStance`

@@ -797,10 +797,16 @@ activated on timers `timeofarrivallateexpeditionary` and
 > ids. A mod cannot add a foreign power, add intervention to a new scenario, or
 > rename any of those units.
 
-Withdrawal: when `CheckPullback` returns 1 for all four of a power's units, it
-makes peace and the opposing alliance's intervention level toward it is
+Withdrawal: when `CheckPullback` returns 1 for **every** one of a power's
+units, it makes peace, the opposing alliance's intervention level toward it is
 adjusted by **−100** (the "impossible" level from
-[17](17-politics-and-support.md)). `CheckPullback` has a copy-paste slip — the
+[17](17-politics-and-support.md)), the units are deleted and a newspaper fires.
+The unit set and the count differ per power — scenario `001` checks **France 3**
+(`EuropeanUnits[0]`, `[4]`, `[8]` → event **7**), **Britain 4**
+(`[2]`, `[7]`, `[3]`, `[6]` → event **8**) and **Spain 2**
+(`[1]`, `[5]` → event **9**), with shorter two-unit variants for scenario
+`002`. Spain's branch is `leveltoload == "001"` only, so **if Spain intervenes
+in scenario `002` it can never withdraw.** `CheckPullback` has a copy-paste slip — the
 army branch divides by `EuropeanUnits[2].grouplosses` regardless of which unit
 is being tested, so French and Spanish pullback thresholds are computed against
 the Army of Canada's losses.

@@ -195,6 +195,36 @@ called with UniStorm's day/month directly.
 The derivation also hardcodes the epoch (`- 1860`) and carries a
 `GameVars.debugmonthadjustment` offset.
 
+### How fast a game day actually is
+
+`GameVars.SetGameSpeed` is also where real time meets game time, and it is one
+line:
+
+```
+uniStormSystem.dayLength = uniStormSystem.nightLength
+    = GamePrefs.battledaylengthinmins / gamespeed;
+```
+
+`battledaylengthinmins = 120` (`battleprefs.txt`, *"Day Length in Realtime
+Minutes (calculated out of a day of 6-18h)"*), and it is set for **both** day
+and night, so one full game day is **`240 / gamespeed` real minutes**. There is
+no campaign override — battle and campaign share the one pref.
+
+The speed ladders are hardcoded in `GameVars`:
+`gamespeedbattles = {1, 2, 5, 20}` and `gamespeedcampaigns = {1, 5, 20, 50}`,
+and `SetGameSpeed` clamps to `GamePrefs.mingamespeed` (**0.1**) and to the
+**array tail** — 20 in battle, 50 in the campaign. So the shortest game day is
+**4.8 real minutes** at campaign speed 50.
+
+> **`GamePrefs.maxgamespeed` has no consumer anywhere in the assembly.** The
+> config file exposes *"Maximum Gamespeed 10"* and nothing reads it; the real
+> ceiling is the array tail. Raising the cap is a code change, not a data one.
+
+That arithmetic is what makes
+[25-newspaper-and-events](25-newspaper-and-events.md) §2.4 safe: the historical
+event catalogue is swept one record per frame, and 119 records inside 288
+seconds needs only 0.41 fps.
+
 ## Finding 6 — the deferred-work queue is a 16-id dispatch
 
 `SceneManagement.batchoperation` is a `List<BatchOperation>` drained by

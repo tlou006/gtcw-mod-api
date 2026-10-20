@@ -1140,10 +1140,20 @@ A deterministic sibling, `AIPersonality.GetNextProject`, scores by
    4–12 and 14, support 7, 8 and 41), including the three sites for support
    code 8 that §8.1 here inferred: objective 14 → state 39, 15 → state 14,
    16 → state 22, each a **snap up to a 0.75 floor** rather than an increment.
-8. `historicalevents.dat` records carry a `policyid`
+8. ~~`historicalevents.dat` records carry a `policyid`
    (`Newspaper.cs:196`), so the newspaper is policy-driven. The event catalogue
    — including ids 115–118 used by the AI emergencies and the chapter events
-   0–3 — is unmapped.
+   0–3 — is unmapped.~~ **Done** —
+   [25-newspaper-and-events](25-newspaper-and-events.md) maps all 119 records,
+   the fifteen gating policies (8, 25, 33, 34, 36, 39, 71, 76, 78, 143, 144,
+   170, 174, 175, 178) and every script-launched id. Two notes for this file:
+   the gate calls `Policy.GetStatusByPolicyID` with its alliance argument
+   **defaulted**, so it reduces to `researchprogress >= 1f` on the shared
+   policy object and is alliance-agnostic; and the emergency path at
+   `Policies` ~1842 is one of the four call sites that pass
+   `includeactsinresearch` / `includegrandpolicies` to
+   `GetActivatedPolicies`, which [23](23-game-state.md) §7.6 found ignores
+   both.
 9. `DLC_WL.CalculatePrestigeCostPolicy` / `…Project` — the career-mode
    currency replaces subsidies and research entirely. DLC-only, so low
    priority.

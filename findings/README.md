@@ -147,6 +147,12 @@ the evidence than in a central list.
 | --- | --- |
 | [24-campaign-objectives](24-campaign-objectives.md) | All 38 objectives by id with chapters, dates, prerequisites and prestige; the 1862 and 1864 elections, and the only loss condition in the game that is a date; the other half of the intervention trigger; national-morale codes 4–12/14 and support codes 7/8/41 mapped to their writing objectives; how objectives choose the map state set |
 
+### Newspaper and events — [summary](summary-newspaper.md)
+
+| File | Contents |
+| --- | --- |
+| [25-newspaper-and-events](25-newspaper-and-events.md) | The newspaper panel, its queue and its four producers; all 119 `historicalevents.dat` records with dates, images and the fifteen gating policies; the index-cursor scan and the game-day arithmetic that makes it safe; the eleven events no shipped campaign can reach; `endbattle` and `battleresulttype`; the procedural battle report and the two prefs that make its morale paragraph a constant |
+
 ## Planned
 
 Per `plan.md` Phase 2, one file per subsystem, in order: **combat ✅** →
@@ -162,29 +168,30 @@ policy and project catalogue it fed into is now written as
 [22-policy-and-project-catalogue](22-policy-and-project-catalogue.md), and the
 state those effects write to as
 [23-game-state](23-game-state.md), and the last untouched campaign subsystem as
-[24-campaign-objectives](24-campaign-objectives.md).
+[24-campaign-objectives](24-campaign-objectives.md). The narrative channel both
+of those left open is now
+[25-newspaper-and-events](25-newspaper-and-events.md).
 
 **Every major campaign and battle subsystem now has a findings file.** What
 remains is narrower, and each item is recorded as an open question in the file
 it belongs to:
 
-- **The newspaper and historical-event system.** `Newspaper`,
-  `historicalevents.dat` and its `policyid`, and the
-  `Headlines[5]`/`PictureID`/`HeadlinePicture` half of
-  [24](24-campaign-objectives.md). Open in both
-  [22](22-policy-and-project-catalogue.md) and
-  [24](24-campaign-objectives.md); they belong in one write-up.
+- **`Messages`**, the small on-screen dispatch channel — 1,633 lines, ~45 typed
+  ids, text assembled in code rather than authored. Split out of
+  [25](25-newspaper-and-events.md), which covers the newspaper itself.
 - **The DLC layer.** `DLC_WL` is 7,932 lines and every other file defers to it:
   the prestige economy, incidents, staff, companions, the entirely DLC-gated
-  `CheckCurrentOrderUpdate` of [21](21-ai-battle.md) §14, and the
+  `CheckCurrentOrderUpdate` of [21](21-ai-battle.md) §14, the
   defensive-facing subsystem that [21](21-ai-battle.md) found is gated off in
-  the base game.
+  the base game, and the `Diary` channel, whose `config/diary.dat` is absent
+  from this install ([25](25-newspaper-and-events.md) §3.3).
 - **An asset dump.** Several questions now need one rather than more
   decompiling: the policy panel hierarchy
   ([22](22-policy-and-project-catalogue.md) §16),
   `Frontline2.FrontlineTextureDateToBeUsedFrom`
   ([24](24-campaign-objectives.md) §12), `PerksShownGroup`/`PerksShownFleet`
-  ([19](19-commanders-and-perks.md)).
+  ([19](19-commanders-and-perks.md)), and the `UI/Newspaper` sprite set
+  ([25](25-newspaper-and-events.md) §9).
 - **Phase 0 leftovers:** dnSpy, and `xl/vbaProject.bin` from the ModdingTool
   workbook.
 

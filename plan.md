@@ -467,11 +467,25 @@ Suggested order — combat first, since it's what modders most want to change:
     reach. Closes the last reason-code gaps: national morale 4–12 and 14,
     support 7, 8 and 41.
 
+11. **Newspaper and historical events ✅** —
+    [25-newspaper-and-events](findings/25-newspaper-and-events.md),
+    [summary-newspaper](findings/summary-newspaper.md). The game's one
+    full-screen narrative channel: one queued panel with **four producers** —
+    the 119-record `historicalevents.dat` catalogue, the policy records, the
+    objective records, and a procedurally written battle report. Closes the
+    open question shared by findings/22 and findings/24. Pins `endbattle` and
+    `battleresulttype` (now in
+    [16-enumerations](findings/16-enumerations.md)), finds **eleven authored
+    events no shipped campaign start can reach**, and finds that two prefs set
+    two orders of magnitude out of range make the morale paragraph of every
+    battle newspaper a constant string.
+
 **Phase 2 is complete.** Every major campaign and battle subsystem has a
-findings file. What remains before Phase 3 is narrower and recorded as open
-questions in the files themselves: the newspaper / `historicalevents.dat`
-system, the 7,932-line `DLC_WL` layer, and a handful of questions that now need
-a Unity asset dump rather than more decompiling.
+findings file, and so does the narrative channel on top of them. What remains
+before Phase 3 is narrower and recorded as open questions in the files
+themselves: the `Messages` dispatch channel, the 7,932-line `DLC_WL` layer, and
+a handful of questions that now need a Unity asset dump rather than more
+decompiling.
 
 **Method:** the `Get*Tooltip` / `Get*Details` methods are the shortcut. A game
 that shows the player "why" a number is what it is must *compute the
