@@ -853,7 +853,7 @@ This is where most of the interesting projects live. All take the shape
 | 95 | Administration Reform | `project_administrationreformpolicyspeed` | 0.05 | `Policies` research rate (§3.1) |
 | 96 | Subsidize Banks | `project_subsidizebanks` | 0.05 | `Alliance.GetFundingImprovementThroughBanks`, `Economy` workforce |
 | 97 | Improve Credit Rating | `project_creditrating` | **−1** | `Economy` — `FloorToInt(level × −1)` **rating notches**, not a factor |
-| 98 | Market Reform | `project_marketeffects` | 0.05 | `Economy` market buildings |
+| 98 | Market Reform | `project_marketeffects` | 0.05 | **no live consumer** — see below |
 | 99 | Infrastructure Reform | `project_infrastructure` | 0.05 | `IIP` transport capacity |
 | 100 | Logistics Reforms | `project_logisticsreform` | **−0.05** | `CBuilding`, `Regiment`, `GameVars` — supply and transport upkeep |
 | 104 | Subsidize Industry | `project_subsidizeindustry` | 0.05 | `CBuilding` productivity |
@@ -874,6 +874,34 @@ Shipped one-time pref values: `project_propagandainfl` 0.01,
 `project_counterpropaganda` −0.01, `project_occupationadministration` 0.01,
 `project_suppresspopulation` −0.01, `project_sendenvoysinterventionlevel` 0.05,
 `project_cottonisking` 0.025, `project_cornisking` 0.025.
+
+> **Project 98 Market Reform has no effect.** In `Economy.UpdateFilterMaps`
+> (~1610) the market-capacity paint reads the project level and its pref and
+> **discards both**:
+>
+> ```csharp
+> if (BuildingType == CBuilding.id_market && constructiontimer <= 0f) {
+>     _ = 1f;
+>     GameVars.alliance[…].GetProjectLevel(98);   // bare expression, discarded
+>     _ = GamePrefs.project_marketeffects;        // discarded
+>     marketcapacity.Paint(pos, GamePrefs.marketinfluenceoninfastructure[level], …);
+>     transportbottlenecks.Paint(pos, 0f - GamePrefs.marketinfluenceoninfastructure[level], …);
+> }
+> ```
+>
+> `GetProjectLevel(98)` has **exactly one occurrence in the assembly** — that
+> one — and `project_marketeffects` has two: the discard and
+> `Projects.GetProjectEffect` (~745), which generates the panel description. So
+> the project is advertised and inert. The Market *building* works; only the
+> project that claims to improve it does not.
+>
+> **A sweep over every `project_*` pref** for a consumer outside `GamePrefs`
+> and the description generator finds `project_marketeffects` is the **only**
+> one whose sole remaining use is a discarded statement. The other inert
+> effects found so far — **114** entirely and **113**'s production half
+> ([18](18-economy.md) §3) — fail differently, inside a condition that cannot
+> be true, which no mechanical sweep catches. A reachability audit of the
+> remaining ~120 project effects is still outstanding.
 
 ### 12.4 Pull — boolean, via `projects.Contains(id)`
 

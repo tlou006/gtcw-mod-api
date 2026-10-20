@@ -195,17 +195,121 @@ and a player would want to know:
 
 ---
 
-## 6. Open questions
+## 6. The policy appendix is exact
 
-1. **The rest of the manual.** This pass covered the economy chapters. The
-   combat, morale, supply, commander and politics chapters are unchecked, and
-   the two appendices — **policies** and **projects** — are directly
-   comparable against [22](../code-findings/22-policy-and-project-catalogue.md),
-   which is the obvious next cross-check and likely the richest.
-2. **Whether the doubled Locomotive and Transport Ship costs were a deliberate
+Appendix A gives numbers for the pre-war policies, and **every one of them
+matches the shipped data.** Checked against `campaignprefs.txt`:
+
+| Policy | The manual says | The data holds |
+| --- | --- | --- |
+| Underground Railroad | slave workforce −10 %, then −5 % a year | `-0.10`, `-0.05` |
+| Kansas a Free State | Kansas +25, all free states +5 | `0.25`, `0.05` |
+| Go West! | support +25, population +20 %, trail capacity **doubled** | `0.25`, `1.20`, `2.0` |
+| Support Abolitionism | Southern support in Union states −10 | `-0.10` |
+| Security Measures | CSA ships and weapons −50 %, CSA morale −5 | `0.5`, `0.5`, `-0.05` |
+| Industrialization | population +20 %, morale −5 | `1.2`, `-0.05` |
+| Indian Wars | military experience Union and CSA +5, Union morale +5 | `0.05`, `0.05`, `0.05` (CSA morale `0.0`) |
+| Union Pacific Railroad | credit rating **+2**, railroad capacity and construction speed +25 % | `-2` notches, `1.25`, `1.25` |
+
+Ten numeric claims, ten matches. The support values are quoted out of 100 and
+stored as [0,1] fractions, which is the only translation needed.
+
+The Union Pacific entry incidentally confirms the sign convention: the manual's
+*"credit rating + 2"* is the data's `-2`, and the config label spells it out —
+*"notches; minus = improvement"*. A **higher notch number is worse**
+([the-war-economy](the-war-economy.md) §6).
+
+**One nuance the manual leaves out.** It describes the Underground Railroad as
+reducing *"Initial slave workforce for CSA"*. The code applies both reductions
+to **both alliances** (`for (int i = 0; i < 2; i++)`). That is mostly inert for
+the Union, whose states largely have `slaveryallowed = false` — but it is not
+inert in the **border states and in captured Confederate territory**, where a
+Union-owned farm or mine does draw on slave labour. So a Union player's own
+Underground Railroad quietly erodes the slave labour of the ground they take.
+It reads as deliberate rather than as a slip, but it is not what the appendix
+says.
+
+## 7. Project 98 Market Reform does nothing at all
+
+Appendix B is written qualitatively — *"Each level of this project will further
+increase …"* — so it cannot be checked number against number. Two entries can
+be checked as statements, and one of them fails.
+
+**Improve Credit Rating** — *"will further increase the national credit rating
+with one step"* — is exactly right: `project_creditrating` is **−1**, applied
+as `FloorToInt(level × −1)` notches.
+
+**Market Reform** is dead. In the market-capacity paint, the project level and
+its pref are both read and **thrown away**:
+
+```csharp
+if (BuildingType == CBuilding.id_market && constructiontimer <= 0f)
+{
+    _ = 1f;
+    GameVars.alliance[…].GetProjectLevel(98);     // result discarded
+    _ = GamePrefs.project_marketeffects;          // discarded
+    marketcapacity.Paint(pos, GamePrefs.marketinfluenceoninfastructure[level], …);
+    transportbottlenecks.Paint(pos, 0f - GamePrefs.marketinfluenceoninfastructure[level], …);
+}
+```
+
+The paint uses only the market building's own level. `GetProjectLevel(98)` has
+**exactly one occurrence in the whole assembly** — that discarded one — and
+`project_marketeffects` has two: the discard, and the project panel's own
+description generator. So **the project is advertised and has no effect.**
+
+> **What to do with this:** do not research Market Reform. Build Markets
+> instead — `marketinfluenceoninfastructure[level]` is real, and raises market
+> capacity while reducing transport bottlenecks. The project that claims to
+> make Markets better is the part that does nothing.
+
+That is the **third** project effect found inert, after **114 Plantation
+Mechanization** (no effect at all) and the production half of **113 Farm
+Mechanization** — see
+[production-and-workforce](production-and-workforce.md) §3.
+
+**A sweep bounds the problem.** Checking every `project_*` pref for a consumer
+outside `GamePrefs` and the description generator: `project_marketeffects` is
+the **only** one whose sole remaining use is a discarded statement. Every other
+project pref reaches live code. The 113/114 failure is a different shape — a
+pref used inside a condition that can never be true — and that kind cannot be
+swept mechanically, so a project-by-project audit of the *reachability* of each
+effect is still outstanding.
+
+## 8. One word wrong about banks
+
+Appendix B on **Subsidize Banks**: *"National banks can further increase the
+available capital in the region, increasing private wealth and lowering
+construction costs of companies."*
+
+Available capital does raise private wealth
+([production-and-workforce](production-and-workforce.md) §8) and it does lower
+a building's costs — but the function it enters is `GetMaintainanceCosts`,
+operating on `fixedcosts[]`, the **running** cost per level.
+`GetConstructionCost` does not take capital as an argument at all.
+
+> **What to do with this:** banks make your industry cheaper to *run*, not
+> cheaper to *build*. Building a bank to cheapen a construction project will
+> not work. (Capital does raise the probability that a company is founded
+> nearby, by up to ×1.5 — so the manual's instinct is half right, by a
+> different route.)
+
+---
+
+## 9. Open questions
+
+1. **The rest of the manual.** This pass covered the economy chapters and both
+   appendices. The **combat, morale, supply, commander and politics** chapters
+   are unchecked, and on the evidence so far they are worth checking: the
+   policy numbers were exact, the production recipes were not.
+2. **A reachability audit of every project effect.** §7's sweep rules out any
+   further *discarded* prefs, but not the 113/114 shape — a live-looking use
+   inside a condition that cannot be true. Three of roughly 125 project
+   effects have now been found inert by hand; the remainder are unaudited.
+3. **Whether the doubled Locomotive and Transport Ship costs were a deliberate
    rebalance.** The 2× pattern is too clean to be coincidence, but the manual
    is at version 1.13 and the build is unversioned
    ([04](../code-findings/04-version-identification.md)), so the order of
    events is not recoverable from here. Worth asking the developers.
-3. **`maxpricebonusresource`** gates the bonus multipliers in §2 and its
+4. **`maxpricebonusresource`** gates the bonus multipliers in §2 and its
    shipped value was not read.
