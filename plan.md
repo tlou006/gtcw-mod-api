@@ -555,6 +555,38 @@ planned index are in [`mechanics-findings/README.md`](mechanics-findings/README.
    calendar's `-1`-means-no-modifier sentinel, and the production
    specialisation bonus, all with shipped numbers.
 
+3. **[`production-and-workforce.md`](mechanics-findings/production-and-workforce.md) ✅**
+   — the supply side, written to close the workforce hole item 2 left. Needed
+   more new tracing than item 2 did, and it closed
+   [18](code-findings/18-economy.md)'s largest open question:
+
+   - **the labour map is a 32×32 byte field** painted `+√population` by towns
+     and `−√workers × 5` by buildings, one cell each, with one blur pass;
+     a level-4 plantation (−1.10) outweighs a city of 100,000 (+0.63);
+   - **slave labour bypasses the map entirely** — the `1 × slaveRatio` term is
+     unconditional — while the building's *drain* ignores slavery, so a
+     plantation depresses its neighbours at full strength and is itself exempt;
+   - **recruitment costs five workers a man, permanently**: the recruited count
+     is only decremented by a disband, and only by the survivors, so the
+     killed, the deserted and a disbanded unit's wounded never come back;
+   - **fertility is applied squared** (the cache and the sample are both
+     multiplied in), so 0.8 land yields 0.64;
+   - **the foundation probability's subsidy term is dead** (`num5 ≡ 0f`) and its
+     corporate-tax term reads the **slider**, not the effective rate, paying
+     +35 % from turn one — which **corrects item 2's advice** about zeroing that
+     slider;
+   - **mines and ports never auto-found or auto-upgrade** (`aiplacement` is
+     false), every productive building is funded from just the Agriculture and
+     Industry subsidy categories and waits for full funding, and **private
+     construction, recruitment and weapon orders all switch off together at
+     notch 15 (CCC+)**;
+   - and the loop back: slack labour is read as **unemployment** and cuts
+     private wealth 1.6 → 0.9, while population growth runs inversely to it.
+
+   Also fixed: an errant `perl -0777` with a wide character re-encoded
+   `the-war-economy.md` as Latin-1 mid-session; reverted from the previous
+   commit and the two edits redone with byte-safe splices.
+
 **Next:** `time-and-speed.md`, then `why-units-break.md`; the full planned
 index is in
 [`mechanics-findings/README.md`](mechanics-findings/README.md).

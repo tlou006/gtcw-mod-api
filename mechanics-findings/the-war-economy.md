@@ -198,6 +198,11 @@ project 121.
 
 ## 3. Where goods come from
 
+> **The full supply side — the labour map that limits every building, slavery,
+> what recruitment costs your industry, fertility, and where new companies come
+> from — is in [production-and-workforce](production-and-workforce.md).** This
+> section covers only what each building makes and how to point it.
+
 Production is per-building. Each building type makes a fixed set of goods, and
 you choose how to split its effort between them.
 
@@ -399,12 +404,18 @@ zero** — the cap is not consulted. Every alliance starts with all five
 sliders at maximum. So from the first day you pay a **25 % administration
 surcharge for five taxes, two of which are collecting nothing at all.**
 
-> **What to do with this:** before the Revenue Acts, set the income and
-> corporate tax sliders to **zero**. You lose no revenue — their caps are zero,
-> so they were producing nothing — and you cut 10 percentage points off the
-> administration multiplier. For a 22-million-population Union that is on the
-> order of **$6 million a year** for two slider drags. Put them back up when
-> the Revenue Acts pass.
+> **What to do with this:** before the Revenue Acts, set the **income** tax
+> slider to **zero**. You lose no revenue — its cap is zero, so it was
+> producing nothing — and you cut 5 percentage points off the administration
+> multiplier. For a 22-million-population Union that is on the order of
+> **$3 million a year** for one slider drag. Put it back up when the Revenue
+> Acts pass.
+>
+> **Do *not* do the same to the corporate slider.** It looks like the identical
+> case, and it is not: the company-foundation probability reads that slider
+> directly and pays **+35 % industrial growth** for it, regardless of the cap.
+> See [production-and-workforce](production-and-workforce.md) §7. Leave it at
+> maximum and accept the 5 %.
 >
 > *(Derived from the code. The one thing it assumes is that the slider's
 > minimum is zero rather than some small positive value — worth confirming in
@@ -585,28 +596,35 @@ The decisions this file supports, in rough order of value:
 
 1. **Pass the Revenue Acts.** They unlock the two biggest tax bases in the
    game, and corporate tax needs Revenue Act III specifically.
-2. **Zero the income and corporate tax sliders until those Acts pass** (§5).
-   Free money, two clicks.
-3. **Switch off subsidy categories you are not relying on** — 5 % of
-   administration cost each.
-4. **Be strict with the 1861 budget and relaxed with the 1864 one** (§6). The
+2. **Zero the income tax slider until those Acts pass** (§5) — free money.
+   **Leave the corporate slider at maximum**: it buys +35 % industrial growth
+   ([production-and-workforce](production-and-workforce.md) §7).
+3. **Fund the Agriculture and Industry subsidy sliders.** They are the
+   construction budget for every productive building in the game
+   ([production-and-workforce](production-and-workforce.md) §7).
+4. **Switch off the other subsidy categories** if you are not relying on
+   them — 5 % of administration cost each.
+5. **Be strict with the 1861 budget and relaxed with the 1864 one** (§6). The
    credit leash loosens 5× after the first year and the interest base floors
    out from late 1863.
-5. **Specialise production by region** (§3) and let trade move it. ~14 % more
+6. **Specialise production by region** (§3) and let trade move it. ~14 % more
    output from a focused factory, and the trade model rewards sharp price gaps
    over diffuse ones.
-6. **Build depots early and behind the front**, not at it (§8).
-7. **Stock food in the autumn.** 70 % of the crop arrives September–November
+7. **Build depots early and behind the front**, not at it (§8).
+8. **Stock food in the autumn.** 70 % of the crop arrives September–November
    and nothing at all arrives December–May (§3). August is the month a raid on
    farmland costs the enemy most.
-8. **Keep December in mind for cavalry and artillery** — the only month forage
+9. **Keep December in mind for cavalry and artillery** — the only month forage
    production stops.
-9. **Upgrade bottleneck ports and bridges** rather than adding capacity where
-   it is already adequate; capacity is averaged across each connection's two
-   ends (§2).
-10. **Do not research project 114**, and research 113 only for its recruitment
+10. **Upgrade bottleneck ports and bridges** rather than adding capacity where
+    it is already adequate; capacity is averaged across each connection's two
+    ends (§2).
+11. **Do not research project 114**, and research 113 only for its recruitment
     half (§3).
-11. **Read regional shortages at 15–20 % price, not at 50 %** (§1).
+12. **Read regional shortages at 15–20 % price, not at 50 %** (§1).
+13. **The labour map limits every building you own**, and it is the other half
+    of this story — see
+    [production-and-workforce](production-and-workforce.md).
 
 ---
 
