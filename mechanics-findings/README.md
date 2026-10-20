@@ -11,11 +11,12 @@ The split exists because the two answer different questions:
 | [`code-findings/`](../code-findings/README.md) | *What does the code do?* | Someone about to patch a method |
 | `mechanics-findings/` | *What does that mean at the table?* | Someone about to play a turn, or decide what is worth changing |
 
-A `code-findings` file says `fightingspirit` caps battle morale at
-`0.5 + support * 0.5`. A `mechanics-findings` file says: **if your state
-support is low, your troops fight as if permanently shaken, and no commander,
-drill or terrain can lift them out of it** — then points back at the code file
-for the formula.
+A `code-findings` file says `fightingspirit` is seeded from
+`nation[state].support[alliance]`, shaped by commander attributes, and applied
+as a hard ceiling on `morale`. A `mechanics-findings` file says: **political
+support in a unit's home state sets the highest morale that unit can ever
+reach, and no commander, drill or terrain lifts it past that** — then points
+back at the code file for the pipeline.
 
 ## Conventions
 
@@ -56,8 +57,9 @@ cross-folder links should name the file, not a number.
 
 ## Index
 
-Nothing written yet. This README is the folder's contract; the first write-ups
-come next.
+| File | Contents |
+| --- | --- |
+| [What the game shows you, and what it actually does](ui-vs-simulation.md) | The numbers and words the interface gets wrong: melee strength as a HUD-only stat, the attrition morale penalty shown but never applied, the permanently empty support-loss list, the strategic assessment computed from its own sliders, the perk tooltip's phantom gating, the newspaper's constant morale verdict, cavalry status labels, the cosmetic president — plus the config knobs that do nothing, and a verified list of what the interface gets right |
 
 ## Planned
 
@@ -66,7 +68,6 @@ translation adds. Each is backed by a `code-findings` file that already exists.
 
 | Topic | Translates | The gap worth closing |
 | --- | --- | --- |
-| `ui-vs-simulation.md` | all of them | Numbers the game **shows** that are not the numbers it **uses** — `meleestrength` is display-only, the support breakdown is NaN-poisoned, the battle newspaper's morale paragraph is a constant. The highest-value file in the folder, and the one a player cannot possibly derive from playing. |
 | `time-and-speed.md` | [10](../code-findings/10-simulation-tick.md) | What a game day costs in real minutes at each speed, what pausing actually stops, and which systems tick on the clock rather than the frame. |
 | `why-units-break.md` | [13](../code-findings/13-morale-and-cohesion.md), [12](../code-findings/12-melee.md) | Morale vs. cohesion as two different things the player confuses; the politics→battle cap; what rallying can and cannot recover. |
 | `what-kills-your-men.md` | [11](../code-findings/11-combat-resolution.md), [15](../code-findings/15-attrition-and-condition.md) | Combat is often not the largest column. Sickness, desertion and the wounded-recovery pipeline, in men per week. |

@@ -1,0 +1,346 @@
+# What the game shows you, and what it actually does
+
+**Build:** see [00-build-provenance](../code-findings/00-build-provenance.md)
+**Translates:** [12](../code-findings/12-melee.md),
+[13](../code-findings/13-morale-and-cohesion.md),
+[16](../code-findings/16-enumerations.md),
+[17](../code-findings/17-politics-and-support.md),
+[19](../code-findings/19-commanders-and-perks.md),
+[21](../code-findings/21-ai-battle.md),
+[25](../code-findings/25-newspaper-and-events.md)
+
+Every number in this game has two lives: the one the simulation computes with,
+and the one the interface prints. Usually they are the same number. This file
+is about the places where they are not.
+
+It is first in this folder because it is the one thing decompiling gives you
+that **no amount of play can**. A player can feel out casualty rates and learn
+which policies pay. They cannot discover that a stat in the unit panel is
+computed by a different formula than the one resolving the fight, because the
+only evidence would be a mismatch they have no way to see.
+
+Read it as a list of things not to trust, not as a list of things that are
+broken. Most of the interface is honest — §4 is as long as §1 for a reason.
+
+---
+
+## 1. Numbers you are shown that the simulation does not use
+
+### 1.1 Melee strength is a HUD number
+
+The unit panel's melee strength has **exactly one consumer in the whole game:
+the line that draws it.** Melee is resolved by a different function that reads
+the raw weapon value and applies experience, fatigue, cohesion and formation
+as *differences between the two units*, where the displayed figure applies them
+as *multipliers on yours alone*.
+
+The two correlate, so the stat is not useless. But three things are visible in
+it that do not reach a single casualty:
+
+- **the mounted melee multiplier** — so cavalry's displayed melee strength is
+  inflated relative to its melee performance
+- **Spirited charge (perk 4)** and **Cold steel (perk 9)** melee factors — both
+  perks do help in melee, but through *morale* and through experience gain, not
+  through the casualty formula
+- **Close support (perk 14)**'s melee factor, which has **no effect anywhere
+  outside the display**. Perk 14 is a real perk — it raises weapon strength and
+  reload speed — but not melee.
+
+And two things the resolution uses are **absent** from the display: the
+cavalry-versus-formation bonus, and the speed shock of an actual charge.
+
+> **What to do with this:** compare melee strength between two of *your own*
+> infantry units in the same formation and it tells you something. Use it to
+> predict a melee, especially cavalry against infantry, and it will mislead
+> you. Charge momentum and the formation you catch the enemy in matter more
+> than the number suggests.
+
+Source: [12](../code-findings/12-melee.md) §3.
+
+### 1.2 The high-attrition morale penalty is shown but never applied
+
+When a formation's sick plus missing reaches **40 %** of strength, the army
+panel's morale breakdown reports a penalty of **−9.0 per year**, which the
+panel renders as roughly **−17.3 % per week** — the second-largest entry in
+the whole breakdown, behind only losing your commander.
+
+The simulation never subtracts it. Campaign morale slots 6, 7 and 9 each end
+with a line that applies them to morale. Slot 8 — high attrition — is
+computed, stored for display, and then the apply line is simply missing
+between slot 7's and slot 9's.
+
+> **What to do with this:** a worn-down army is less fragile than the panel
+> claims. The attrition itself still costs you men, condition and combat
+> power — but not the morale collapse the breakdown is predicting. Do not pull
+> a formation out of the line on the strength of that one row.
+
+The figure shown is averaged across the formation's brigades, so a corps with
+one battered division in four shows about a quarter of the full penalty.
+
+Source: [13](../code-findings/13-morale-and-cohesion.md) §9b; verified directly
+in `Regiment.UpdateMoraleCampaign` and `CampaignArmyPanel` for this write-up.
+
+### 1.3 The "what is hurting our support" list is always empty
+
+State support is the tap your manpower comes out of, and the game tracks
+**42 distinct reasons** it moves. The panel that breaks those reasons down has
+two halves: what is helping, and what is hurting.
+
+**The hurting half returns an empty string in every possible game.** The
+recent-change tracker it filters on is written as the square root of the
+change, and the square root of a negative number is `NaN` — so the one path
+that could ever put a reason in the "hurting" list is the same path that makes
+the value unreadable. The guard meant to catch it tests `x == NaN`, which is
+false for every value in C# including `NaN` itself, so nothing clears it.
+
+> **What to do with this:** you cannot ask the game why support is falling.
+> Work from the list of causes instead —
+> [17](../code-findings/17-politics-and-support.md) §2 has all 42 with their
+> sources, until `the-manpower-tap.md` is written.
+
+A second, quieter consequence: once a reason has *ever* cost you support in a
+state, that reason's running total stops being reset, so the "helping" half
+drifts out of date too.
+
+Source: [17](../code-findings/17-politics-and-support.md) §2.
+
+### 1.4 The strategic assessment is computed from the UI, not from the game
+
+This one is backwards from everything else here. The *"we hold a commanding
+position"* / *"evenly matched"* verdict is not derived from the campaign model.
+It is derived from **the ten slider widgets on the strategy panel**, by
+averaging their displayed values and then blending toward national morale as
+the war polarises.
+
+So the assessment cannot disagree with what it shows you, by construction. But
+it has two consequences worth knowing:
+
+- Anything reading it without the strategy panel loaded gets whatever the
+  sliders last displayed. That is a real hazard for a mod, and the clearest
+  case in the game of the simulation depending on its own interface.
+- **One band is missing.** The verdict chain tests up to `5/6`, then resumes at
+  `11/12`, so a balance between **0.833 and 0.917** matches nothing and the
+  assessment comes back **blank**. If the strategic verdict is ever empty, you
+  are in that gap — slightly ahead, and the game has no sentence for it.
+
+Source: [17](../code-findings/17-politics-and-support.md) §6.
+
+---
+
+## 2. Things the game tells you in words that are not true
+
+### 2.1 The perk tooltip describes a system that does not exist
+
+The in-game tooltip says *"the amount of available perks is limited for each
+nation, depending on its policies and technologies."*
+
+**No such gating exists.** The function that would enforce it returns `true`
+unconditionally and is **never called**. What limits which perks you see is a
+fixed list authored into the UI prefab — the same list in every campaign, for
+both sides, regardless of policy or technology.
+
+> **What to do with this:** do not research anything expecting to unlock perks,
+> and do not read a missing perk as "not yet available to my nation." It is
+> either on the prefab list or it is not.
+
+Source: [19](../code-findings/19-commanders-and-perks.md) §1.6.
+
+### 2.2 Every battle newspaper reaches the same verdict on morale
+
+The newspaper after a battle writes its home-front paragraph by comparing the
+battle's national-morale effect against two thresholds. Those thresholds ship
+at **−1.0** and **−2.0**. The value they are compared against tops out around
+**−0.026** for a 30,000-casualty bloodbath, on a scale that runs 0 to 1.
+
+They are two orders of magnitude out of range, so the comparison has the same
+answer after every battle ever fought. Headline four is always *"Support for
+the … cause wavers."* The closing paragraph always has *"the public unmoved by
+the recent events."* The authored alternatives — including an entire register
+about a public *"in shock after the licking"* — are unreachable.
+
+> **What to do with this:** the newspaper's morale language carries **no
+> information**. It is the same sentence after a skirmish and after Antietam.
+> Judge the political cost of a battle from the national morale figure itself.
+
+**For modders this is a two-number fix in a data file** — and it is a trap.
+Correcting the thresholds alone makes things worse, because the paragraph reads
+the *player's* morale effect while narrating the *enemy's* home front, and the
+exporter zeroes the winner's entry. Fix the index and the thresholds together
+or not at all; the details are in
+[25](../code-findings/25-newspaper-and-events.md) §5.5.
+
+### 2.3 Your cavalry's status line does not say what you ordered
+
+Order a foot unit to advance and its status reads **"Advancing."** Order
+cavalry to advance and the game quietly remaps the order, and the status reads
+**"Marching"** — the same word as an ordinary move, with the same
+"Running" / "Double Quick" variants. Order cavalry to fall back and it reads
+**"Retreating"** rather than "Falling back." The status label table was never
+extended to cover the remap.
+
+The first of those matters more than a wording quibble, because the mode
+cavalry lands in **is the state a unit charges from**. A unit in it will pick
+the nearest enemy in range, weigh the strength ratio, and launch a charge on
+its own.
+
+> **What to do with this:** *advance* is a more committal order for cavalry
+> than for infantry — closer to "attack what you find" than "move up" — and
+> the unit panel will not distinguish it from a march. If you want cavalry to
+> reposition without charging, move it rather than advancing it.
+
+Source: [16](../code-findings/16-enumerations.md), `movementmode`; the charge
+promotion is `Regiment.UpdateChargeTarget`,
+[21](../code-findings/21-ai-battle.md) §12.1.
+
+### 2.4 The president is scenery
+
+The game shows you a president, with a name, a title, an inauguration date and
+a portrait, and it runs elections in 1862 and 1864 as campaign objectives.
+
+**Nothing mechanical reads who the president is.** The value is recomputed from
+a date table whenever it is needed, the scenario loader accepts a
+"chosen president" argument and never looks at it, and the elections — which
+are real, and do move national morale — do not change the office holder.
+
+> **What to do with this:** elections matter; presidents do not. Play the
+> election for its morale swing, not for who wins it.
+
+Source: [19](../code-findings/19-commanders-and-perks.md) §8.
+
+---
+
+## 3. Knobs that are exposed and do nothing
+
+Each of these is labelled in a config file the game ships for players to edit,
+and reaches nothing.
+
+| Where | Label | Status |
+| --- | --- | --- |
+| `debug.txt` | "Use AI defensive fallbacks if outflanked" — ships **on** | The only function reading it is **never called**. The AI has no outflanked-fallback behaviour. |
+| `unitprefs.txt` | "Cohesion increase by enemy infantry fire" (0.001) | Parsed, never read. |
+| `unitprefs.txt` | "Cohesion increase by enemy artillery fire" (0.01) | Parsed, never read. |
+| `unitprefs.txt` | "Cohesion increase by enemy cavalry shock" (0.15) | Parsed, never read. |
+| `battleprefs.txt` | "Maximum Gamespeed" (10) | **No consumer anywhere.** The real ceilings are hardcoded: ×20 in battle, ×50 in the campaign. |
+| `aistrategies.dat` | night-retreat trigger (0.275) | Computed and discarded on the two paths that would use it. |
+| commander prefs | subordinate command limit | No consumer — and the config is honest about it, marking the pref `[deactivated]`. |
+
+The first four add up to one missing feature: **enemy fire does not disrupt
+your formations.** The accumulator those three values would feed has no
+increment path anywhere in the game — only the decay half is wired, so it sits
+at zero forever. Cavalry shock still hits morale and melee; it just never
+touches cohesion. Three config labels name infantry fire, artillery fire and
+cavalry shock as disrupting a formation, and none of them do.
+
+> **For players:** formations do not come apart under fire in this build.
+> Cohesion loss comes from movement, charging and terrain.
+>
+> **For modders:** tuning those three numbers produces no effect, and the
+> natural conclusion — "wrong file" — is wrong. This is the single clearest
+> justification for the project.
+
+Sources: [21](../code-findings/21-ai-battle.md) §12.4 and §15,
+[13](../code-findings/13-morale-and-cohesion.md) §9a,
+[10](../code-findings/10-simulation-tick.md),
+[19](../code-findings/19-commanders-and-perks.md) §2.5.
+
+**One real setting behaves worse than it reads.** The options checkbox for
+newspaper messages is checked *inside* the function that queues a paper, so
+turning newspapers off **discards** them rather than suppressing the panel.
+Papers skipped that way are gone, including ones that would have reported a
+battle you fought ([25](../code-findings/25-newspaper-and-events.md) §1.5).
+
+---
+
+## 4. What is honest
+
+A list of discrepancies reads worse than the game deserves, so:
+
+**Every gameplay setting in the in-game options panel is wired.** All eleven
+checkboxes and sliders that touch the simulation — interventions, commander
+initiative, continuous objective points, pause after battle, remain paused,
+HQ in the saddle, downsized large battles, uniform variations, battle hints,
+historical fonts, tooltips — reach a real consumer in the simulation or the
+renderer. **The dead switches are all in the config files, not the UI.**
+*(Swept across the whole assembly for this write-up.)*
+
+**The weapon stats the UI shows are consistent with the ones the battle uses.**
+The game stores every weapon measurement twice, imperial and metric, and the
+layers disagree about which to read: **a land battle uses `range_m`, and every
+number you are shown uses `range_yd`** — along with the AI's weapon valuation,
+the economy's pricing and naval engagement ranges. Nothing in the code keeps
+the pair in sync.
+
+In the shipped data they are in sync **exactly**. All 87 weapons check out to
+the last digit, on all eight imperial/metric pairs:
+
+| Pair | Weapons with a value | Out of sync |
+| --- | --- | --- |
+| `range_yd` / `range_m` | 87 | 0 |
+| `velocity_fts` / `velocity_ms` | 52 | 0 |
+| `penetrationinch` / `penetrationmm` | 52 | 0 |
+| `tubeweight_lb` / `tubeweight_kg` | 54 | 0 |
+| `projectileweight_lb` / `projectileweight_kg` | 52 | 0 |
+| `weight_lb` / `weight_kg` | 33 | 0 |
+| `length_inch` / `length_mtrs` | 33 | 0 |
+| `weight_powder_lb` / `weight_powder_kg` | 87 | 0 — but see below |
+
+*(Checked against the shipped `Config/weapons.txt` for this write-up.)*
+
+So **the displayed range of a weapon is the range it shoots at.** The hazard is
+created only by editing: change `range_yd` and you change what the AI thinks
+the weapon is worth, what it costs, how far ships engage and what the UI
+says — and **not** how far a brigade shoots. Change `range_m` and you change
+only the shooting. A weapon mod that touches one and not the other produces
+exactly the gap this file is about.
+
+> `weight_powder_kg` is consistent too, but it is **misnamed**: its values are
+> exactly 453.6 × the pound figure, so the field holds **grams**. Harmless, as
+> [11](../code-findings/11-combat-resolution.md) §2 found both powder fields
+> are barely read — but a modder editing "kg" will be out by a factor of 1000.
+
+**Two places the interface goes out of its way to be straight with you.** The
+first-battle morale cap is stored into the morale breakdown specifically so the
+panel can explain it, and the army panel surfaces the political cap on morale
+as *"Morale is capped by the fighting spirit"* — the game telling you,
+accurately, that political support in a unit's home state limits how well it
+can fight.
+
+Sources: [11](../code-findings/11-combat-resolution.md) §2,
+[13](../code-findings/13-morale-and-cohesion.md) §5.
+
+---
+
+## 5. For modders: two label traps
+
+Neither is player-facing, but both will bite a tool that reports game state.
+
+**"Stance" is two different enumerations, numbered in opposite directions.**
+Formation stance runs `none, screen, defend, attack, assault` (0–4) and is what
+the UI shows; the AI's own `macroai` runs `assault, attack, defend, retreat`
+(0–3). A single integer called "stance" means nothing until you know which one
+it is — and reading the wrong one shows *assault* where the game means *screen*
+([21](../code-findings/21-ai-battle.md) §4).
+
+**"Cohesion" is inverted between the code and the config labels.** In code,
+`cohesion = 1` is perfect order. The config labels use "cohesion" to mean
+*disorder*, so a label reading "cohesion increase" describes a formation coming
+apart ([16](../code-findings/16-enumerations.md)).
+
+---
+
+## 6. Open questions
+
+1. **Is the melee-strength divergence intended?** Not decidable from code. A
+   designer could reasonably want the HUD number to answer "how good is this
+   unit at melee" rather than "what will this particular fight do". The mounted
+   multiplier appearing in the display *and* in the charge decision but not in
+   the casualty formula is the detail that reads most like an oversight.
+2. **Does the missing attrition penalty matter in play?** *(Untested.)* The
+   code is unambiguous, but a formation reaching 40 % sick-plus-missing is
+   already in trouble, so the practical size of the effect is unmeasured. A
+   save at high attrition would settle it.
+3. **How many other tooltips describe systems that are not there?** §2.1 was
+   found by chance while reading perks. Nobody has swept the game's tooltip
+   text against the code behind it, and the perk case suggests it would pay.
+4. **What else does the strategy panel compute from its own widgets?** §1.4
+   found one. The pattern — UI as the source of truth — may not be isolated.

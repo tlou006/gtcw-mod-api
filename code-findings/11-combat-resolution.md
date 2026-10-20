@@ -89,6 +89,18 @@ parsed fields:
 **The battle layer is metric. The campaign, naval and UI layers are
 imperial. Nothing keeps the pairs in sync.**
 
+> **The shipped pairs are nevertheless exactly consistent**, which bounds the
+> hazard: it is created by editing, not present in the base game. All 87
+> records in `Config/weapons.txt` were checked on all eight imperial/metric
+> pairs (record stride **53** lines; `range_yd` at offset 6, `range_m` at 7)
+> and every pair converts to the last stored digit.
+>
+> One exception, and it is a naming defect rather than a data one:
+> **`weight_powder_kg` holds grams.** Its values are exactly
+> `weight_powder_lb × 453.59237` across all 87 weapons. Both powder fields are
+> at most UI, so nothing in the game is wrong — but a modder editing the field
+> as kilograms is out by a factor of 1,000.
+
 > **Consequence for modders, and it is a trap.** Editing `range_yd` changes
 > what the AI thinks a weapon is worth, what the economy prices it at, how far
 > ships engage, and what the UI displays — but **does not change how far a unit

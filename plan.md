@@ -513,13 +513,23 @@ The translation is cheap because the hard part is done: every planned file is
 backed by a `code-findings` file that already exists. The conventions and the
 planned index are in [`mechanics-findings/README.md`](mechanics-findings/README.md).
 
-**Start with `ui-vs-simulation.md`** — the numbers the game *shows* that are not
-the numbers it *uses*. Three already found: `meleestrength` is display-only
-([12](code-findings/12-melee.md)), the support breakdown is NaN-poisoned
-([17](code-findings/17-politics-and-support.md)), and the battle newspaper's
-morale paragraph is a constant string ([25](code-findings/25-newspaper-and-events.md)).
-These are the findings a player cannot possibly reach by playing, which makes
-them the highest-value thing decompiling produced.
+1. **[`ui-vs-simulation.md`](mechanics-findings/ui-vs-simulation.md) ✅** — the
+   numbers and words the interface gets wrong. Eight discrepancies, the
+   strongest being the campaign morale penalty the army panel reports at
+   **−17.3 %/week and the simulation never applies**, the support-loss
+   breakdown that **returns an empty string in every possible game**, and the
+   in-game perk tooltip that **describes a gating system which does not
+   exist**. Also: the strategic assessment is computed from its own slider
+   widgets rather than from the model, and has an **uncovered band** that
+   returns a blank verdict. Balanced by a verified §4 — every gameplay option
+   in the in-game panel is wired, and all 87 weapons' imperial/metric pairs
+   agree to the last digit, so the shipped UI does not lie about ranges. That
+   check also found **`weight_powder_kg` holds grams**, now recorded in
+   [11](code-findings/11-combat-resolution.md) §2.
+
+**Next:** `time-and-speed.md`, then `why-units-break.md`; the full planned
+index is in
+[`mechanics-findings/README.md`](mechanics-findings/README.md).
 
 **Exit criteria per file:** a reader who has never opened `code-findings/` can
 act on it, and every claim in it can be traced back to a section that supports
