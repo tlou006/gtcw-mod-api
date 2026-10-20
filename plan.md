@@ -526,6 +526,34 @@ planned index are in [`mechanics-findings/README.md`](mechanics-findings/README.
    agree to the last digit, so the shipped UI does not lie about ranges. That
    check also found **`weight_powder_kg` holds grams**, now recorded in
    [11](code-findings/11-combat-resolution.md) §2.
+2. **[`the-war-economy.md`](mechanics-findings/the-war-economy.md) ✅** — taken
+   out of order at the user's request, since the economy is the subsystem the
+   community finds most opaque. Eleven sections. The translation needed real
+   new tracing, which closed two of
+   [18](code-findings/18-economy.md)'s open questions and added a production
+   section it never had:
+
+   - **the economy cycle is a seven-point curve in each scenario's
+     `battledata.dat`** — identical in all six sublevels, shared by both
+     sides, with exactly two consumers, and `×20` interest leverage makes it
+     the highest-leverage number in the economy;
+   - **the interest base inverts and floors out from ~Nov 1863**, so $50 M of
+     debt in 1861 costs ~10.3 % while $500 M in 1864 costs ~2.3 %;
+   - **`lossestradewarfare` is forgone *tariff revenue*, not lost trade
+     value** — it scales with your own tariff rate and conflates blockade with
+     node damage;
+   - **projects 113 and 114 test the loop counter against a resource id**, so
+     114 does nothing at all and 113 keeps only its recruitment half, while
+     both are advertised by the project panel;
+   - **project 104 omits `id_manufactory`**, the one building type that makes
+     Provisions and Uniforms, where three other industry groupings include it;
+   - **administration cost counts a tax as charged when its slider is above
+     zero, not when its cap is** — so every alliance pays a surcharge from day
+     one for two taxes that collect nothing until the Revenue Acts.
+
+   Also pins the price curve, the trade-agreement matrix, the harvest
+   calendar's `-1`-means-no-modifier sentinel, and the production
+   specialisation bonus, all with shipped numbers.
 
 **Next:** `time-and-speed.md`, then `why-units-break.md`; the full planned
 index is in

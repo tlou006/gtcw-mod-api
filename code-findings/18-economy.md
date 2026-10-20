@@ -181,6 +181,73 @@ accumulate-then-publish pattern that appears throughout the campaign tick.
 `Resource.RewriteTaxValues(cmanualtime)` recomputes excise and tariff values
 and is called for every resource at the end of `UpdateMacroEconomy`.
 
+### Production output per building — `CBuilding`
+
+`GetProductionNumbers` (~1718) is the output line:
+
+```
+out(g) = buildingtypes[type].productionfactor[level]
+       × (1 + productionefficiency[g])
+       × resources[g].minpricereached
+       × corporateproductionmultiplier          (30.0)
+       × dt × production[g]                      (the player's effort share)
+       × relativeworkforce × Condition
+       × resources[g].productionmultiplier
+       × harvestingmodifier[currentmonth]        if != -1f   (~1729)
+```
+
+Note the harvest sentinel: **`-1` means "no seasonal modifier", not zero**, so
+Forage (−1 for Jan–May) produces at full rate in those months while Crops (0
+for Jan–May) produce nothing. Easy to read backwards.
+
+`UpdateProductionEfficiency` (~2320) sets
+
+```
+productionefficiency[g] = production[g] ^ productionefficiencyexp     (0.4)
+                        × productionefficiencylinear                  (1.0)
+                        × num2 × num4 × num3
+```
+
+so output in `g` scales as `share × (1 + share^0.4)` — **sub-additive, so
+concentrating a building on one good beats splitting it.** One good at 100 %
+yields 1.00 against 0.88 for a 50/50 split and 0.79 across four.
+
+`producedgoods` is parsed from `buildingtypes.dat` as **10 slots, keeping those
+`>= 0`** (`GameVars` ~6818). The shipped lists: Farms `{9,13,16,21,37}`,
+Plantations `{8,26,30,31}`, Iron Works `{0,1,29,35,28}`, Factories
+(`id_manufactory = 12`) `{4,12,15,20,22,23,25,32,34}`, Mines
+`{5,7,14,18,19,24,27}`, Foundries `{3,17}`, Port `{10,33}`; `id_factory = 5`
+("Factory") produces **nothing**.
+
+> **Two project bonuses are unreachable.** Both tests in
+> `UpdateProductionEfficiency` compare the **loop counter** against a resource
+> id instead of `producedgoods[i]`:
+>
+> ```csharp
+> if (BuildingType == id_farm && i == Economy.resid_crops)        // 9
+> if (BuildingType == id_plantation && i == Economy.resid_cotton) // 8
+> ```
+>
+> A farm has 5 produced goods and a plantation 4, so `i` never reaches 9 or 8.
+> `GetProjectLevel(114)` has **exactly one consumer in the assembly** — this
+> one — so **project 114 Plantation Mechanization has no effect at all**.
+> Project 113 keeps its `project_farmmechanizationrecruitment` half
+> (`GameVars` ~4852); only the crops half is dead. Both are nevertheless
+> advertised by `Projects.GetProjectEffect` (~757/758). In both cases the
+> intended good is at index **0** of its building's list, so the one-token fix
+> restores the designed behaviour.
+
+> **Project 104 Subsidize Industry omits the manufactory.** Its guard is
+> `(type == id_factory) | (type == id_ironworks) | (type == id_foundry)`, and
+> `id_factory` produces nothing — so the +5 %/level reaches **Iron Works and
+> Foundries only**, not the Factories that make Provisions and Uniforms. The
+> other three sites that group industrial buildings (`CBuilding` ~502,
+> `Policies` ~1270 and ~1668) all include `id_manufactory`. Project 105
+> Subsidize Agriculture correctly covers both Farms and Plantations.
+
+Wage costs are `wagecostworker` **1.0** and `wagecostslave` **0.33** per
+year, with a per-building-type `slaverydemand` fraction.
+
 ---
 
 ## 4. Transport capacity is the trade constraint
@@ -346,9 +413,18 @@ raids (`AddShortages`, `ResetShortages`).
 
 ## 8. Open questions
 
-1. **Where `EconomyCycle` is loaded from.** It is an authored curve and
-   therefore a high-value, low-risk mod target, but the parse site was not
-   found — likely `campaignprefs.txt` or a scenario file.
+1. ~~**Where `EconomyCycle` is loaded from.**~~ **Resolved:** the tail of each
+   scenario's `battledata.dat`, read by `BattleUnits.import_battledata` (~10101)
+   as a count followed by (date, factor) pairs, and written back by
+   `ImportExportUnitData` ~542, so it is carried in saves. All six shipped
+   sublevels hold the same seven points — `1850:1.15, 1853:0.90, 1856:0.91,
+   1859:1.08, 1861:1.07, 1865:0.92, 1870:1.00` — interpolated linearly on
+   `GetCampaignFloatingDate()`. `currenteconomyfactor` has exactly **two**
+   consumers: the interest-rate base (§5) and `Town` civilian consumption
+   (~730). `GetEconomyCycleText()` buckets it at 0.93 / 0.97 / 1.00 / 1.04 /
+   1.08 into the six `GameVars.economycycletext` labels, so the label pins the
+   factor to ±0.02. Translated in
+   [the-war-economy](../mechanics-findings/the-war-economy.md) §7.
 2. **`UpdateEconomyAllianceData` and `UpdateEconomyEstimates`** (~145 and ~35
    lines) hold the actual production/demand aggregation. The *structure* is
    mapped here; the aggregation arithmetic is not.
@@ -378,11 +454,36 @@ raids (`AddShortages`, `ResetShortages`).
    still untraced is the resource-level plumbing: `excisetax_tmp` /
    `tariffs_tmp` on `Economy.resources[].productalliancedata[]` and
    `Resource.RewriteTaxValues`.
-5. **Blockade and trade warfare.** `UpdateBlockades`, `lossestradewarfare`,
-   `GetTradeRatios`. The naval side of the economy. `AddTradeWarfare` itself is
-   resolved — a 10-slot accumulator with slot 0 as the recomputed total, no
-   clamping, and two orphaned statements where a guard used to be
-   ([23](23-game-state.md) §8).
+5. **Blockade and trade warfare — now largely resolved.** `UpdateBlockades` is
+   **private on `IIP`** (~621), not on `Economy`. It rebuilds `blocked` from
+   scratch each pass over `unitsinrange`: a non-fleet with `cavalryorders == 2`
+   blockades any non-trade node; a fleet with `fleetorders == 1` blockades
+   `id_harbor`; a fleet with **perk 6** also blockades a trade node and sets
+   `priceadjustment = priceincreasessearaiders[level]`. Each contributor adds
+   `blockadeefficencyvalue × rangeFactor × (1 + level(106) ×
+   project_blockadeefficiency)`, where `rangeFactor` is
+   `blockadeefficiencyfactorcombatrange` inside `buglerange` and 1 outside, and
+   **perk 5** multiplies. Then `blocked /= 1 + level(106) ×
+   project_blockaderunnerefficiency` — **project 106 sits on both sides of the
+   same contest** — an enemy `lettersmarque` imposes a floor on harbours, and
+   the result is clamped to 1.
+
+   **Consumption** is `IIP` ~927: `flow *= 1f - Mathf.Max(blocked,
+   connectediips[j].blocked)`, so a connection is throttled by its **worse**
+   end. ~993 books the shortfall: `(num10 - num9) * price * tariff rate` into
+   `AddTradeWarfare(1, …)` and `lossestradewarfare`, gated on
+   `blocked + connected.blocked > 0 || (condition < 1 && condition > 0)`.
+
+   > **So `lossestradewarfare` is forgone *tariff revenue*, not lost trade
+   > value**, it scales with the alliance's own tariff rate, and it conflates
+   > blockade with node damage. A nation with zero tariffs reports zero
+   > blockade losses however hard it is squeezed.
+
+   **Two defects.** The **perk-8** reduction
+   (`blocked *= effectoonblockadewithinradius[level]`) and the `orgrunning`
+   modifier (`blocked *= orgrunningtradewar`) are both **inside** the loop over
+   `unitsinrange`, so they compound once per unit in range and scale only the
+   contributions accumulated so far — making the result depend on list order.
 6. **`Town` vs `IIP` vs `CBuilding`.** All three appear as trade
    counterparties with their own stock; the division of responsibility is
    unclear.

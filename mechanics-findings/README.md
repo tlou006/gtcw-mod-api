@@ -60,6 +60,7 @@ cross-folder links should name the file, not a number.
 | File | Contents |
 | --- | --- |
 | [What the game shows you, and what it actually does](ui-vs-simulation.md) | The numbers and words the interface gets wrong: melee strength as a HUD-only stat, the attrition morale penalty shown but never applied, the permanently empty support-loss list, the strategic assessment computed from its own sliders, the perk tooltip's phantom gating, the newspaper's constant morale verdict, cavalry status labels, the cosmetic president — plus the config knobs that do nothing, and a verified list of what the interface gets right |
+| [The war economy](the-war-economy.md) | Why every place has its own prices and what the price curve actually looks like; how goods move, and why broad shortages travel worse than sharp ones; who may trade with whom and what crosses the Union/Confederate line; production per building, the specialisation bonus and the harvest calendar; what a blockade does and what the loss figure really measures; the five taxes and the administration trap; debt as an automatic process, and why late-war borrowing is cheap; the boom/bust curve that nothing you do can bend |
 
 ## Planned
 
@@ -77,5 +78,4 @@ translation adds. Each is backed by a `code-findings` file that already exists.
 | `policy-order.md` | [22](../code-findings/22-policy-and-project-catalogue.md), [9](../code-findings/09-policy-and-project-effects.md) | Which policies and projects are worth their cost, which ladders are abandoned dead ends, and the prerequisites the UI does not surface. |
 | `commanders-worth-having.md` | [19](../code-findings/19-commanders-and-perks.md) | Which perks touch the simulation and which are flavour; how promotion, fame and feuds actually resolve. |
 | `fighting-the-ai.md` | [20](../code-findings/20-ai-campaign.md), [21](../code-findings/21-ai-battle.md) | What the difficulty sliders change, the ten hardcoded cheats, and what an enemy stance commits the AI to — including what your *own* stance does to your units. |
-| `the-war-economy.md` | [18](../code-findings/18-economy.md) | Local markets and why prices differ by node, boolean production recipes, and the debt→rating→interest loop. |
 | `events-and-the-press.md` | [25](../code-findings/25-newspaper-and-events.md) | Which historical events can still fire from your start date, what gates the rest, and why eleven of them never will. |

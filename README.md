@@ -29,10 +29,12 @@ engine's. **Start with a summary:**
 | [Politics](code-findings/summary-politics.md) | State support as the manpower tap, national morale and the loss condition, foreign intervention, and the broken support breakdown |
 | [Economy](code-findings/summary-economy.md) | `IIP` nodes as local markets, S-curve pricing, boolean production recipes, and the debt→rating→interest loop |
 
-**And one mechanics write-up so far:**
-[What the game shows you, and what it actually does](mechanics-findings/ui-vs-simulation.md)
-— the numbers and words the interface gets wrong, and a verified list of what
-it gets right.
+**And the mechanics write-ups so far:**
+
+| Write-up | Covers |
+| --- | --- |
+| [What the game shows you, and what it actually does](mechanics-findings/ui-vs-simulation.md) | The numbers and words the interface gets wrong, and a verified list of what it gets right |
+| [The war economy](mechanics-findings/the-war-economy.md) | Local prices and the price curve, how goods move, blockade, the five taxes, debt and interest, and the scripted boom/bust cycle |
 
 [`code-findings/00-build-provenance.md`](code-findings/00-build-provenance.md) records
 which build everything was written against.
