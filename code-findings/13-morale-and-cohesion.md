@@ -240,6 +240,62 @@ There is also a diagnostic: a drop to `morale <= 0` from above `0.4` in one
 tick logs every one of the 18 effects — **useful as a debugging hook, and it
 means the developers hit the same confusion.**
 
+### The other way a unit breaks: unbearable losses
+
+Morale is not the only rout path. `Regiment.LossesAreUnbearable()` tests the
+unit's cumulative loss fraction against `GetUnbearableLossesTrigger()`
+(`Regiment.cs:4293`), and `Autocalc` applies the same test at two sites. This
+is the stat the unit panel labels **Loss Resilience** — the word "resilience"
+appears nowhere in the code or the config.
+
+```
+fragility = Interpolate(allianceMilitaryExperience,
+                        unbearablelossesmoraletrigger0,    // 0.80
+                        unbearablelossesmoraletrigger100)  // 0.55
+          × (1 − Experience()            × (1 − influenceexpunbearablelossestrigger))        // 0.91
+          × (1 − GetTraining()           × (1 − influencetrainingunbearablelossestrigger))   // 0.90
+          × (1 − GetCommanderLeadership()× (1 − influenceleadershipunbearablelossestrigger)) // 0.75
+
+trigger = min(1, (1 − fragility)
+                 × unbearablelossestriggerskirmishers      // 0.5, unittyp 3 and 4 only
+                 × dayFactor)
+```
+
+Every multiplier *reduces* fragility, so experience, drill and a good
+commander all raise the trigger. The spread is wide:
+
+| Unit | Trigger |
+| --- | --- |
+| Green, undrilled, poor commander, alliance military experience 0 | **0.20** |
+| All four at half | **0.46** |
+| Elite, fully drilled, best commander, military experience 1 | **0.66** |
+| Skirmisher detachment, same inputs | half of the above |
+
+So a raw regiment breaks irrecoverably at **one man in five** lost, and a
+veteran one at **two in three** — a 3.3× range on the single hardest cliff in
+the battle model.
+
+`dayFactor = (Interpolate(Experience(),
+unbearablelosstriggerincreaseperdayfactorexp0 = 1.1,
+...exp100 = 1.3) − 1) × bunits.battlepasseddays + 1`, so **units toughen as a
+multi-day battle goes on** — 10 % per elapsed day for green troops, 30 % for
+veterans, added linearly. Hard-coded defaults rather than config values, in
+this one case.
+
+For a non-player alliance the trigger is also multiplied by
+`1 + (aicheat_shiftedbonusmoralelosstrigger + usedcampaignbonusrunning) ×
+aibonus_restoringmorale`; the cheat half is zeroed unless `ai_vs_ai`
+([20-ai-campaign](20-ai-campaign.md) §9).
+
+> **Two mismatches between the test and the bar that displays it.**
+> `LossesAreUnbearable()` sums `losses` **minus `losses[3]` (prisoners)**,
+> while `UnitPanel.cs:277-291` fills the bar from the full `Tools.SumUp(losses)`
+> — so a unit that has lost men as prisoners reads closer to breaking than it
+> is. And the bar is normalised against
+> `GetUnbearableLossesTrigger(0, simulatemaxvalues: true)`, the trigger a
+> *perfect* unit of that type would have, so neither fill level can be read as
+> a percentage of the unit's own strength.
+
 ## 7. The 14 campaign morale slots
 
 | # | Factor | Sign | `GamePrefs` key |

@@ -119,6 +119,97 @@ Notes on individual terms:
   matters given there is no fixed timestep
   ([10-simulation-tick](10-simulation-tick.md)).
 
+### The shipped numbers, and what they weigh against each other
+
+`unitprefs.txt` carries all of them, with labels. The influence weights:
+
+| Pref | Value |
+| --- | --- |
+| `meleeinfluence_weapon` | 0.5 |
+| `meleeinfluence_experience` | 0.8 |
+| `meleeinfluence_fatigue` | 0.25 |
+| `meleeinfluence_cohesion` | 0.3 |
+| `meleeinfluence_strength` | 0.25 |
+| `meleeinfluence_speedshock` | 1 |
+| `meleeoveralllossfactor` | 1.5 |
+
+**The formation enumeration falls out of the config labels**, which name the
+five array entries in order — closing §8's first open question:
+
+| `formation` | Name in the config | `meleeformationmodifier` | `meleeformationmodifiercav` |
+| --- | --- | --- | --- |
+| 0 | Line | 1.2 | 1 |
+| 1 | Skirmish | 2.5 | 1.8 |
+| 2 | Attack Column | 0.7 | 1 |
+| 3 | March Column | 2.5 | 1.2 |
+| 4 | Square | 0.7 | 0.5 |
+
+Both arrays are *defender*-side multipliers on the casualties the defender
+takes, and together they dominate everything else in the formula:
+
+- **Formation is worth far more than the weapon.** The weapon term spans
+  `1 ± (1.0 − 0.7) × 0.5`, i.e. **0.85 to 1.15** between a bayonet-equipped
+  long arm (`melee` 1.0) and a carbine or knife (0.7) — a 35 % swing end to
+  end. The formation term for a line attacking a unit in skirmish order is
+  `1 + (2.5 − 1.2) = 2.3`, and `1 + (1.2 − 0.7) = 1.5` for an attack column
+  against a line. Catching a unit in march column (2.5) is the same as
+  catching it skirmishing.
+- **Against cavalry, every formation is worse off, square included.** The term
+  is `1 + meleeformationmodifiercav[defender.formation]`, so line becomes
+  `×2.0`, skirmish `×2.8`, march column `×2.2` and square `×1.5`. The config
+  calls these *"Additional defense factor values against Cavalry charges
+  (increases/(reduces losses of defending unit)"* — read as additive the code
+  is right, but no entry is negative, so the "reduces" half never happens.
+  Square's 0.5 is a **25 % reduction relative to line**, not the halving the
+  number suggests at a glance.
+- **The cavalry term does not check whether the cavalry is mounted.** The gate
+  is `attacker.unittyp == 1` alone, so **dismounted cavalry charging a line
+  still collects the full ×2.** `unittyp == 4` (scouts) never collects it.
+
+### When a unit under the Charge order will actually charge
+
+The engagement order "Charge" sets `movementmode = 3`, which arms the
+micro-AI's own decision at `Regiment.cs:12425`:
+
+```
+own   = strength × (1 + w0) × (1 + Experience()·w1) × (1 + morale·w2) × (1 + (1−fatigue)·w3)
+enemy = same, for the target
+ratio = own / max(1, enemy)                    × weapon.meleemounted  if mounted > 0
+if (ratio > GamePrefs.microaitriggerforcharge) → movementmode = 6, charge home
+```
+
+with `weightingfactorsformicroaicharge` = **{1, 0.7, 1.5, 0.6}** (strength,
+experience, morale, fatigue) and `microaitriggerforcharge` = **3**.
+
+> **Between two units of equal quality the stat terms cancel, so the test
+> reduces to "do I have three times his numbers?"** That is the mechanism
+> behind the familiar complaint that a unit given the Charge order stands and
+> shoots instead. A maximally lopsided quality matchup — fresh elite at full
+> morale against green, broken and exhausted — multiplies the ratio by 6.8, so
+> quality can substitute for numbers, but only at the extremes.
+>
+> **`weapon.meleemounted` = 2 for every land weapon but one**, so a mounted
+> unit needs only ~1.5× the numbers. Together with §3 this is the whole truth
+> about the mounted melee bonus: it makes cavalry **charge twice as readily**
+> and it inflates the displayed melee rating, but it is absent from
+> `CalculateMeleeCasualties`, so it adds nothing once the units are in contact.
+> The exception is **Rebored Muskets**, which carries `meleemounted = -1`
+> — the same sentinel the 34 naval and fort guns use. Its `restriction` is
+> infantry-only, so the sentinel should never reach the multiply, but it is
+> one `restriction` edit away from a negative melee rating and a unit that
+> refuses to charge anything.
+>
+> `nomicroaichargeifunitisoutflanked` — *"No micro ai charge if unit is
+> outflanked or receiving flanking fire (true/false)"*, shipped `true` — is
+> **parsed and never read** ([07](07-config-data-model.md)). There is no such
+> safeguard.
+
+A manual charge order (ALT + right-click) sets the charge target directly and
+never reaches this test, which is what the official manual means when it says
+the check "is ignored" for a manual order. It is not a morale check, though:
+morale is one of four weighted inputs, and the heaviest of them.
+
+
 ### Routed units: losses become prisoners
 
 In `UpdateMelees`:
@@ -296,14 +387,13 @@ complete but not guaranteed exhaustive.
 
 ## 8. Open questions
 
-- **Formation enumeration.** `formation == 1` is skirmish
-  ([11](11-combat-resolution.md) §3d), `formation == 2` appears in
-  `AssignChargeTarget` offsets, `formation == 4` is the anti-cavalry square.
-  The full set drives `meleeformationmodifier[]` and deserves a pass of its
-  own.
-- **`unittyp` enumeration.** 1 = cavalry and 2 = artillery are confirmed;
-  `<= 13` means land combat unit, 17 appears for a parent/HQ type. A full map
-  would clarify many guards across the codebase.
+- ~~**Formation enumeration.**~~ **Resolved** in §2 from the `unitprefs.txt`
+  labels, which name the five array entries in order: 0 Line, 1 Skirmish,
+  2 Attack Column, 3 March Column, 4 Square. Consistent with the two values
+  already known from the code (`formation == 1` skirmish,
+  [11](11-combat-resolution.md) §3d; `formation == 4` square).
+- ~~**`unittyp` enumeration.**~~ **Resolved** —
+  [16-enumerations](16-enumerations.md).
 - **`ReceivedMeleeCasualties`** (with `opponent`, `timeoffire`,
   `sufferedcasualties`) is maintained and cleared, but its consumer was not
   traced — likely morale or the after-action report.

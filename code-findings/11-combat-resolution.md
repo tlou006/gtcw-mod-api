@@ -115,6 +115,62 @@ Battle ranges are divided by `GamePrefs.battlefieldrealdimensionfactor` to
 convert real metres into Unity world units — so the battlefield is to scale,
 by a config-defined factor.
 
+#### Two defects in the weapon panel's own arithmetic
+
+Both live in the code that renders a weapon's stats, and both are visible to
+any player who opens a unit panel.
+
+**The weight is always 2 lb light.** `BattleUI.cs:1956` builds the weapon-icon
+tooltip with
+
+```csharp
+"Weight: " + (GameVars.weapon[num].weight_lb + GameVars.weapon[num].tubeweight_lb - 1f) + " lb"
+```
+
+Exactly one of the two fields is populated in every one of the 87 records —
+`tubeweight_lb` for artillery, `weight_lb` for small arms — and the other is
+the `-1` sentinel. Cancelling one sentinel needs `+ 1f`; the code subtracts.
+So a Springfield rifle-musket (9 lb) is shown as 7, and a 6-pounder field gun
+(884 lb tube) as 882.
+
+**The accuracy label ladder has lost a rung and kept its clamp.**
+`Weapon.GetAccuracyText()` (`GameVars.cs:5185`) is
+
+```csharp
+int num = Mathf.FloorToInt((accuracy - 0.8f) * 10f);
+if (num < 0) num = 0;
+if (num > 5) num = 5;
+return weaponaccuracytext[num];          // string[5]
+```
+
+`weaponaccuracytext` holds **five** entries — `{ "Poor", "Mediocre", "Good",
+"Very Good", "Excellent" }` — so the clamp at `> 5` admits index 5 and
+`accuracy >= 1.4` throws `IndexOutOfRangeException`. The clamp is correct for
+a **six**-element array, which is what the official manual's own accuracy
+vocabulary implies: it uses a six-grade scale beginning *"Very Poor"*, and its
+word for every one of the five shipped accuracy values is exactly what a
+six-entry array with "Very Poor" at index 0 would return. The shipped array
+appears to have lost that first rung without the clamp being retightened.
+
+Float truncation then collides two of the remaining rungs. In float32,
+`(0.9f - 0.8f) * 10f` is `0.99999964`, which floors to **0**, and
+`(1.0f - 0.8f) * 10f` is `1.9999999`, which floors to **1**:
+
+| `accuracy` | Index | Label shown |
+| --- | --- | --- |
+| 0.8 | 0 | Poor |
+| 0.9 | 0 | Poor |
+| 1.0 | 1 | Mediocre |
+| 1.1 | 3 | Very Good |
+| 1.2 | 4 | Excellent |
+| 1.3 | 4 | Excellent |
+| 1.4+ | 5 | **throws** |
+
+So **0.8 and 0.9 share a label, and "Good" — index 2 — is never shown by any
+shipped weapon.** Two live consumers display this: `WeaponList.cs:244` (the
+campaign weapons panel) and `BattleUI.cs:1956` (the battle tooltip).
+A modder raising any weapon's accuracy to 1.4 crashes both.
+
 ### Other `Weapon` fields
 
 `firepower[3]`, `accuracy`, `reloadspeed[3]`, `roundsperminute`,
@@ -147,6 +203,38 @@ Artillery ammunition selection in `FireBullet`, in order:
 
 `weapon.smoke == 3` forces solid shot with no bounce and no visible
 projectile — a special weapon class worth identifying.
+
+> **The official manual names the three bands in the same order**, in its
+> artillery table legend: *"Firepower: The theoretical lethality of one round,
+> when fired at a unit. Solid shot (/bolt) / Explosive rounds (shell, case,
+> shrapnel) / Canister (/grape)."* An independent confirmation of the index
+> mapping above.
+>
+> The shipped values are also strikingly regular: **49 of the 51 artillery
+> records have `firepower[2]` exactly `1.2 × firepower[1]`**. The two
+> exceptions are the **6-pounder field gun** (ratio 1.106) and the
+> **6-pounder Krupp rifle**, whose canister is *weaker* than its shell
+> (17.109 vs 15.406, ratio 0.90) — the only gun in the game for which closing
+> to canister range lowers the per-round figure. Both look like unfinished
+> edits rather than design, but nothing in the code treats them specially.
+
+> **`weapon.bayonet` is parsed and never read.** Its only occurrence in the
+> assembly is the loader line (`GameVars.cs:7002`). Melee comes from
+> `weapon.melee` (the strength term, [12](12-melee.md) §2) and the displayed
+> hand-weapon category comes from `GetMeleeWeapon()`, which reads
+> `infantrymeleeweapon` and `meleeweaponstandardperunittype[]` — never
+> `bayonet`. The two fields disagree in the shipped data: **Rebored Muskets**
+> carry `bayonet = 0` and `infantrymeleeweapon = 0` (knives) while the manual
+> lists them as bayonet-equipped, and three records (Mississippi,
+> Fayetteville, Whitworth) carry `infantrymeleeweapon = 2`, the sword bayonet.
+>
+> `GetMeleeWeapon()` also discards `infantrymeleeweapon` whenever the weapon's
+> `restriction` string contains `1`, returning
+> `meleeweaponstandardperunittype[1]` = 3 ("sabres and revolvers") instead.
+> The Henry Rifle and the Spencer Repeating Rifle have `restriction = "01"`,
+> so an **infantry** regiment carrying either is described as armed with
+> sabres and revolvers, and the Spencer's own `infantrymeleeweapon = 1`
+> (bayonet) is never shown.
 
 #### How auto-resolve lands on the same axis
 
@@ -287,6 +375,105 @@ casualties = Random( firepowerminofmaxcasualties * firepower[ammotype],
 firepower**, so each hit rolls uniformly in
 `[min·firepower, firepower]`. Damage is applied to the **specific block** that
 was hit, not the unit as a whole.
+
+### 3e. The accuracy floor — the cascade is inert at or below 1.0
+
+`num8` — the weighted mean of 3a and its ten modifiers — leaves `FireBullet`
+by exactly one route: the `_accuracy` argument of `Projectile.Initialize`
+(`Regiment.cs:9693`, and 9697/9699 for the two extra canister projectiles).
+Inside `Projectile` the field is referenced **once**, in `SetTargetNoise`:
+
+```csharp
+float num = originaldistance
+          / Mathf.Max(accuracy / GamePrefs.overallaccuracynoisefactor,
+                      1f      / GamePrefs.overallaccuracynoisefactor);
+```
+
+`Mathf.Max(a/k, 1/k)` is `max(a, 1)/k`, so the aim-scatter radius is
+
+```
+scatter = distance × overallaccuracynoisefactor / max(accuracy, 1)
+```
+
+applied as `Random.Range(-scatter, scatter)` on each axis, scaled by
+`targetnoisefactorx` = 0.03 (traverse) and `targetnoisefactorz` = 0.05
+(range). Scatter therefore grows linearly with range, which is how distance
+degrades fire — there is no distance term in the accuracy formula itself.
+
+> **The `Mathf.Max` floors the divisor at accuracy = 1, and the floor sits at
+> 1 whatever `overallaccuracynoisefactor` is.** For any shot whose computed
+> accuracy is at or below 1.0 the scatter is `distance × k`, and **nothing in
+> the cascade changes it** — not the weapon's accuracy rating, not experience,
+> morale or fatigue, not gun condition, not artillery zeroing-in, not the
+> mounted penalty, not perks 1, 11, 15 or 16.
+
+How often does the cascade clear 1.0? With the shipped
+`experienceinfluenceonaccuracy` = 0.66 and `moraleinfluenceonaccuracy` = 0.25,
+and both `experience` and `morale` clamped to `[0, 1]` (`Regiment.cs:16724`,
+`Regiment.cs:17824`), the 3a mean is bounded above by
+`(1.2 + 0.66 + 0.25) / 1.91 = 1.105`. Solving `num8 > 1` for the weapon's own
+rating:
+
+| `weapon.accuracy` | Records | Condition to clear the floor |
+| --- | --- | --- |
+| 1.2 | 6 | `0.66·E + 0.25·M > 0.71` — a veteran at almost any morale |
+| 1.1 | 28 | `> 0.81` — near-maximum experience **and** high morale |
+| 1.0 | 38 | `> 0.91`; the maximum attainable is exactly 0.91, so **never** |
+| 0.9 | 7 | never |
+| 0.8 | 8 | never |
+
+**53 of the 87 weapon records can never clear the floor at any crew quality**,
+and 34 of the 53 land weapons are in that group — including every standard
+rifle-musket, which is rated 1.0. For those weapons the whole accuracy
+pipeline is decoration, and in a manually fought battle the only thing
+experience still buys in a firefight is rate of fire (3f). The skirmisher
+multiplier (`skirmishingaccuracyinfluencefactor` = 1.1) and the West Point
+artillery branch bonus can lift a good unit over the line, so the feature is
+not dead everywhere — it is dead for the ordinary case.
+
+The config label states the intent plainly: *"Weighting of overall accuracy
+factors for targeting error [>0.1] (a factor of 3 means that accuracy is
+decreased by 3x between highest and lowest accuracy factors)"*, shipped `3`.
+A 3× spread needs `num8` to range over `[1, 3]`; it ranges over roughly
+`[0.2, 1.1]`.
+
+### 3f. Rate of fire in a manual battle
+
+`Regiment.cs:9992`:
+
+```
+secondsPerRound = 1 / ( (roundsperminute_pract × (1 − t) + roundsperminute × t) × ammoFactor )
+                  / 60 × timetoreloadfactor
+```
+
+- `t = clamp(distanceToTarget / firerange, 0, 1)` **for artillery only**; every
+  other unit type passes `t = 0`. Combat behaviours 8 and 9 (canister-hold and
+  bombardment) force `t = 0`.
+- So `roundsperminute_pract` is the **point-blank** rate and
+  `roundsperminute` the rate at maximum range, interpolated linearly in
+  between. For the 6-pounder field gun that is 3 rounds/min muzzle-to-muzzle
+  falling to 0.2 rounds/min at 1,523 yards.
+- `roundsperminute` is `-1` for every non-artillery record, which is harmless
+  only because `t` is always 0 for them.
+- Then `timetoreloadfactor` = 3.75, `experienceinfluenceonreloading` = 1.4
+  (inexperienced troops take 40 % longer), `loadingspeedreductioncanister` =
+  0.3 inside `canisterrange`, `rofonlowammo` = 0.25 and `rofonammoout` = 0.1, and
+  `increaseofrofwhencorrectbranch` for a West Point artillerist.
+
+> **Fatigue does not slow reloading.** The line is there —
+> `num6 += num6 * fatigue * GamePrefs.fatigueinfluenceonreloading` at
+> `Regiment.cs:9998` — but `fatigueinfluenceonreloading` is **declared, read
+> once, and never assigned anywhere in the assembly**, so it is permanently
+> `0f`. `unitprefs.txt` does ship the value the line wants — *"Fatigue effect
+> on reloading time for exhausted troops (linear interpolation), how much
+> longer do exhausted troops need to reload? [1-x]"* = 1.25 — but the loader
+> parses it into `fatigueforreloading`, which is then **overwritten later in
+> the same block** by *"Increase of fatigue when reloading in game hrs"* =
+> 1.00 (`GamePrefs.cs:5379` and `GamePrefs.cs:5395`). Two small wiring faults
+> compose into one missing mechanic.
+>
+> See [07](07-config-data-model.md) for the sweep that shows this is the only
+> gameplay pref in all 1,972 that is read but never loaded.
 
 ---
 
@@ -481,6 +668,47 @@ missing and captured.
 > uses `strength + losses[0] + sick` throughout — a unit's "paper" strength
 > includes its hospital cases.
 
+### Commander casualties ride on the same call
+
+`SufferCasualties` also decides whether the unit's commander is hit, via
+`UpdateCommanderCasualtyState(strengthloss, unitmelee, …)`. The roll is
+
+```
+P = strengthloss / max(1, strength + strengthloss) × pref × probabilityadjustment
+```
+
+with `pref` one of `probabilitybrigadecommanderdeadfirefight` = 0.04,
+`...woundedfirefight` = 0.2, `...deadmelee` = 0.04, `...woundedmelee` = 0.2,
+`probabilitybrigadecommandersurrendering` = 0.275 (melee while routed). The
+loss ratio makes the model rate-correct, like the casualty formulas.
+
+Three things worth knowing:
+
+- **The wounded roll runs after the dead roll and overwrites it.** Both are
+  independent `Random.Range` draws; if both succeed the commander ends up
+  `status = 3` (wounded), not `4` (dead). Effective death probability is
+  therefore `P_dead × (1 − P_wounded)`, and a commander can never be killed on
+  a tick where he is also rolled wounded.
+- **Superior commanders are only exposed in auto-resolve.** The loop that
+  walks `GetComponentInParent<Regiment>()` up to ten levels and rolls for each
+  HQ within 75 units of its nearest known enemy sits inside
+  `if ((bool)calledfromautocalc)` (`Regiment.cs:16257-16270`), with
+  `probabilityadjustment = 1 / level³ / max(1, groupstrengthactive)`. In a
+  battle the player fights himself, **only the commander of the unit taking
+  the casualties can be hit** — an army or corps commander cannot become a
+  casualty at all.
+- **In auto-resolve the unit's own commander is rolled twice** per casualty
+  application: once at `Regiment.cs:16255` inside the autocalc branch and
+  again at `Regiment.cs:16457` after it, which is reached on both paths.
+  Roughly double the per-loss risk of a manually fought battle.
+
+`probabilitycommanderdeadfirefight` = 0.005 and
+`probabilitycommanderwoundedfirefight` = 0.02 — the two prefs labelled
+*"Probability of commander dead/wounded if hit on group was detected"* — are
+**parsed and never read**; the group path above uses the brigade prefs scaled
+by the cube law instead. `unittyp` 3, 4 and 5 (skirmishers, scouts, couriers)
+and any unit with a `parentregiment` return early and never lose a commander.
+
 ---
 
 ## 7. Where the constants live
@@ -541,13 +769,24 @@ Shared: `ammoalertlevel`, `fatiguealertlevel`, `cohesionalertlevel`,
    `StartManualBattleFromAutocalc` goes one way; whether the reverse happens
    (autocalc resolving a detached skirmish while the player fights elsewhere)
    would mean both models are live simultaneously.
-4. **Cohesion** is an input throughout but its own update rule is not traced —
-   it belongs with morale, the next subsystem in the Phase 2 order.
+4. ~~**Cohesion's update rule.**~~ **Traced** —
+   [13-morale-and-cohesion](13-morale-and-cohesion.md) §8, including the
+   finding that fire never disrupts it.
 5. **`weapon.smoke == 3`** forces solid shot with no visible projectile.
    Identifying that weapon class would explain the special case.
 6. **`forcebalance[]` and `points[]`** feed `CalculateStance` but their own
    derivation is untraced — they decide every auto-resolve stance and
    therefore the whole ROF matrix lookup.
+7. **Whether the accuracy floor (3e) is intentional.** The `Mathf.Max` reads
+   like a divide-by-zero guard that was given the wrong bound: a guard needs
+   only a small epsilon, while `1f / k` sets the floor at accuracy 1.0 —
+   above almost every value the cascade can produce. The config label argues
+   for a 1-to-3 working range that the data never reaches. Settling it needs
+   the developers, or a build where the floor is lowered and the difference
+   observed.
+8. **Which shipped weapons can actually clear the floor in play.** 3e bounds
+   it analytically; a logged battle would show how often real units cross 1.0,
+   and therefore whether the accuracy stat is worth anything to a player.
 
 ### Resolved since first writing
 

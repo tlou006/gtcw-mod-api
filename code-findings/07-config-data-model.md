@@ -171,6 +171,66 @@ regiment than a brigade. Any mod that changes map size or unit echelon must
 retune both files, and any note about weapon numbers is meaningless without
 stating which scale it assumed. Worth confirming in the parser early.
 
+### Which prefs are actually wired: a full sweep of `GamePrefs`
+
+`GamePrefs` declares **1,972 static fields**, nearly all of them loaded from
+`Config/battleprefs.txt`, `Config/unitprefs.txt` or `Config/campaignprefs.txt`
+by position. Because the files are label/value pairs and the loader reads them
+in a fixed order, any field whose name a modder can read in a config label is
+only as real as its consumers. Two mechanical sweeps bound that.
+
+**Read but never loaded** — the field is used in a formula but no loader line
+assigns it, so it holds `0f` forever. Every `public static` declaration was
+matched against every assignment (`name =`, `name[i] =`, `GamePrefs.name =`)
+across the assembly. Five fields came back unassigned; checked by hand:
+
+| Field | Read at | Effect |
+| --- | --- | --- |
+| `fatigueinfluenceonreloading` | `Regiment.cs:9998` | **Fatigue never slows a unit's rate of fire.** See [11](11-combat-resolution.md) §3f for the pair of wiring faults behind it. |
+| `patternsizedeploymentzone` | `Frontline.cs:482` | Every UV of the deployment-zone overlay mesh is multiplied by 0, so the pattern cannot tile. Cosmetic; what it looks like on screen is **Untested**. |
+| `amountofcitylevels` | — | Declared, never read either. Orphan. |
+| `cloudupdatecycle` | — | Orphan. |
+| `debug_scenetoload` | — | Orphan. |
+
+> **So exactly one gameplay mechanic in the whole pref surface is missing
+> because its constant never arrives**, and it is the one that would make tired
+> troops fire slower. That is a usefully narrow result: the failure mode is
+> real but not widespread.
+
+**Loaded but never read** — the mirror case, and the one a modder hits: the
+config ships a labelled number, the loader parses it, and nothing consumes it.
+About **145 fields** have no reference outside the loader, counting those whose
+only other appearance is the loader's own `for (… < name.Length …)` bound.
+Confirmed by hand so far, all with their shipped values:
+
+| Field | Config label | Value |
+| --- | --- | --- |
+| `cohesioninfantryfire` | Cohesion increase by enemy infantry fire | 0.001 |
+| `cohesionartilleryfire` | Cohesion increase by enemy artillery fire | 0.01 |
+| `cohesioncavalryshock` | Cohesion increase by enemy cavalry shock | 0.15 |
+| `weaponaccuracydistlin`, `weaponaccuracydistexp` | linear and exponential accuracy-over-distance terms | — |
+| `probabilitycommanderdeadfirefight` | Probability of commander dead if hit on group was detected | 0.005 |
+| `probabilitycommanderwoundedfirefight` | Probability of commander wounded if hit on group was detected | 0.02 |
+| `nomicroaichargeifunitisoutflanked` | No micro ai charge if unit is outflanked or receiving flanking fire (true/false) | true |
+| `perk_sharpshooters_rangefrom` | sharpshooter perk range band | — |
+
+Each of those was verified individually: the field's complete reference set in
+the assembly is its declaration plus its loader line, nothing else. The first
+three were already found from the other direction in
+[13](13-morale-and-cohesion.md) §9a; the sweep confirms them and shows the
+class is larger.
+
+> The two accuracy-over-distance prefs are the interesting pair, because
+> **range does degrade fire** — through aim scatter growing linearly with
+> distance ([11](11-combat-resolution.md) §3e), not through an accuracy
+> modifier. These two look like an abandoned first implementation of the same
+> idea, left in the config file where a modder will find them.
+
+The remaining ~137 are **Untested** as a group: the sweep says they have no
+qualified reference, but each needs the same by-hand check before being called
+dead, and a handful are plainly engine-side (camera, cloud and heatmap
+parameters) where nothing is at stake for gameplay.
+
 ## Schema observations
 
 Field names come straight from the sheet header rows. A few structural points

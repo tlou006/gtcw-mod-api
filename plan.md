@@ -587,8 +587,59 @@ planned index are in [`mechanics-findings/README.md`](mechanics-findings/README.
    `the-war-economy.md` as Latin-1 mid-session; reverted from the previous
    commit and the two edits redone with byte-safe splices.
 
-**Next:** `time-and-speed.md`, then `why-units-break.md`; the full planned
-index is in
+4. **[`manual-vs-code.md`](mechanics-findings/manual-vs-code.md) ✅** — the
+   official manual used as a yardstick, which is the cheapest confirmation
+   available: where it and the code agree a finding is confirmed from both
+   ends, and where they disagree one of them is misleading players. Two
+   passes, economy then combat. The headline is that **the manual's prose is
+   reliable and its data tables are where it has drifted** — the pre-war
+   policy appendix matched the shipped prefs 10 for 10, while four production
+   recipes, one producer and four weapon stats did not.
+
+   The economy pass found **project 98 Market Reform does nothing at all**
+   (both its level lookup and its pref read are discarded statements), and a
+   sweep proved that failure mode is exhausted across all project prefs.
+
+   The combat pass needed substantial new tracing, which went back into
+   [11](code-findings/11-combat-resolution.md),
+   [12](code-findings/12-melee.md), [13](code-findings/13-morale-and-cohesion.md)
+   and [07](code-findings/07-config-data-model.md):
+
+   - **the accuracy cascade is inert at or below 1.0.** The computed accuracy
+     reaches exactly one consumer, the aim-scatter radius, where
+     `Mathf.Max(accuracy/k, 1/k)` floors the divisor at 1 — and the blend's
+     ceiling is 1.105, so for the 34 land weapons rated 1.0 or below (every
+     standard rifle-musket) the weapon's accuracy, experience, morale, fatigue,
+     gun condition, artillery zeroing and four perks change nothing about where
+     the shots land;
+   - **fatigue does not slow reloading.** `fatigueinfluenceonreloading` is read
+     once and never assigned; the config value meant for it is parsed into a
+     neighbouring field which a later line overwrites;
+   - **a full `GamePrefs` sweep** — 1,972 fields — shows that is the **only**
+     gameplay constant in the game read but never loaded, and turns up ~145
+     loaded-but-never-read candidates, eight confirmed by hand;
+   - **`weapon.bayonet` is parsed and never read**, so the manual's Bayonet
+     column describes a dead field; Rebored Muskets are listed as
+     bayonet-equipped and fight at the carbine `melee` value;
+   - **the formation enumeration** falls out of the `unitprefs.txt` labels
+     (0 Line, 1 Skirmish, 2 Attack Column, 3 March Column, 4 Square), closing
+     [12](code-findings/12-melee.md)'s first open question, and with the
+     shipped modifiers it shows formation is worth roughly ten times the weapon
+     in a melee;
+   - **a unit under the Charge order needs ~3× the enemy's numbers** before the
+     micro-AI will go in — `microaitriggerforcharge` = 3 against a ratio whose
+     quality terms cancel between equals;
+   - **superior commanders can only become casualties in auto-resolve**, and a
+     unit's own commander is rolled twice there, so auto-resolving roughly
+     doubles the risk to brigade commanders;
+   - **two defects in the weapon panel's own arithmetic**: every weight is
+     reported 2 lb light, and the accuracy label array lost its first rung
+     while keeping a clamp sized for it, so 0.8 and 0.9 share a word, "Good"
+     is never printed, and accuracy ≥ 1.4 throws.
+
+**Next:** the manual's **supply, commander, politics and naval** chapters plus
+Appendix E (the ship tables), or `time-and-speed.md` and `why-units-break.md`
+from the planned index in
 [`mechanics-findings/README.md`](mechanics-findings/README.md).
 
 **Exit criteria per file:** a reader who has never opened `code-findings/` can

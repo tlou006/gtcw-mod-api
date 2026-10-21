@@ -1,7 +1,8 @@
 # What the game shows you, and what it actually does
 
 **Build:** see [00-build-provenance](../code-findings/00-build-provenance.md)
-**Translates:** [12](../code-findings/12-melee.md),
+**Translates:** [11](../code-findings/11-combat-resolution.md),
+[12](../code-findings/12-melee.md),
 [13](../code-findings/13-morale-and-cohesion.md),
 [16](../code-findings/16-enumerations.md),
 [17](../code-findings/17-politics-and-support.md),
@@ -126,6 +127,39 @@ it has two consequences worth knowing:
 Source: [17](../code-findings/17-politics-and-support.md) §6.
 
 ---
+### 1.5 The weapon tooltip's weight is always 2 lb light
+
+The weapon-icon tooltip in the unit panel adds the two weight fields together
+and subtracts 1 to cancel the unused one's `-1` sentinel — but exactly one
+field is ever populated, so cancelling it needs **+1**, not −1. Every weapon
+in the game is therefore reported **2 lb lighter than its data**: a Springfield
+rifle-musket (9 lb) reads 7, a 6-pounder field gun's 884 lb tube reads 882.
+Nothing in the simulation uses either field, so this is cosmetic — but it is
+the only place a player can read a weapon's weight at all.
+
+Source: [11](../code-findings/11-combat-resolution.md) §2.
+
+### 1.6 The Loss Resilience bar cannot be read as a percentage
+
+The hearts bar is filled as `this unit's break threshold ÷ the threshold a
+perfect unit of this type would have`, and the darker overlay as `losses so
+far ÷ that same perfect-unit threshold`. So neither level is a fraction of the
+unit's own strength, and a full-looking bar on an elite regiment and on a
+green one mean different things.
+
+Two smaller gaps in the same widget: the bar counts **prisoners** among the
+losses while the rout test that it is displaying excludes them, so a unit that
+has lost men captured reads closer to breaking than it is; and the
+perfect-unit reference leaves out the ×0.5 skirmisher penalty, so a skirmisher
+detachment's bar is drawn against a standard it can never reach.
+
+The underlying mechanic is sound and matches the manual — experience, drill and
+the commander's leadership all raise the threshold, from 20 % losses for a raw
+regiment to 66 % for a veteran one. It is only the readout that is hard to
+interpret.
+
+Source: [13](../code-findings/13-morale-and-cohesion.md) §6,
+[manual-vs-code](manual-vs-code.md) §14.
 
 ## 2. Things the game tells you in words that are not true
 
@@ -209,6 +243,39 @@ Source: [19](../code-findings/19-commanders-and-perks.md) §8.
 
 ---
 
+### 2.5 Two accuracy grades share a word, and one grade is never used
+
+Every weapon's accuracy is one of five data values, turned into a word by a
+five-entry label list. A float truncation in the index arithmetic means the
+two worst values collide and the middle label is unreachable:
+
+| Weapon accuracy | Word shown | Land weapons |
+| --- | --- | --- |
+| 0.8 | Poor | 8 |
+| 0.9 | Poor | 4 |
+| 1.0 | Mediocre | 22 |
+| 1.1 | Very Good | 13 |
+| 1.2 | Excellent | 6 |
+
+So **"Poor" covers two different weapons grades**, and **"Good" is never
+printed for anything in the game.** Comparing two weapons both labelled *Poor*
+in the production list gives no way to tell that one is 12 % more accurate than
+the other.
+
+The official manual uses a six-grade scale starting at *Very Poor*, which maps
+cleanly onto the five data values — so the shipped list looks like that ladder
+with its first rung removed, and its index clamp was never retightened. The
+visible consequence is that **the manual's word for a 1.1 or 1.2 weapon is one
+grade below what the game prints**, which is most of the better weapons in the
+game.
+
+Worse, the number the label describes does almost nothing: see
+[manual-vs-code](manual-vs-code.md) §11 for why the accuracy stat is inert for
+every weapon rated 1.0 or below.
+
+Source: [11](../code-findings/11-combat-resolution.md) §2,
+[manual-vs-code](manual-vs-code.md) §10.
+
 ## 3. Knobs that are exposed and do nothing
 
 Each of these is labelled in a config file the game ships for players to edit,
@@ -223,6 +290,9 @@ and reaches nothing.
 | `battleprefs.txt` | "Maximum Gamespeed" (10) | **No consumer anywhere.** The real ceilings are hardcoded: ×20 in battle, ×50 in the campaign. |
 | `aistrategies.dat` | night-retreat trigger (0.275) | Computed and discarded on the two paths that would use it. |
 | commander prefs | subordinate command limit | No consumer — and the config is honest about it, marking the pref `[deactivated]`. |
+| `battleprefs.txt` | "No micro ai charge if unit is outflanked or receiving flanking fire" — ships **true** | Parsed, never read. A unit under the Charge order will go in while outflanked. |
+| `unitprefs.txt` | linear and exponential accuracy-over-distance terms | Parsed, never read. Range does degrade fire, but through aim scatter, not these. |
+| `unitprefs.txt` | "Probability of commander dead / wounded if hit on group was detected" (0.005 / 0.02) | Parsed, never read. HQ commander losses use the brigade values scaled by hierarchy depth instead. |
 
 The first four add up to one missing feature: **enemy fire does not disrupt
 your formations.** The accumulator those three values would feed has no
@@ -242,6 +312,17 @@ Sources: [21](../code-findings/21-ai-battle.md) §12.4 and §15,
 [13](../code-findings/13-morale-and-cohesion.md) §9a,
 [10](../code-findings/10-simulation-tick.md),
 [19](../code-findings/19-commanders-and-perks.md) §2.5.
+
+**And one knob whose number is eaten on the way in.** `unitprefs.txt` ships
+*"Fatigue effect on reloading time for exhausted troops… how much longer do
+exhausted troops need to reload?"* = 1.25. The loader parses it into the wrong
+field, a later line overwrites that field, and the field the reload formula
+actually multiplies by is never loaded at all — so it stays zero and
+**exhausted troops reload exactly as fast as fresh ones**. A sweep of all
+1,972 `GamePrefs` constants found this to be the only gameplay value in the
+game that is used in a formula and never loaded
+([07](../code-findings/07-config-data-model.md),
+[11](../code-findings/11-combat-resolution.md) §3f).
 
 **One real setting behaves worse than it reads.** The options checkbox for
 newspaper messages is checked *inside* the function that queues a paper, so
