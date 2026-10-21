@@ -10,24 +10,27 @@ against `Config/resources.dat`, `Config/buildingtypes.dat`,
 [11](../code-findings/11-combat-resolution.md),
 [12](../code-findings/12-melee.md),
 [13](../code-findings/13-morale-and-cohesion.md),
-[14](../code-findings/14-supply-and-logistics.md)
+[14](../code-findings/14-supply-and-logistics.md),
+[19](../code-findings/19-commanders-and-perks.md)
 
 The manual is the developers' own account of the mechanics, so it is the right
 yardstick for this folder: where it and the code agree, a finding is confirmed
 from both ends; where they disagree, one of them is misleading players.
 
-Three passes are recorded here. **Part I (§1–8)** covers the economy chapters
+Four passes are recorded here. **Part I (§1–8)** covers the economy chapters
 and both policy appendices; **Part II (§9–14)** the combat chapters and the
 three weapons tables; **Part III (§15–20)** supply, depots, raiding and
-readiness. The manual is 9,000 lines; commanders, politics and the naval
-chapters are still unchecked (§21).
+readiness; **Part IV (§21–25)** the commander chapters and the attribute
+matrix. The manual is 9,000 lines; politics, the naval chapters and the ship
+tables are still unchecked (§26).
 
-> **The manual is accurate far more often than not**, in all three passes. Of
+> **The manual is accurate far more often than not**, in all four passes. Of
 > 37 production recipes and 38 producer assignments, 33 and 37 match the
 > shipped data exactly; of some 180 numbers in the weapons tables, four are
-> wrong; and the supply chapters' readiness ladder matches the code gate for
-> gate. What follows is the exceptions, which is not a fair picture of the
-> document as a whole.
+> wrong; the supply chapters' readiness ladder matches the code gate for gate;
+> and most of the commander attribute matrix is implemented, several cells
+> understating what the code does. What follows is the exceptions, which is not
+> a fair picture of the document as a whole.
 
 ---
 
@@ -910,54 +913,326 @@ removed and their effect constants were left in the file.**
 > is inert.
 
 ---
+---
 
-## 21. Open questions
+# Part IV — The commander chapters
 
-1. **The chapters still unchecked.** Three passes are done: the economy
-   chapters with both policy appendices (§1–8), the combat chapters with the
-   weapons tables (§9–14), and supply, depots, raiding and readiness
-   (§15–20). Still open: **commanders and perks**, **politics and national
-   morale**, the **naval** chapters, and **Appendix E**, the ship and
-   ship-weapon tables. On three passes' evidence the prose will hold up and
-   the data tables are where to look — which makes Appendix E the highest-value
-   target left.
-2. **What "2,000" is in map units.** The foraging rate is interpolated between
-   `supplyspeeddistance0` and `supplyspeeddistance2000` on a raw campaign-map
-   distance, and the map's unit-to-mile scale is still unknown, so §15's
-   distance row is relative rather than absolute
+The Officers tab, the attribute descriptions and **the 6 × 3 attribute-effects
+matrix** — about forty individual claims — checked against the full consumer
+map of the five attribute getters
+([19](../code-findings/19-commanders-and-perks.md) §2.6). Translates
+[19](../code-findings/19-commanders-and-perks.md),
+[13](../code-findings/13-morale-and-cohesion.md).
+
+> **The matrix is the densest data table in the manual and it holds up well.**
+> Of its cells, most are implemented and several understate what the code does.
+> Four are wrong — two attribute mix-ups and two mechanisms that do not exist —
+> and the prose adds one more. The attribute *descriptions* are accurate
+> throughout.
+
+---
+
+## 21. The attribute matrix, cell by cell
+
+The manual's table is reproduced here with a verdict against each cell. ✓ means
+a consumer was found; **✗** means none was.
+
+### Experience
+
+| Manual | Verdict |
+| --- | --- |
+| Campaign / Battle / Fleets: *"Modifies maximum effect of personality"* | ✓ **exactly.** Every attribute getter multiplies by `exp × 0.5 + 0.5`, so a green commander operates at **half** his nominal attributes and experience can never raise him above them |
+
+Two effects the row omits: commander experience also raises **every vessel's
+combat strength** by up to +40 % (`commanderexpinfluenceonvesselcombatstrength`),
+and it is the only attribute in the **morale recovery rate** — the thing the
+manual attributes to leadership and fame (§23.1).
+
+### Fame
+
+| Manual | Verdict |
+| --- | --- |
+| Campaign: *"Officer fame in high positions affects national morale"* | ✓ via the alliance fame average |
+| Campaign / Battle: *"Chance of feuds"* | ✓ the feud test is `feudtriggerlevel − (ownFame − otherFame)` against `abs(ownInitiative − otherInitiative)` |
+| Battle: *"Enemy will be more cautious vs. a very famous commander"* | **✗ not implemented.** `forcebalance` is `forceRatio × (1 + Δmorale) × (1 + Δexperience)` and nothing else, and **fame has no consumer in `AIBattle`, `AICampaign` or `Autocalc` at all.** The per-side fame average that exists is consumed only by your *own* troops' fighting spirit |
+| Fleets: *"Officer fame in high positions affects national morale"* | ✓ naval battles feed the same national-morale path |
+
+Three fame effects the row omits, all real: fame **reduces overnight
+desertions** (`commandersfameinfluenceondesertions` = 0.2, the same weight as
+administration), fame feeds `fightingspirit` against the side average at the
+same 0.33 weight as leadership, and fame sets part of the **unhappiness test**
+(§22).
+
+### Initiative
+
+| Manual | Verdict |
+| --- | --- |
+| Campaign: *"Readiness consumption during operations"* | ✓ ×0.35 at full initiative — and **capped by the commander-in-chief's initiative**, which the manual does not mention |
+| Campaign: *"Auto-resolved battles"* | ✓ reserve commitment and stance |
+| Campaign: *"Chance of feuds"* | ✓ |
+| Campaign / Battle: *"Information accuracy about enemy forces (over-estimation)"* | ✓ it is in the formula — but it is the **enemy** commander's initiative, not yours (§24) |
+| Battle: *"Order delays"* | **✗ not implemented.** No commander attribute appears on any line in the assembly mentioning delay, processing, courier, bugle or recognition. Order delay is courier geometry × `readinessorderdelay` × a feud factor of 3.0. Initiative reaches it only by making feuds likelier |
+| Battle: *"Power balance calculation"* | ✓ **but not the way the prose says.** `forcebalance` contains no commander term; initiative **divides the thresholds** the AI compares it against — `forcebalancetriggerdefend`, `…attack`, `…assaultflanking`. The prose's *"the force balance calculation uses many values, and commander initiative is one of those"* is wrong; initiative shifts the AI's willingness, not the number |
+| Fleets: *"Fleet combat range"* | ✓ ×1.3 at full initiative — and it widens the **command and combat range of every campaign formation**, not just fleets (`influenceinitiativeoncommanderrange` = 0.5, `…oncombatrange` = 0.33) |
+| Fleets: *"Ramming during close combat"* | ✓ `commanderinitiativeinfluenceonramprob` = 1.5 |
+
+### Leadership
+
+| Manual | Verdict |
+| --- | --- |
+| Campaign: *"Fighting spirit of troops (reduces desertion)"* | ✓ fighting spirit directly, desertion only through morale — the **direct** desertion terms are fame and administration |
+| Battle: *"Morale of troops"* | ✓ three ways: the commander-nearby bonus, the first-battle cap, and damping an amplified morale drop as `(2 − leadership)` |
+| Battle: *"Rallying"* | **✗ not as a recovery rate.** `rallyvalue` is a flat pref by echelon and its multiplier chain contains experience, the AI handicap and DLC — no leadership. What a rallying commander actually does is arrive: morale slot 4 pays `basemoraleincreasecommandernearby` + `leadership × 0.125` + `fame × 0.075` while he is within range. Honest in effect, wrong in mechanism |
+| Battle: *"Desertion"* | ✓ closest match is **retreat losses**: missing and captured scale by `1 + (1 − leadership) × 0.6` |
+| Fleets: *"Morale"* | ✓ — and the row omits the larger one: **leadership raises naval firepower by up to 30 %**, fleet-vs-fleet and fleet-vs-fort alike |
+
+### Administration
+
+| Manual | Verdict |
+| --- | --- |
+| Campaign: *"Readiness recovery speed"* | ✓ ×1.33 at full administration |
+| Campaign: *"Managing supplies, effectiveness"* | **✗ in the campaign.** The only supply consumer is `supplyadminweightingbf`, in `CalculateSupplyLine` — the **battlefield** model. `UpdateIIPSupplyLink`, the campaign model, contains no administration term ([14](../code-findings/14-supply-and-logistics.md) §3a) |
+| Campaign: *"Drilling effect"* | **✗ not implemented.** The drill rate is `drillincrease{base,encamped,winterquarters,entrenched}` × project 118 × elapsed × condition. No commander attribute |
+| Campaign: *"Reduces desertion"* | ✓ `commandersadmininfluenceondesertions` = 0.2 |
+| Battle: *"Resupplying between days, effectiveness"* | ✓ this is the battlefield supply term above |
+| Fleets: *"Number of ships he can command"* | ✓ and **administration exactly doubles it at every naval rank** — Lieutenant 1→2, Commander 5→10, Captain 10→20, Flag Officer 25→50 |
+| Fleets: *"Resupplying speed"* / *"Repairing speed"* | ✓ one pref covers both plus movement: `commanderadmininfluenceonmovementspeed` = 0.35 |
+
+One omission: administration **damps the fatigue penalty from poor condition**,
+for men and horses alike (`conditionofmenreductionadmin` = 0.25).
+
+### Cunning
+
+| Manual | Verdict |
+| --- | --- |
+| Campaign: *"Intelligence gathering"* | ✓ ×2.0 at full cunning, the largest single cunning effect |
+| Campaign: *"Skirmishing and rear-guard action effectiveness"* | ✓ skirmishing casualties fall to 0.25 at full cunning |
+| Campaign: *"Raiding effectiveness"* | ✓ +50 % raiding, +40 % guarding |
+| Campaign: *"Siege effectiveness"* | ✓ ×1.5 at full cunning |
+| Campaign: *"Auto-resolved battles"* | ✓ own casualties when cavalry, and the garrison slip-away trigger |
+| Battle: *"Flanking tactics used vs. direct attacks"* | **✗ wrong attribute.** The assault-flanking stance threshold is `forcebalancetriggerassaultflanking` divided by **initiative**. Cunning has **no consumer in `AIBattle` at all** |
+| Battle: *"Unit concealment"* | ✓ passed straight into `FogOfWar.UnitIsHidden`, weight 0.5 |
+| Fleets: *"Ability to avoid being spotted"* / *"Moving close to enemy fleet before enemy can engage"* | ✓ in effect, **but symmetric** — see §23.2 |
+
+---
+
+## 22. The prose the matrix leaves out, and it is all true
+
+Three passages in the attribute chapters describe mechanics the matrix does
+not list. All three are implemented, and two of them are among the sharpest
+commander effects in the game.
+
+**Veterans resent unknown commanders.** *"Veteran soldiers especially will not
+be content with unknown commanders. If they also have low leadership, the
+veterans will be unhappy and will lose morale."* This is campaign morale slot
+12, and the test is explicit:
+
+```
+if ( fame/2 + leadership×2  <  Experience() × expleverageunhappy
+                               + expleverageunhappyseniorofficers × famedSeniorOfficers
+   || commander is defamed )
+        → moraleeffectscampaign[12] = moralelossunhappywithcommander
+```
+
+> **Leadership is worth four times fame in that test** — `leadership × 2`
+> against `fame / 2`. The right-hand side rises with the unit's own
+> experience, so the better your troops the better a commander they demand,
+> exactly as the manual says. A **defamed** commander fails the test outright
+> regardless of his attributes, and the panel's tooltip says which of the two
+> reasons fired.
+
+**Losing a loved commander hurts more than losing a hated one.** *"The loss of
+a well-liked commander is felt more heavily among the rank and file than the
+loss of one who is hated"*, and *"Loss of a very famous commander in battle
+will be more devastating for the troops."* Both are the same morale slot, with
+separate multipliers per commander status:
+
+| Commander status | Leadership multiplier | Fame multiplier |
+| --- | --- | --- |
+| Active and within range | **+0.125** | +0.075 |
+| Wounded or captured | −0.03 | −0.015 |
+| Killed | −0.05 | −0.02 |
+
+So a beloved general's death costs 2.5× what a disliked one's does, and the
+same ordering holds for fame. The positive term requires him to be **within
+`maxrangecommandermoralebonus`** — presence, not mere existence.
+
+**Recruits are fragile and good leadership steadies them.** *"If the men are in
+their first battle ever, a commander with good leadership skills is able to
+better keep them in line."* ✓ `firsttimeinbattlecap` is raised toward 1 by
+`effectofcommanderleadershiponfirsttimemalus` = 0.5 × leadership, in both the
+manual and auto-resolve paths.
+
+And the Officers-tab descriptions check out as a group: West Point branch
+bonuses are real and branch-specific, political officers do raise home-state
+support and do feud more, volunteers are restricted to their home state, and
+the defamed status is a real flag with a real rehabilitation path
+([19](../code-findings/19-commanders-and-perks.md) §4, §9, §11).
+
+---
+
+## 23. Two places the chapters describe a one-sided advantage that is shared
+
+### 23.1 Rallying is presence, not skill
+
+Covered in §21 — the morale **recovery rate** has no leadership or fame term.
+Worth separating out because the manual says it twice, once under Fame
+(*"This influences his ability to rally his troops"*) and once under Leadership
+(*"High leadership makes rallying more effective"*), and a player will
+reasonably conclude that appointing a high-leadership general to a broken
+formation speeds its recovery. It does not. What speeds recovery is the unit's
+own **experience**. What a high-leadership general does is raise the morale
+*floor* while he is standing next to the unit.
+
+The practical difference matters: a rallying commander must stay in range to
+keep paying out, and moving him away removes the bonus immediately.
+
+### 23.2 The more cunning of the two admirals sets the range for both
+
+*"Ability to avoid being spotted"*, *"Moving close to enemy fleet before enemy
+can engage"*. The engagement distance is computed once, for the battle, from
+**the maximum of the two sides' attributes**:
+
+```csharp
+num  = Mathf.Max(initiative[side0], initiative[side1]);
+num2 = Mathf.Max(cunning[side0],    cunning[side1]);
+fleetdistance *= 1f + num  × (commanderinitiativeinfluenceonnavalrange − 1f);   // 1.3
+fleetdistance *= 1f + num2 × (commandercunninginfluenceonnavalrange   − 1f);    // 0.7
+```
+
+> **Both fleets always engage at the same distance**, and that distance is set
+> by whichever admiral is bolder and whichever is more cunning, on either side.
+> A cunning Confederate commodore shortens the range for the Union squadron
+> fighting him as much as for his own. Cunning spans up to −30 % and initiative
+> up to +30 %, so the two cancel when both admirals are maxed.
+>
+> There is no per-side spotting advantage in the naval model at all, which is
+> what the manual's wording implies.
+
+---
+
+## 24. Your estimate of the enemy is computed from the enemy's own generals
+
+The matrix's *"Information accuracy about enemy forces (over-estimation)"* cell
+is implemented — and in a way worth setting out, because it decides every
+enemy number the game shows you. One multiplier,
+`BattleUnits.CalculateApproximation()`, is applied by `TransformNumber` to all
+of them: 104 call sites in the statistics screen alone, plus the battle panel,
+the result summary, the campaign top bar and the unit panels.
+
+The multiplier is built from four things:
+
+| Input | Shipped span | Direction |
+| --- | --- | --- |
+| Share of enemy units you can actually see | 0.90 (none) → 0.10 (all) | the real signal, and it works |
+| **The enemy** commander's initiative | ×1.0 → ×0.2 | a bolder enemy general makes your estimate **5× more accurate** |
+| **The enemy's** average intelligence gathering | ×0.3 → ×0.0 | the enemy scouting *you* makes your estimate of *him* better |
+| **The enemy** commander's cunning | bias +0.5 → +0.0 | a *less* cunning enemy makes you over-estimate him more |
+
+Every attribute in that list belongs to the side you are looking at, not to
+you. The variable is `GetCommandingOfficerFromSide(GetSideFromAlliance(
+GetOppositeAlliance(GameVars.playeralliance)))`, and the intelligence figure is
+`sideinformation[thatSide].averageintel`, which is accumulated from **that
+side's** units' `intel`.
+
+> **So you cannot improve your picture of the enemy by appointing a cunning or
+> energetic general of your own.** The only lever you hold is spotting — getting
+> eyes on his units, which moves the first row. Scouting *is* the answer the
+> manual gives elsewhere, so the practical advice survives; the attribute
+> explanation does not.
+
+The config labels show what was meant: *"Factor for variation of accuracy when
+**having** full initiative"*, *"variation is multiplied with factor 0.3 if **we**
+have full intelligence"*. Read that way the three attribute rows should be
+yours, and the directions make sense — a decisive general and good scouts
+sharpen your reading, and nothing about the enemy's staff helps you.
+
+A second defect sits in the same line. The intelligence term is
+`X − intel × X` with `X` = 0.3, so it spans `[0.3, 0.0]`; the label describes
+`1 − intel × (1 − X)`, which spans `[1.0, 0.3]`. As shipped the estimate is up
+to **3.3× tighter than designed** at zero intelligence and **exactly
+correct** at full intelligence, which is why enemy figures in a well-scouted
+battle look suspiciously precise.
+
+---
+
+## 25. For modders: one `[deactivated]` label that lies
+
+Three passes have now found `[deactivated]` in a config label to be a reliable
+signal — the three readiness targets, the intelligence-based readiness factor,
+the subordinate command limit and the depot price transfer are all genuinely
+unread. The commander block contains the one counter-example:
+
+> `unitprefs.txt`: *"Adjustment factor for experience to influence commander
+> attributes (admin, initiative, cunning, leadership) [0-1, 1 means experience
+> of 0 is totally reducing all effects to zero, 0.5 means half, 0 means exp has
+> no influence) **[deactivated]**"* = 0.5
+
+It is **live**. `GetCommanderExperience(usedforstatsmultiplying: true)` returns
+`exp × 0.5 + 0.5` and every attribute getter multiplies by it, so a green
+commander really does operate at half his nominal leadership, initiative,
+administration and cunning. Editing that number changes the game; believing
+the label does not.
+
+Two smaller traps in the same area:
+
+- **`GetMaxShips` reads the raw `administration` field**, bypassing the
+  experience multiplier, the out-of-duty reduction and superior influence. A
+  green admiral commands as many ships as a veteran of the same nominal
+  administration — the only attribute consumer in the game that skips the
+  getter chain for a gameplay limit.
+- **`GetMaxAmountOfSubordinateUnits()` has no consumers**, and here the config
+  is honest about it.
+
+---
+
+## 26. Open questions
+
+1. **The chapters still unchecked.** Four passes are done: the economy
+   chapters with both policy appendices (§1–8), combat with the weapons tables
+   (§9–14), supply, depots, raiding and readiness (§15–20), and the commander
+   chapters with the attribute matrix (§21–25). Still open: **politics and
+   national morale**, the **naval** chapters, and **Appendix E**, the ship and
+   ship-weapon tables — which on four passes' evidence is the highest-value
+   target left, since every data table checked so far has had errors and every
+   prose chapter has held up.
+2. **Whether the fog-of-war accuracy function reads the wrong side
+   deliberately.** §24 states what the code does; the config labels state the
+   opposite intent. One word from a developer settles it, and nothing in the
+   code does.
+3. **Whether the three unimplemented matrix cells were ever wired.** Order
+   delays by initiative, flanking by cunning and rallying by leadership all
+   read like effects that existed and were replaced — order delay by the
+   courier model, flanking by the stance thresholds, rallying by the proximity
+   bonus. A changelog would say; the assembly does not.
+4. **Perk reachability.** [19](../code-findings/19-commanders-and-perks.md) §1.6
+   records the perk defects found so far, but the perk *catalogue* has not been
+   cross-checked against the manual's special-training chapters, which are a
+   separate body of claims from the attribute matrix.
+5. **What "2,000" is in map units** for the foraging interpolation
    ([14](../code-findings/14-supply-and-logistics.md) §11 question 8).
-3. **Whether the forced-march supply cut-off is intended.** The early return is
-   unambiguous and the 25 % cap the config ships is unread; which one the
-   developers meant is not recoverable from the code.
-4. **Fleet supply** takes an entirely separate harbour path that no pass has
-   followed, and the naval chapters are unchecked, so the two gaps close
-   together.
-5. **The weapons tables' three non-numeric columns.** Production Cost,
-   Required Project and Availability were not checked — the mapping from
-   `complexity`, `productionmultiplier` and the availability digit strings to
-   those words has not been traced. Project names are a cross-reference to
-   [22](../code-findings/22-policy-and-project-catalogue.md) worth doing,
-   because a wrong project name sends a player down the wrong research path.
-6. **Whether the accuracy floor is intentional** — see
+6. **Whether the forced-march supply cut-off is intended**, against the 25 %
+   cap the config ships and never reads.
+7. **Whether the accuracy floor is intentional** —
    [11](../code-findings/11-combat-resolution.md) §8 question 7. Still the
-   largest single finding of any pass, and the one most likely to be reclassed
-   by a word from a developer.
-7. **The ~137 unverified dead prefs.** The sweep in
-   [07](../code-findings/07-config-data-model.md) lists them; each needs the
-   same by-hand check the confirmed ones got. The supply pass alone promoted
-   eleven of them from candidates to confirmed.
-8. **A reachability audit of every project effect.** §7's sweep rules out any
+   largest single finding of any pass.
+8. **The ~137 unverified dead prefs.** The sweep in
+   [07](../code-findings/07-config-data-model.md) lists them; the supply and
+   commander passes between them promoted thirteen from candidates to
+   confirmed.
+9. **A reachability audit of every project effect.** §7's sweep rules out any
    further *discarded* prefs, but not the 113/114 shape — a live-looking use
    inside a condition that cannot be true. Three of roughly 125 project
-   effects have now been found inert by hand; the remainder are unaudited.
-9. **Whether the doubled Locomotive and Transport Ship costs were a deliberate
-   rebalance.** The 2× pattern is too clean to be coincidence, but the manual
-   is at version 1.13 and the build is unversioned
-   ([04](../code-findings/04-version-identification.md)), so the order of
-   events is not recoverable from here. Worth asking the developers — along
-   with the 6-pounder field gun's firepower, which has the same shape.
-10. **`maxpricebonusresource`** gates the bonus multipliers in §2 and its
+   effects have been found inert by hand; the remainder are unaudited.
+10. **The weapons tables' three non-numeric columns** — Production Cost,
+    Required Project and Availability — and whether the project names match
+    [22](../code-findings/22-policy-and-project-catalogue.md).
+11. **Whether the doubled Locomotive and Transport Ship costs, and the
+    6-pounder field gun's firepower, were deliberate rebalances.** The patterns
+    are too clean to be coincidence, but the manual is at version 1.13 and the
+    build is unversioned
+    ([04](../code-findings/04-version-identification.md)).
+12. **`maxpricebonusresource`** gates the bonus multipliers in §2 and its
     shipped value was not read.
-11. **`fillratiotarget`**, the per-depot buy/sell target, and whether the
-    player can set it. It decides whether a depot is buying or selling at any
-    moment and nothing in the manual mentions it.
+13. **`fillratiotarget`**, the per-depot buy/sell target, and whether the
+    player can set it.

@@ -354,6 +354,171 @@ its four siblings.
 > called from a battle scene it returns nonsense.
 > ([23](23-game-state.md) §10.1)
 
+### 2.6 Where each attribute actually lands
+
+§2.1 to §2.5 cover how an attribute's value is produced. This is the other
+half: every live consumer of the five getters, found by searching the whole
+assembly for each one and discarding the display-only sites (`Statistics`,
+`DebugInfo`, `CommandersList`, `CampaignMainPanel`, `Tooltip`). It exists
+because the official manual publishes a 6 × 3 matrix of attribute effects, and
+checking it needed the map ([manual-vs-code](../mechanics-findings/manual-vs-code.md)
+§21).
+
+**Fame** — 6 sites in `Regiment`, 4 in `BattleUnits`, and **none in
+`AIBattle`, `AICampaign` or `Autocalc`**:
+
+| Site | Effect | Pref |
+| --- | --- | --- |
+| `Regiment` ~6076, `BattleUnits` ~8137 | reduces overnight desertions | `commandersfameinfluenceondesertions` = 0.2 |
+| `Regiment` ~7339 | feud trigger, as the *difference* of two commanders' fame | `feudtriggerlevel` |
+| `Regiment` ~17729 | the unhappiness test (campaign morale slot 12) | `expleverageunhappy` |
+| `Regiment` ~18082–18092 | morale slot 4: commander nearby, wounded, or killed | `moralemultipliercommanderfame`, `…_w`, `…_k` |
+| `Regiment` ~7469–7476 | `fightingspirit`, against the side or alliance average | `influenceofattributesonfightingspirit[,1]` = 0.33 |
+| `BattleUnits` ~3656, ~6638 | the two fame baselines those comparisons use | — |
+| `BattleUnits` ~5840, ~6493 | commander ranking and the famous/defamed pick | `famefactorinrankingcommanders` |
+
+**Initiative** — the widest spread of the five:
+
+| Site | Effect | Pref |
+| --- | --- | --- |
+| `Regiment` ~5909, ~6197 | readiness consumption, **capped by the C-in-C's initiative** via `Mathf.Min` | `readinessadjustmentinitiative` = 0.35 |
+| `Regiment` ~15692, ~15702 | **command range and combat range of every campaign formation** | `influenceinitiativeoncommanderrange` = 0.5, `influenceinitiativeoncombatrange` = 0.33 |
+| `Regiment` ~7340 | feud trigger, as `abs(difference)` | `feudprobability`, `feudtriggerlevel` |
+| `AIBattle` ~3281–3315 | divides the macro stance thresholds — defend, attack, **assault-flanking**, objective chains | `forcebalancetriggerdefend / attack / assaultflanking` |
+| `AIBattle` ~3330 | how often the AI re-picks its macro stance | `standardtimetochangemacroai` |
+| `Autocalc` ~1971 | naval engagement start range, **widened** | `commanderinitiativeinfluenceonnavalrange` = 1.3 |
+| `Autocalc` ~1719 | naval ramming probability | `commanderinitiativeinfluenceonramprob` = 1.5 |
+| `Autocalc` ~2800, ~2915 | auto-resolve reserve commitment and stance | — |
+| `AICampaign` ~2896, ~4500, ~4903, ~4934 | offensive stance and operation planning | `commanderinfluenceinitiative…` |
+| `BattleUnits` ~2507 | fog-of-war accuracy — see below | `factorvariationfullinitiative` = 0.2 |
+
+**Leadership**:
+
+| Site | Effect | Pref |
+| --- | --- | --- |
+| `Regiment` ~4307 | raises the unbearable-losses trigger | `influenceleadershipunbearablelossestrigger` = 0.75 |
+| `Regiment` ~18082–18092 | morale slot 4, weighted **1.7× fame** when present (0.125 vs 0.075) and 2.5× when killed | `moralemultipliercommanderleadership` = 0.125, `…_w` = −0.03, `…_k` = −0.05 |
+| `Regiment` ~18394 | damps an amplified morale **drop**, as `(2 − leadership)` | `overallmoraleinfluenceleadership` |
+| `Regiment` ~18421, `Autocalc` ~3298 | the first-battle morale cap | `effectofcommanderleadershiponfirsttimemalus` = 0.5 |
+| `Regiment` ~7470–7476 | `fightingspirit` | `influenceofattributesonfightingspirit[,2]` = 0.33 |
+| `Autocalc` ~1483, ~1858, ~1976 | **naval firepower**, both fleet-vs-fleet and fleet-vs-fort | `commanderleadershipinfluenceonnavalcombat` = 0.3 |
+| `Autocalc` ~3255 | damps auto-resolve morale hits | `overallmoraleinfluenceleadership` |
+| `BattleUnits` ~5985 | retreat losses: `× (1 + (1 − leadership) × pref)` | `influenceofcommanderleadershiponlosseswhenretreating` = 0.6 |
+
+**Administration**:
+
+| Site | Effect | Pref |
+| --- | --- | --- |
+| `Regiment` ~6077, `BattleUnits` ~8138 | reduces overnight desertions | `commandersadmininfluenceondesertions` = 0.2 |
+| `Regiment` ~6145 | readiness recovery | `influenceadminonreadiness` = 1.33 |
+| `Regiment` ~8440 | **battlefield** supply line only | `supplyadminweightingbf` |
+| `Regiment` ~21520, ~21523, `Autocalc` ~3343 | damps the fatigue penalty from poor condition of men and horses | `conditionofmenreductionadmin` = 0.25 |
+| `Vessel` ~353 | fleet movement, repair and resupply rotation | `commanderadmininfluenceonmovementspeed` = 0.35 |
+| `GameVars.GetMaxShips` | the ship-command limit, **doubled** at full administration | `maxshipstocommand[]` / `…fulladmin[]` |
+
+**Cunning**:
+
+| Site | Effect | Pref |
+| --- | --- | --- |
+| `Regiment` ~10590, ~10736–10742 | raiding and guarding efficiency | `cunninginfluenceonraiding` = 0.5, `…onguarding` = 0.4 |
+| `Regiment` ~10595, ~10758 | intelligence gathering | `cunninginfluenceintelligence` = 2.0 |
+| `Regiment` ~16978, ~16982 | **concealment** — passed straight into `FogOfWar.UnitIsHidden` | `commandercunninginfluenceonconcealment` = 0.5 |
+| `Autocalc` ~2134 | siege effectiveness | `commandercunninginfluencesiegeeffectiveness` = 0.5 |
+| `Autocalc` ~2521 | skirmishing casualty reduction | shipped 0.25 at full cunning |
+| `Autocalc` ~3142 | own casualties when the unit is cavalry | `cavalrycunninginfluenceowncasautocalc` = 0.8 |
+| `Autocalc` ~1972 | naval engagement start range, **shortened** | `commandercunninginfluenceonnavalrange` = 0.7 |
+| `Autocalc` ~3723 | garrison slip-away trigger | `cunninginfluenceonslipawaytrigger` = 0.5 |
+| `AICampaign` ~7870 | the AI's willingness to burn a captured depot | `commandercunningfinluenceonburningdown` = 0.4 |
+| `BattleUnits` ~2510 | fog-of-war over-estimation bias | `overestimatingcunning` = 0.5 |
+
+**Experience** is not in this list because it is not an attribute consumer but
+an attribute *multiplier* (§2.1) — plus `commanderexpinfluenceonvesselcombatstrength`
+= 0.4 on every vessel's combat strength, and the rally-rate term
+`expinfluenceonbasemoraleincrease`.
+
+#### Four things the map changes about §2.1 to §2.5
+
+**Raw fields *are* read directly, in three places.** §2.1 states that nothing
+reads the raw attribute fields. Three exceptions:
+
+- `GetMaxShips` interpolates on raw `administration`, so the ship-command limit
+  ignores the experience multiplier, the out-of-duty reduction and superior
+  influence. **A green admiral commands as many ships as a veteran one of the
+  same nominal administration.**
+- `Regiment.CalculateFightingSpirit` (~7443) reads raw `fame` and `leadership`
+  and applies `commanderattributesreductionifnonactive` by hand instead of
+  going through the getters.
+- `BattleUnits` ~6638 builds `sideinformation[].averagecommanderfame` and
+  `…leadership` from the raw fields too — which is the right choice, because it
+  keeps the comparison in `CalculateFightingSpirit` raw-against-raw. The
+  alliance-level averages at ~3654 use the **getters**, so the campaign branch
+  of that same comparison is getter-against-getter. Both halves are internally
+  consistent; they are just computed two different ways.
+
+**`factorcommanderexpattr` is live, and the config says it is not.**
+`unitprefs.txt` labels it *"Adjustment factor for experience to influence
+commander attributes (admin, initiative, cunning, leadership) … **
+[deactivated]**"* = 0.5. It is read, by
+`GetCommanderExperience(usedforstatsmultiplying: true)` (`GameVars.cs:2437`),
+which every attribute getter calls. The `[deactivated]` tag is wrong: the
+experience multiplier really does span `[0.5, 1.0]` as §2.1 says.
+
+> This is the **only** `[deactivated]` label found so far that lies in that
+> direction. The six others checked — three readiness targets, the
+> intelligence-based readiness factor, the subordinate command limit and the
+> depot price transfer — are all genuinely dead
+> ([14](14-supply-and-logistics.md) §10d, [07](07-config-data-model.md)).
+
+**No commander attribute reaches any order delay.** The battle order-processing
+delay is `GamePrefs.processingtimegroupstandard` (0.0001 campaign years, about
+53 game minutes) multiplied by `additionalprocessingtimefeudsfactor` = 3.0
+while a feud is active, plus the courier and bugle geometry and
+`readinessorderdelay` = 10 scaled by `(1 − readiness)`. Searching the whole
+assembly for any `GetCommander*` call on a line mentioning delay, processing,
+courier, bugle or recognition returns **nothing**. Initiative reaches order
+delays only indirectly, by making feuds more likely.
+
+**`GetNumberOfFamedSeniorOfficers()` is not UI-only.** §2.5 lists it as UI; it
+is also the right-hand side of the unhappiness test at `Regiment` ~17731,
+which writes campaign morale slot 12.
+
+#### Fog-of-war accuracy: two defects in one function
+
+`BattleUnits.CalculateApproximation()` sets the multiplier that
+`BattleUnits.TransformNumber` applies to **every enemy figure the player is
+shown** — 104 call sites in `Statistics` alone, plus the battle panel, the
+result summary, the campaign top panel and the unit panels:
+
+```csharp
+num3 = maximumvariationfowfigures × (1 − spottedRatio)          // 0.90
+     + minimumvariationfowfigures × spottedRatio;               // 0.10
+num3 *= factorvariationnoinitiative   × (1 − init)              // 1.0
+      + factorvariationfullinitiative × init;                   // 0.2
+num3 *= 1f * factorvariationfullintelligence                    // 0.3
+      − averageintel * factorvariationfullintelligence;
+num5  = overestimatingcunning × (1 − cunning);                  // 0.5
+approximatefowstatsvariation = 1f + (randomSeed + num5) × num3;
+```
+
+1. **Wrong side.** `commandingOfficerFromSide` and `averageintel` are both
+   taken from `sideFromAlliance`, which is the side of
+   `GetOppositeAlliance(GameVars.playeralliance)` — **the enemy**. So how
+   accurately you see the enemy is decided by the *enemy* commander's
+   initiative and cunning and by the *enemy's* intelligence gathering. The
+   config labels read the other way: *"when **having** full initiative"*,
+   *"if **we** have full intelligence"*. And the direction compounds the
+   oddity — `factorvariationfullinitiative` = 0.2 means a bold enemy general
+   makes your estimate five times *more* accurate.
+2. **The intelligence term is mis-formed.** `X − intel × X` with `X` = 0.3
+   spans `[0.3, 0.0]`, so the variation is always cut to at most 30 % and
+   reaches **exactly zero** at full intelligence. The label describes
+   `1 − intel × (1 − X)`, i.e. a span of `[1.0, 0.3]`. As written, the
+   fog-of-war estimate is up to **3.3× tighter than intended** at zero
+   intelligence and perfect at full intelligence.
+
+`lastapproximatefowstatsvariation` initialises to `99999f` and is never
+assigned, so the ratchet clamp two lines later never fires.
+
 ---
 
 ## 3. Ranks and promotion

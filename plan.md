@@ -673,9 +673,49 @@ planned index are in [`mechanics-findings/README.md`](mechanics-findings/README.
      them. The manual lists only the six that exist, so this one is a modder's
      trap rather than a lie to players.
 
-**Next:** the manual's **commander, politics and naval** chapters plus
-Appendix E (the ship and ship-weapon tables), which on three passes' evidence
-is the highest-value target left; or `time-and-speed.md` and
+   A fourth pass took the **commander** chapters, whose 6 × 3 attribute-effects
+   matrix is the densest data table in the manual — about forty claims. Most
+   hold, several understate the code, and checking them needed a full consumer
+   map of the five attribute getters, now
+   [19](code-findings/19-commanders-and-perks.md) §2.6:
+
+   - **four matrix cells are wrong**, and three of them are attribution
+     mix-ups rather than missing features: *order delays* are not touched by
+     initiative (no commander attribute appears on any line in the assembly
+     mentioning delay, courier, bugle or processing), *flanking* is driven by
+     initiative rather than cunning, *rallying* is the commander-nearby morale
+     bonus rather than a recovery-rate term, and the enemy being *"more
+     cautious vs. a very famous commander"* has no implementation at all —
+     `forcebalance` is force × morale × experience and fame has no consumer in
+     `AIBattle`, `AICampaign` or `Autocalc`;
+   - **administration does nothing for drill or for campaign supply**, two more
+     matrix cells; its real supply consumer is the battlefield model only;
+   - **your fog-of-war estimate of the enemy is computed from the enemy's own
+     generals.** `CalculateApproximation` reads the *enemy* commander's
+     initiative and cunning and the *enemy's* average intelligence, and the
+     multiplier it produces is applied by `TransformNumber` to every enemy
+     figure the game shows — 104 call sites in `Statistics` alone. The same
+     line computes the intelligence term as `0.3 − intel × 0.3` where its own
+     label describes `1 − intel × 0.7`, so the estimate is up to 3.3× tighter
+     than designed with no scouting and exactly correct with full scouting;
+   - **the matrix understates several real effects**: leadership raises naval
+     firepower by up to 30 %, initiative widens the command and combat range
+     of every campaign formation, administration doubles an admiral's ship
+     limit and damps the fatigue penalty from poor condition, and fame reduces
+     desertions at the same weight as administration;
+   - **the unhappiness test weights leadership four times fame**
+     (`leadership × 2` against `fame / 2`) against the unit's own experience,
+     which is the mechanism behind the manual's remark that veterans resent
+     unknown commanders — and a defamed commander fails it outright;
+   - **one `[deactivated]` config label lies.** `factorcommanderexpattr` is
+     tagged deactivated and is live in every attribute getter, so a green
+     commander really does operate at half his nominal attributes. The six
+     other `[deactivated]` labels checked across four passes are all honest.
+
+**Next:** the manual's **politics** and **naval** chapters plus Appendix E (the
+ship and ship-weapon tables), which on four passes' evidence is the
+highest-value target left — every data table checked so far has had errors and
+every prose chapter has held up; or `time-and-speed.md` and
 `why-units-break.md` from the planned index in
 [`mechanics-findings/README.md`](mechanics-findings/README.md).
 

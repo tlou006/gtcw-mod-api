@@ -161,6 +161,36 @@ interpret.
 Source: [13](../code-findings/13-morale-and-cohesion.md) §6,
 [manual-vs-code](manual-vs-code.md) §14.
 
+### 1.7 Every enemy figure is distorted by the enemy's own generals
+
+With fog of war on, every number the game reports about the enemy — strength,
+guns, losses, the whole statistics screen — is multiplied by one variation
+factor before it is shown. The factor is built from four inputs, and **three of
+them belong to the enemy, not to you**:
+
+| Input | Shipped span | What it does |
+| --- | --- | --- |
+| Share of enemy units you can see | 0.90 (none) → 0.10 (all) | the real signal; spotting works |
+| **Enemy** commander's initiative | ×1.0 → ×0.2 | a bolder enemy general makes your estimate 5× tighter |
+| **Enemy's** average intelligence gathering | ×0.3 → ×0.0 | the enemy scouting you sharpens your view of him |
+| **Enemy** commander's cunning | bias +0.5 → 0.0 | a *less* cunning enemy makes you over-estimate him more |
+
+So **appointing a cunning or energetic general of your own does nothing for
+your intelligence picture.** The only lever that works is getting eyes on enemy
+units. The config labels say the opposite was intended — *"when **having** full
+initiative"*, *"if **we** have full intelligence"* — and under that reading the
+directions make sense.
+
+The same line has a second defect: the intelligence multiplier is computed as
+`0.3 − intel × 0.3`, spanning `[0.3, 0.0]`, where the label describes
+`1 − intel × 0.7`, spanning `[1.0, 0.3]`. As shipped the estimate is up to
+**3.3× tighter than designed** with no scouting at all, and **exactly correct**
+at full intelligence — which is why enemy figures in a well-scouted battle look
+suspiciously precise.
+
+Source: [19](../code-findings/19-commanders-and-perks.md) §2.6,
+[manual-vs-code](manual-vs-code.md) §24.
+
 ## 2. Things the game tells you in words that are not true
 
 ### 2.1 The perk tooltip describes a system that does not exist
@@ -325,6 +355,7 @@ and reaches nothing.
 | `campaignprefs.txt` | "Upkeep cost factor of transports for transportation subsidies" (0.5), "Increased IIP transport capacity…" (1.5), "Increased railroad construction speed…" (2.0) | Parsed, never read. **The Transportation subsidy category was removed**; its effect constants were left in the file. Seven more in the same block are dead for the same reason. |
 | `campaignprefs.txt` | "Max supply ratio of units retreating or on forced march" (0.25) | Parsed, never read. Forced march cuts resupply to **zero**, not to a quarter. |
 | `campaignprefs.txt` | "Readiness improvement factor based on intelligence value" (0.008) | Parsed, never read — and marked `[deactivated]`, unlike its live near-namesake. |
+| `unitprefs.txt` | "Adjustment factor for experience to influence commander attributes (admin, initiative, cunning, leadership)… **[deactivated]**" (0.5) | **The opposite trap: it is live.** Every attribute getter multiplies by `exp × 0.5 + 0.5`, so a green commander really does operate at half his nominal attributes. The only `[deactivated]` label found so far that lies. |
 
 The first four add up to one missing feature: **enemy fire does not disrupt
 your formations.** The accumulator those three values would feed has no
