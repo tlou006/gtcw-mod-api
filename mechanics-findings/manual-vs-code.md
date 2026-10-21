@@ -9,22 +9,25 @@ against `Config/resources.dat`, `Config/buildingtypes.dat`,
 [23](../code-findings/23-game-state.md),
 [11](../code-findings/11-combat-resolution.md),
 [12](../code-findings/12-melee.md),
-[13](../code-findings/13-morale-and-cohesion.md)
+[13](../code-findings/13-morale-and-cohesion.md),
+[14](../code-findings/14-supply-and-logistics.md)
 
 The manual is the developers' own account of the mechanics, so it is the right
 yardstick for this folder: where it and the code agree, a finding is confirmed
 from both ends; where they disagree, one of them is misleading players.
 
-Two passes are recorded here. **Part I (§1–8)** covers the economy chapters and
-both policy appendices; **Part II (§9–14)** covers the combat chapters and the
-three weapons tables. The manual is 9,000 lines; supply, commanders, politics
-and the naval chapters are still unchecked (§15).
+Three passes are recorded here. **Part I (§1–8)** covers the economy chapters
+and both policy appendices; **Part II (§9–14)** the combat chapters and the
+three weapons tables; **Part III (§15–20)** supply, depots, raiding and
+readiness. The manual is 9,000 lines; commanders, politics and the naval
+chapters are still unchecked (§21).
 
-> **The manual is accurate far more often than not**, in both passes. Of 37
-> production recipes and 38 producer assignments, 33 and 37 match the shipped
-> data exactly, including every connector in the four-term boolean recipes; of
-> some 180 numbers in the weapons tables, four are wrong. What follows is the
-> exceptions, which is not a fair picture of the document as a whole.
+> **The manual is accurate far more often than not**, in all three passes. Of
+> 37 production recipes and 38 producer assignments, 33 and 37 match the
+> shipped data exactly; of some 180 numbers in the weapons tables, four are
+> wrong; and the supply chapters' readiness ladder matches the code gate for
+> gate. What follows is the exceptions, which is not a fair picture of the
+> document as a whole.
 
 ---
 
@@ -626,39 +629,335 @@ doubles the risk to your brigade commanders**.
 code enforces as a hard gate on rank index.
 
 ---
+---
 
-## 15. Open questions
+# Part III — Supply, logistics and readiness
 
-1. **The chapters still unchecked.** Two passes are done: the economy
-   chapters with both appendices (§1–8) and the combat chapters with the
-   weapons tables (§9–14). Still open: **supply and logistics**, **commanders
-   and perks**, **politics and national morale**, the **naval** chapters, and
-   **Appendix E**, the ship and ship-weapon tables. On the evidence of two
-   passes the prose will hold up and the data tables are where to look.
-2. **The weapons tables' three non-numeric columns.** Production Cost
-   (*Always Available*, *Not in production*, *Low* … *Very High*), Required
-   Project and Availability were **not** checked — the mapping from
-   `complexity`, `productionmultiplier`, `techavailableforalliance` and
-   `importavailableforalliance` to those words has not been traced. Project
-   names in particular are a cross-reference to
+The campaign chapters on Readiness, Supplies and Depots, plus the Raiding and
+Guarding section, checked against `Config/campaignprefs.txt`,
+`Config/unitprefs.txt` and the decompiled assembly. Translates
+[14](../code-findings/14-supply-and-logistics.md) and
+[18](../code-findings/18-economy.md).
+
+> **This is the best the manual has looked.** The supply and readiness chapters
+> are almost entirely prose rather than tables, and the prose is accurate: the
+> readiness restriction ladder matches the code gate for gate, and six of the
+> eight things the manual lists as slowing readiness recovery are exactly the
+> code's multipliers. Three statements are back to front and a fourth is one
+> notch out, and the chapters leave out several effects large enough to change
+> how you play.
+
+---
+
+## 15. What the supply chapters get right, with the numbers
+
+**Depots bypass the infrastructure, exactly as claimed.** The manual says
+supply from depots *"arrive[s] much faster, without restrictions of the IIP
+transport capacity"*, and no capacity term appears in the depot draw at all
+([14](../code-findings/14-supply-and-logistics.md) §3a). Days to refill a unit
+from empty, at good prices and full condition:
+
+| Source | Food and forage | Ammunition |
+| --- | --- | --- |
+| Depot, level 3 | **0.9 days** | 3.0 days |
+| Depot, level 1 | 1.8 days | 6.1 days |
+| Foraging from an adjacent node | 3.2 days | 10.8 days |
+| Foraging from a node 2,000 map units away | 24.3 days | 81 days |
+| Foraging from an **enemy-owned** node | ×10 slower | ×10 slower |
+
+A level-3 depot in range is worth about **four adjacent economic nodes**, or
+twenty-seven distant ones.
+
+**"It takes some time to get the captured infrastructure working"** is the
+node's `condition` dividing the local supply rate. A railhead captured at
+condition 0.3 supplies at a third of its eventual rate, and separately carries
+only 30 % of its goods — raiding a node hurts twice.
+
+**The projects do what their entries say.**
+
+| Project | Manual | Code |
+| --- | --- | --- |
+| 99 Infrastructure Reform | *"increase the transport capacity of IIPs"* | ×(1 + 0.05 per level) on every node you own |
+| 100 Logistics Reform | *"reduces costs of troop movement using sea, river and rail transportation, as well as costs of supplies"* | −5 % per level, applied to transport upkeep **and** to both supply purchase paths. Exactly as worded — it is a cost effect, not a speed one |
+| 101 Military Railroad | *"troop movement speed along railroads is greatly increased"* | +50 % rail speed per level — **and a 50 % cut in transport upkeep per level, which the manual does not mention** |
+| 115 Supply Reform | *"allows upgrading existing supply depots to levels 2-3, greatly increasing the efficiency"* | it is the gate on the upgrade, and the levels are worth **×3 capacity and ×2 throughput** |
+
+**Raiding and guarding work as described.** Raiders take goods from enemy
+nodes, convert them into their own supply, and damage nearby buildings; guards
+reduce the effect. The arithmetic is a plain subtraction — your raiding
+efficiency minus the guard efficiency standing at the node — floored at 0.1, so
+**guards can cut a raid to a tenth but never stop it.** Cavalry counts 2.0 at
+raiding against infantry's 1.0, and 1.7 at guarding against 0.7, with the
+commander's cunning worth up to +50 % raiding and +40 % guarding.
+
+**Readiness consumption depends on exactly what the manual says it does.**
+State support of the state being crossed, and the commanding officer's
+initiative:
+
+| Factor | Effect |
+| --- | --- |
+| Marching through a **loyal** state | −8.5 readiness per year |
+| Marching through a **hostile** state | **−25 per year** — about 15 days from full to empty |
+| An aggressive commander (initiative 100 %) | ×0.35 |
+| A war-experienced nation (military experience 100 %) | ×0.50 |
+| Winter, snow only | ×4.0 |
+| After a battle | −2.5 per 100 % casualties, ×1.2 if you lost |
+| A newly appointed commander | −0.10 flat |
+
+**And the restriction ladder is gate for gate correct.** The bands are
+hardcoded quartiles — 25 %, 50 %, 75 % — and `CheckReadinessActions` enforces:
+
+| Manual | Code |
+| --- | --- |
+| *"Yellow: Unit cannot use forced march"* | at ≤ 75 %, `doublequick = false` |
+| *"Orange: … cannot be ordered to carry out offensives in enemy territory. Army/fleet orders are unavailable."* | at ≤ 50 %, movement onto enemy soil is refused and raid / guard / patrol / fleet orders are cleared |
+| *"Red: … cannot use offensive stance or construct anything."* | at ≤ 25 %, `campaignstance` is forced to defensive and the stance buttons are disabled |
+
+Six of the eight conditions the manual lists as slowing **recovery** are the
+code's multipliers, with values: poor supply ×0.5, a brigade still arriving
+×0.33, low morale ×0.4, winter quarters ×0.75, poor intelligence (×1 + 0.005
+per point) and low training (up to ×1.5). Smaller units recovering faster is
+also exact — the divisor is the **number of attached brigades or ships**, as
+the manual says.
+
+---
+
+## 16. The factor of ten is a factor of eleven
+
+The supplies chapter's one hard number: *"where a normal road has transport
+capacity of one, a railroad will increase this by a factor of ten!"*
+
+In `IIP.GetTransportCapacity` the multiplier starts at `1f` and the pref is
+**added** to it:
+
+```
+num2 = 1f
+if (any connected railroad is complete) num2 += railroadtransportcapacityfactor   // 10.0
+capacity *= num2
+```
+
+So a rail-connected node carries **eleven times** a plain one, not ten. The
+config label — *"Railroad transport capacity leverage factor"*, 10.0 — reads
+naturally as the manual does; the `1 +` is what makes the difference.
+
+A small thing on its own, but it changes §17's arithmetic.
+
+---
+
+## 17. The army does not attach to the nearest node
+
+The manual says local supply *"[is] collected from the nearest IIPs to which
+the unit will automatically attach."* It is not the nearest. Each candidate
+node in range is scored
+
+```
+score = transport capacity / max(1, distance) / max(0.01, average price of supply goods)
+```
+
+and the **highest score** wins. All three terms trade off linearly, so with a
+railroad worth ×11:
+
+> **A railhead outranks a plain road junction up to eleven times further away**,
+> and a node with cheap food outranks a nearer one with expensive food by the
+> same ratio. An army can and does reach past the village next door for a
+> railway station across the state.
+
+This also explains the chapter's own advice — *"moving them near better
+infrastructure and depots will help"* — more precisely than the chapter does:
+you are not shortening the supply line, you are changing which node wins the
+auction.
+
+One consequence the manual states and the code does **not** support as a
+mechanism: *"This rate of supply is dependent on the transport capacity of the
+IIPs."* Capacity appears in the node **selection** and in how fast the economy
+restocks that node — but not in the rate at which the army draws from it. The
+army feels capacity through the node's prices, which throttle foraging above a
+relative price of 0.7, down to a floor of 25 %. True as an outcome; not true as
+a mechanism.
+
+---
+
+## 18. Three things the supply chapters have backwards
+
+### 18.1 Rail and sea transport cost *less* readiness, not more
+
+*"Transporting the unit using railroads or ships will cost additional
+readiness."* The pref is `readinessconsumptionfactorifembarked` = **0.75**, and
+it multiplies a per-year consumption rate. An hour on a train costs three
+quarters of an hour's marching — and covers far more ground. **Rail movement is
+the cheapest way to move an army in readiness terms**, which is close to the
+opposite of the advice.
+
+### 18.2 The Confiscation Act makes foraging on enemy soil worse
+
+Appendix A's Union Acts table: *"Supply efficiency of armies operating in
+enemy states + 15 %."* The config agrees — *"Confiscation, supply flow
+improvement if unit is on enemy soil, factor [>1]"* = 1.15. The code sets
+`supplyenemysoilfactor = 1.15` and then multiplies it into `num15`, which is
+the **time** to resupply:
+
+```
+local rate ∝ elapsed / num15
+num15 *= supplyenemysoilfactor      // when standing in a state at war with you
+```
+
+So the act makes local foraging on enemy soil **13 % slower**. Three sources
+agree on the intent and the code has the sign inverted. The act's other half —
+contraband slaves, +3 Confederate support per year in slave states — is
+unaffected, so it is still worth taking for that; just not for the supply.
+
+### 18.3 Bad weather and sieges are in the wrong column
+
+The readiness chapter lists eight things that *"influence the speed of recovery
+negatively"*. Two of them are not recovery effects:
+
+- **Bad weather** does not appear in the recovery chain at all. Weather affects
+  readiness **consumption**, and only as winter: `×4.0`, snow only.
+- **Siege combat** is a flat **−5 readiness per year consumption**, not a
+  recovery malus. The distinction matters: a besieging army loses readiness
+  steadily rather than merely failing to regain it, which is why the chapter's
+  own remark that readiness *"will happen very slowly during sieges"* is
+  understated — it goes **down**.
+
+Weather does throttle one thing in supply that the manual does not mention:
+`GetWeatherAdjustment()[3]` multiplies the **depot** draw and not the local
+one, so bad weather shifts an army's supply mix towards living off the land.
+
+---
+
+## 19. What the supply chapters leave out, and it is a lot
+
+Each of these is large enough to change a decision.
+
+**Forced march stops resupply dead.** A unit moving at forced march or running
+speed outside battle passes an eligibility gate that returns **before either
+supply source runs** — after consumption has already been applied. Its
+`supplystate` reads 0, reinforcements stop, and it lives purely on what it
+carries. The config even ships the intended version of this — *"Max supply
+ratio of units retreating or on forced march [0-1]"* = 0.25 — and the pref is
+**never read**, so the shipped behaviour is a full cut-off rather than a 25 %
+cap. Forced march also needs readiness above 75 % to begin with, so the
+sequence is: arrive at full readiness, burn it marching hard, and arrive out of
+supply as well.
+
+**Ammunition is always the slow one.** `supplyspeedammo` = 0.3 applies to both
+sources, so ammunition refills **3.3× slower than food** — 3 days from a
+level-3 depot against 0.9, and 10.8 days of foraging against 3.2. A unit that
+has just fought is short of exactly the thing that takes longest to replace,
+which is the real argument for depots near the front rather than food supply.
+
+**A raid or guard order costs 50× in reinforcement delay.**
+`reinforcementdelaycavalryorders` = 50 is added to the delay of any brigade
+reinforcing a formation that holds one. Raiding cavalry does not get rebuilt.
+
+**Withdrawing at low readiness is expensive.** The share of units taking
+skirmish casualties while withdrawing runs from **20 % at full readiness to
+100 % at zero**. The readiness chapter describes what low readiness stops you
+doing; it does not mention what it costs you on the way out.
+
+**Deploying a garrison needs more than 50 % readiness**, a gate the ladder in
+the chapter does not list.
+
+**The enemy-soil movement block has an exemption.** Movement into enemy
+territory is refused below 50 % readiness *unless the target is within
+regrouping range* — and occupied states count as friendly. So a low-readiness
+army can still shuffle inside the ground it holds.
+
+**Splitting an army lets it rest faster.** Recovery is divided by
+`N ^ 0.43` where N is the number of attached brigades: a 4-brigade corps
+recovers at 1.65× the base rate and a 12-brigade army at 1.03×. **Breaking a
+large army into corps to rest is worth about 60 % more recovery per day**, and
+the chapter says only that "smaller units will also recover faster".
+
+**A burning depot empties 300× faster than it fills.** A successful raid does
+not degrade a depot's stock, it erases it.
+
+**Depots shed stock when no army is near.** A depot that has not supplied
+anyone for a while is drawn down to 10 % of capacity, so a forward depot
+stocked in advance of an offensive does not stay stocked.
+
+---
+
+## 20. For modders: the Transportation subsidy is gone
+
+`campaignprefs.txt` still ships three constants describing what transportation
+subsidies do — transport upkeep ×0.5, IIP transport capacity ×1.5, railroad
+construction speed ×2.0 — and **all three are parsed and never read.** So are
+the Trade War and Civil Order subsidy effects, and the Diplomacy slider's price
+and intervention bonuses, and the industry and farm productivity bonuses: ten
+constants in one consecutive block, none of them live
+([18](../code-findings/18-economy.md)).
+
+The reason is in the code rather than the manual. `GameVars` names the subsidy
+ids `subsidy_transportx`, `subsidy_tradewarx` and `subsidy_civilorderx` — with
+an `x` — and reuses ids 4 and 5 for Military and Diplomacy. The cost array's
+own config label names the eight slots *"(politics, economy, agriculture,
+industry, military, diplomacy, n/a, n/a)"*. **Three subsidy categories were
+removed and their effect constants were left in the file.**
+
+> **The manual is not at fault here.** It lists exactly the six categories that
+> exist, and it correctly says the Industry subsidy funds *"construction of new
+> industries and railroads"* — `subsidyidrailroads` really is the industry id.
+> What a subsidy slider does now is buy **funding** that pays for projects and
+> construction, plus two direct effects: politics raises the policy cap, and
+> military feeds the recruitment target. The ten dead constants belong to an
+> earlier design in which the sliders applied multipliers directly.
+>
+> For anyone editing config: the live supply and transport knobs are
+> `railroadtransportcapacityfactor`, `project_infrastructure`,
+> `marketinfluenceoninfastructure`, the `supplyspeed*` family,
+> `supplyefficiencyfactor` and the depot level arrays. The subsidy-effect block
+> is inert.
+
+---
+
+## 21. Open questions
+
+1. **The chapters still unchecked.** Three passes are done: the economy
+   chapters with both policy appendices (§1–8), the combat chapters with the
+   weapons tables (§9–14), and supply, depots, raiding and readiness
+   (§15–20). Still open: **commanders and perks**, **politics and national
+   morale**, the **naval** chapters, and **Appendix E**, the ship and
+   ship-weapon tables. On three passes' evidence the prose will hold up and
+   the data tables are where to look — which makes Appendix E the highest-value
+   target left.
+2. **What "2,000" is in map units.** The foraging rate is interpolated between
+   `supplyspeeddistance0` and `supplyspeeddistance2000` on a raw campaign-map
+   distance, and the map's unit-to-mile scale is still unknown, so §15's
+   distance row is relative rather than absolute
+   ([14](../code-findings/14-supply-and-logistics.md) §11 question 8).
+3. **Whether the forced-march supply cut-off is intended.** The early return is
+   unambiguous and the 25 % cap the config ships is unread; which one the
+   developers meant is not recoverable from the code.
+4. **Fleet supply** takes an entirely separate harbour path that no pass has
+   followed, and the naval chapters are unchecked, so the two gaps close
+   together.
+5. **The weapons tables' three non-numeric columns.** Production Cost,
+   Required Project and Availability were not checked — the mapping from
+   `complexity`, `productionmultiplier` and the availability digit strings to
+   those words has not been traced. Project names are a cross-reference to
    [22](../code-findings/22-policy-and-project-catalogue.md) worth doing,
    because a wrong project name sends a player down the wrong research path.
-3. **Whether the accuracy floor is intentional** — see
-   [11](../code-findings/11-combat-resolution.md) §8 question 7. This is the
-   largest single thing found in the combat pass and the only one where the
-   finding would change if a developer said "that `Mathf.Max` is deliberate".
-4. **The ~137 unverified dead prefs.** The sweep in
+6. **Whether the accuracy floor is intentional** — see
+   [11](../code-findings/11-combat-resolution.md) §8 question 7. Still the
+   largest single finding of any pass, and the one most likely to be reclassed
+   by a word from a developer.
+7. **The ~137 unverified dead prefs.** The sweep in
    [07](../code-findings/07-config-data-model.md) lists them; each needs the
-   same by-hand check the eight confirmed ones got before being called dead.
-5. **A reachability audit of every project effect.** §7's sweep rules out any
+   same by-hand check the confirmed ones got. The supply pass alone promoted
+   eleven of them from candidates to confirmed.
+8. **A reachability audit of every project effect.** §7's sweep rules out any
    further *discarded* prefs, but not the 113/114 shape — a live-looking use
    inside a condition that cannot be true. Three of roughly 125 project
    effects have now been found inert by hand; the remainder are unaudited.
-6. **Whether the doubled Locomotive and Transport Ship costs were a deliberate
+9. **Whether the doubled Locomotive and Transport Ship costs were a deliberate
    rebalance.** The 2× pattern is too clean to be coincidence, but the manual
    is at version 1.13 and the build is unversioned
    ([04](../code-findings/04-version-identification.md)), so the order of
    events is not recoverable from here. Worth asking the developers — along
    with the 6-pounder field gun's firepower, which has the same shape.
-7. **`maxpricebonusresource`** gates the bonus multipliers in §2 and its
-   shipped value was not read.
+10. **`maxpricebonusresource`** gates the bonus multipliers in §2 and its
+    shipped value was not read.
+11. **`fillratiotarget`**, the per-depot buy/sell target, and whether the
+    player can set it. It decides whether a depot is buying or selling at any
+    moment and nothing in the manual mentions it.

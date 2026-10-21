@@ -144,9 +144,11 @@ stance, ammunition, supply slots, and the partially-known `formation`,
 
 ## Still open
 
-1. **The depot/local split** — how much an army can forage locally, and what
-   limits it, sits in the uninspected middle of `UpdateIIPSupplyLink`. The main
-   gap in this subsystem.
+1. ~~**The depot/local split**~~ — **resolved** in
+   [14](14-supply-and-logistics.md) §3a, together with the node-selection rule,
+   the shipped rates in days, the transport-capacity model (§8), raiding as a
+   third supply source (§9) and **readiness** (§10), which this summary had not
+   covered at all.
 2. **`IIP`** — the economy/logistics junction. Only `id_harbor` is known.
    Belongs with the economy pass.
 3. **`encamped` / `entrenched` / `winterquarters`** derivation — `Camp` and

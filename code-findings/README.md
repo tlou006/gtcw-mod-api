@@ -105,7 +105,7 @@ the evidence than in a central list.
 
 | File | Contents |
 | --- | --- |
-| [14-supply-and-logistics](14-supply-and-logistics.md) | The two supply models, depots as economy buildings, the 5% shortage cliff |
+| [14-supply-and-logistics](14-supply-and-logistics.md) | The two supply models, the depot/local split and the node-selection rule, depots as economy buildings, transport capacity node by node, raiding as a third supply source, readiness, and the 5% shortage cliff |
 | [15-attrition-and-condition](15-attrition-and-condition.md) | Condition, sickness, desertion, wounded recovery, fatigue and training |
 | [16-enumerations](16-enumerations.md) | Cross-cutting reference: `unittyp`, branches, stance, ammo, loss types, supply slots, status and condition label tables, perk-id reuse |
 

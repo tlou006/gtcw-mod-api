@@ -404,6 +404,56 @@ and Prison Camp are not. `GameVars.subsidynames` =
 > `subsidytype >= 0` and writes `…p`, so the UI wiring is consistent and only
 > the field names mislead.
 
+### Ten subsidy-effect constants are shipped and never read
+
+`campaignprefs.txt` holds a consecutive block under *"Policies & Subsidies"*
+describing what each subsidy slider *does*. **None of the ten is read
+anywhere in the assembly** — each has exactly two references, its declaration
+and its loader line:
+
+| Pref | Config label | Value |
+| --- | --- | --- |
+| `improvedpricesdiplomacy` | Improved prices factor for full diplomacy subsidies | 1.50 |
+| `interventionlevelincrease` | Improvement of intervention level per year of full diplomacy subsidies | 0.5 |
+| `improvedproductivitycompanies` | Improved productivity of industries for full diplomacy subsidies | 1.5 |
+| `improvedproductivityfarms` | Improved productivity of farms for full diplomacy subsidies | 1.5 |
+| `upkeeptransportsfactor` | Upkeep cost factor of transports for transportation subsidies | 0.5 |
+| `iiptransportcapacityfactor` | Increased IIP transport capacity for transportation subsidies | 1.5 |
+| `railroadconstructionspeedfactor` | Increased railroad construction speed for transportation subsidies | 2.0 |
+| `blockadingefficiencytradewar` | Increased blockading / blockade-running efficiency for trade war subsidies | 2.0 |
+| `supportcivilorder` | Decrease factor of support events for full civil order subsidies | 0.5 |
+| `intelligencefactorcivilorder` | — | — |
+
+Two more in the same neighbourhood are also dead: `ratingmodifiers[3]` and
+`agriculturalintervention[4]`, each filled by a loader loop and read nowhere.
+The live ones are `basicsubsidiescost[8]`, `agriculturalsubsidies[5]`,
+`additionalrecruitssubsidies` and `timetoreachrecruitstarget`.
+
+> **Three of those categories no longer exist.** `GameVars` declares
+> `subsidy_transportx = 4`, `subsidy_tradewarx = 5` and
+> `subsidy_civilorderx = 7` with an `x` suffix, and ids 4 and 5 are **reused**
+> by `subsidy_military = 4` and `subsidy_diplomacy = 5`. The cost array's own
+> config label names the slots *"(politics, economy, agriculture, industry,
+> military, diplomacy, n/a, n/a)"* and costs the last two at 0, and
+> `GameVars.subsidynames` ends in `N/A, N/A`. Transport, Trade War and Civil
+> Order were cut; their effect constants stayed in the file.
+>
+> **The remaining four are effects of categories that do exist** — the
+> Diplomacy slider's price and intervention bonuses, and the industry and farm
+> productivity bonuses — and they are dead too. What a subsidy slider now does
+> is buy **funding** in its category (`AdjustSubsidyFunding`,
+> `subsidyfunding[]`), which pays for projects and for the construction
+> budgets of §3, plus one direct effect: politics raises `maxpolicies`
+> (`Policies.cs:375`) and military feeds `additionalrecruitssubsidies`
+> (`GameVars.cs:4436`). The direct-multiplier design these ten belong to is
+> gone.
+>
+> **Railroads are funded from Industry.** `GameVars.subsidyidrailroads = 3` is
+> `subsidy_industry` (`RailroadList.cs:293`, `BattleUnits.cs:302`), which is
+> what the official manual says. The manual's six categories match the code
+> exactly; it is only the leftover prefs that mislead a modder. See
+> [14](14-supply-and-logistics.md) §8a.
+
 > **The variety damper is order-dependent.** `num3` starts at 1 and is divided
 > by `1 + CountListMatches(lastmonthscompanyfoundings, k)` **inside** the loop
 > over candidate types, so the divisor accumulates across every type examined

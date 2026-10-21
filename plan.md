@@ -637,9 +637,46 @@ planned index are in [`mechanics-findings/README.md`](mechanics-findings/README.
      while keeping a clamp sized for it, so 0.8 and 0.9 share a word, "Good"
      is never printed, and accuracy ≥ 1.4 throws.
 
-**Next:** the manual's **supply, commander, politics and naval** chapters plus
-Appendix E (the ship tables), or `time-and-speed.md` and `why-units-break.md`
-from the planned index in
+   A third pass took the **supply, depot, raiding and readiness** chapters. The
+   prose held up best of any pass — the readiness restriction ladder matches
+   the code gate for gate — and the tracing it needed closed
+   [14](code-findings/14-supply-and-logistics.md)'s largest open question and
+   added two subsystems that file never had:
+
+   - **the depot/local split, resolved.** Depots first, foraging against the
+     remaining deficit, with shipped rates that work out to **0.9 days to
+     refill from a level-3 depot against 3.2 days of foraging next door and
+     24.3 days at distance 2,000** — and ammunition 3.3× slower than food on
+     every path;
+   - **an army attaches to the best node, not the nearest**: the score is
+     `capacity / distance / price`, so with a railroad worth **×11** a railhead
+     outranks a plain junction eleven times further away;
+   - **transport capacity never enters the supply *rate***. It decides node
+     selection and how fast the economy restocks the node, so an army feels it
+     through prices — true as an outcome, false as the mechanism the manual
+     describes;
+   - **forced march cuts resupply to zero.** The eligibility gate returns after
+     consumption has been applied, and the config's intended 25 % cap
+     (`maxsupplyratioretreat`) is never read;
+   - **the Confiscation Act has its sign inverted** — the manual, the config
+     label and the pref name all promise +15 % supply on enemy soil, and the
+     factor multiplies the resupply *time*, making it 13 % worse;
+   - **readiness, traced for the first time**: hardcoded quartile bands, the
+     restriction ladder, −8.5/yr marching in a loyal state against −25/yr in a
+     hostile one, and recovery divided by `N^0.43` so **splitting an army into
+     corps to rest it is worth about 60 % more recovery per day**;
+   - **raiding is a third supply source**, converting plundered goods into the
+     raider's own stock, with guarding subtracted directly and floored at 0.1;
+   - **ten subsidy-effect constants are shipped and never read**, because
+     Transport, Trade War and Civil Order were removed as subsidy categories —
+     `GameVars` still names their ids with an `x` suffix and reuses two of
+     them. The manual lists only the six that exist, so this one is a modder's
+     trap rather than a lie to players.
+
+**Next:** the manual's **commander, politics and naval** chapters plus
+Appendix E (the ship and ship-weapon tables), which on three passes' evidence
+is the highest-value target left; or `time-and-speed.md` and
+`why-units-break.md` from the planned index in
 [`mechanics-findings/README.md`](mechanics-findings/README.md).
 
 **Exit criteria per file:** a reader who has never opened `code-findings/` can

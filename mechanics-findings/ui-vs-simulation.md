@@ -276,6 +276,35 @@ every weapon rated 1.0 or below.
 Source: [11](../code-findings/11-combat-resolution.md) §2,
 [manual-vs-code](manual-vs-code.md) §10.
 
+
+### 2.6 Rail transport is described as costing readiness and saves it
+
+The readiness chapter says *"Transporting the unit using railroads or ships
+will cost additional readiness."* The multiplier applied while a unit is
+embarked is **0.75**, against a per-year consumption rate — so an hour on a
+train costs three quarters of an hour's marching, and covers far more ground.
+**Rail movement is the cheapest way to move an army in readiness terms.**
+
+The same chapter lists *"Bad weather"* among the things that slow readiness
+**recovery**. Weather does not appear in the recovery chain at all; it affects
+consumption, and only as winter, at ×4.0. And *"Siege combat"* is listed as a
+recovery malus when it is a −5 per year **consumption** — a besieging army's
+readiness falls rather than merely failing to rise.
+
+Source: [14](../code-findings/14-supply-and-logistics.md) §10,
+[manual-vs-code](manual-vs-code.md) §18.
+
+### 2.7 The Confiscation Act's supply bonus is a penalty
+
+*"Supply efficiency of armies operating in enemy states + 15 %"*, says the
+Union Acts table, and the config label agrees. The factor multiplies the
+**time** an army takes to forage, so local supply on enemy soil becomes **13 %
+slower** once the act is passed. The act's contraband-slaves half works
+normally, so it is still worth taking — just not for this.
+
+Source: [14](../code-findings/14-supply-and-logistics.md) §3a,
+[manual-vs-code](manual-vs-code.md) §18.2.
+
 ## 3. Knobs that are exposed and do nothing
 
 Each of these is labelled in a config file the game ships for players to edit,
@@ -293,6 +322,9 @@ and reaches nothing.
 | `battleprefs.txt` | "No micro ai charge if unit is outflanked or receiving flanking fire" — ships **true** | Parsed, never read. A unit under the Charge order will go in while outflanked. |
 | `unitprefs.txt` | linear and exponential accuracy-over-distance terms | Parsed, never read. Range does degrade fire, but through aim scatter, not these. |
 | `unitprefs.txt` | "Probability of commander dead / wounded if hit on group was detected" (0.005 / 0.02) | Parsed, never read. HQ commander losses use the brigade values scaled by hierarchy depth instead. |
+| `campaignprefs.txt` | "Upkeep cost factor of transports for transportation subsidies" (0.5), "Increased IIP transport capacity…" (1.5), "Increased railroad construction speed…" (2.0) | Parsed, never read. **The Transportation subsidy category was removed**; its effect constants were left in the file. Seven more in the same block are dead for the same reason. |
+| `campaignprefs.txt` | "Max supply ratio of units retreating or on forced march" (0.25) | Parsed, never read. Forced march cuts resupply to **zero**, not to a quarter. |
+| `campaignprefs.txt` | "Readiness improvement factor based on intelligence value" (0.008) | Parsed, never read — and marked `[deactivated]`, unlike its live near-namesake. |
 
 The first four add up to one missing feature: **enemy fire does not disrupt
 your formations.** The accumulator those three values would feed has no
@@ -391,9 +423,9 @@ Sources: [11](../code-findings/11-combat-resolution.md) §2,
 
 ---
 
-## 5. For modders: two label traps
+## 5. For modders: three label traps
 
-Neither is player-facing, but both will bite a tool that reports game state.
+None is player-facing, but each will bite a tool that reports game state.
 
 **"Stance" is two different enumerations, numbered in opposite directions.**
 Formation stance runs `none, screen, defend, attack, assault` (0–4) and is what
@@ -406,6 +438,12 @@ it is — and reading the wrong one shows *assault* where the game means *screen
 `cohesion = 1` is perfect order. The config labels use "cohesion" to mean
 *disorder*, so a label reading "cohesion increase" describes a formation coming
 apart ([16](../code-findings/16-enumerations.md)).
+
+**"Cavalry orders" is the campaign order mode for every formation.** The field
+`cavalryorders` holds the Patrol (1), Raid (2) and Guard (3) modes and is set
+on armies and corps of any composition — raiding efficiency sums a formation's
+infantry *and* cavalry brigades. The name is left over from an earlier design
+([14](../code-findings/14-supply-and-logistics.md) §9).
 
 ---
 
