@@ -36,7 +36,7 @@ engine's. **Start with a summary:**
 | [What the game shows you, and what it actually does](mechanics-findings/ui-vs-simulation.md) | The numbers and words the interface gets wrong, and a verified list of what it gets right |
 | [The war economy](mechanics-findings/the-war-economy.md) | Local prices and the price curve, how goods move, blockade, the five taxes, debt and interest, and the scripted boom/bust cycle |
 | [Production and workforce](mechanics-findings/production-and-workforce.md) | The labour map that limits every building, slavery, what recruitment costs your industry, fertility, and where new companies come from |
-| [The manual against the code](mechanics-findings/manual-vs-code.md) | The official manual cross-checked against the shipped data — economy, combat, supply, commanders, politics — what it confirms, and where it misleads |
+| [The manual against the code](mechanics-findings/manual-vs-code.md) | The official manual cross-checked against the shipped data in full — economy, combat, supply, commanders, politics, naval — what it confirms, and where it misleads |
 
 [`code-findings/00-build-provenance.md`](code-findings/00-build-provenance.md) records
 which build everything was written against.

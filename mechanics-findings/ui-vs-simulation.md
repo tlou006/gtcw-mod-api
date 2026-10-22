@@ -10,7 +10,8 @@
 [21](../code-findings/21-ai-battle.md),
 [22](../code-findings/22-policy-and-project-catalogue.md),
 [24](../code-findings/24-campaign-objectives.md),
-[25](../code-findings/25-newspaper-and-events.md)
+[25](../code-findings/25-newspaper-and-events.md),
+[26](../code-findings/26-naval-combat.md)
 
 Every number in this game has two lives: the one the simulation computes with,
 and the one the interface prints. Usually they are the same number. This file
@@ -234,6 +235,34 @@ once.
 Source: [17](../code-findings/17-politics-and-support.md) §2, §4a–4d, §6,
 [manual-vs-code](manual-vs-code.md) §30, §33.
 
+### 1.9 A fleet's Firepower, and its turret guns that are not
+
+Two numbers on the fleet panel do not mean what they look like.
+
+**Firepower** is built by calling each ship's firing-strength function with a
+distance of **zero**: every gun counts as in range and the rate-of-fire term
+takes its best value. The function that hands that total to a naval battle
+takes the real fleet distance as an argument and **never reads it**. So the
+figure you compare before committing to an action is both sides' close-action
+strength, whatever range the battle is actually fought at — and it is also the
+figure that sets the victory balance, while the per-ship damage rolls use the
+real range.
+
+**Guns in turrets** is counted one way for the panel and another for the
+model. The panel counts every gun whose weapon system has any turret; the
+rate-of-fire bonus counts only systems assigned to exactly **one** turret. The
+three ships whose guns are divided between two turrets — the **Ocean Casemate
+Ironclad**, the **Ironclad Turret Ship** and the **River Monitor** — are shown
+with turret guns and get no turret bonus.
+
+A third, smaller gap: the fleet divides four of its six strength-breakdown
+figures by the number of attached ships **including the disabled ones**, so a
+squadron with half its hulls in repair shows roughly half the average range and
+rate of fire it will actually fight at.
+
+Source: [26](../code-findings/26-naval-combat.md) §3, §4,
+[manual-vs-code](manual-vs-code.md) §39, §40.
+
 ## 2. Things the game tells you in words that are not true
 
 ### 2.1 The perk tooltip describes a system that does not exist
@@ -408,6 +437,26 @@ ports 25 % harder to blockade**, which the description never mentions.
 Source: [22](../code-findings/22-policy-and-project-catalogue.md) §10.1,
 [manual-vs-code](manual-vs-code.md) §28.
 
+### 2.10 Four sentences about naval combat describe the wrong mechanism
+
+The ship-types chapter explains naval combat in one paragraph, and three of
+its clauses point at mechanisms the code does not have:
+
+| It says | What happens |
+| --- | --- |
+| *"The larger the ship, the easier it is to hit"* | target size is **not** in the hit probability. A big ship is **picked** as a target more often (`ceil(size)` entries in the draw) and takes proportionally **less** condition damage per hit (`hull = size × 50`), which roughly cancel |
+| *"The stronger the armor, the less damage it will suffer when hit"* | armour sets the **penetration probability** only; a penetrating hit does the same damage whatever the armour was |
+| *"armor can even deflect shots without damage"* | exactly right — this is the whole of what armour does |
+| *"If armed with turrets, the ship can fire … with more accuracy"* | turrets give **rate of fire** (×1.4), never accuracy. And three of the six turret ships do not get even that (§1.9) |
+
+One more, from the Fleet Information chapter: *"The fleet can travel only as
+fast as its slowest ship"* is true, and incomplete — a ship's speed is scaled
+by its condition down to 30 % of rated, so **one shot-up vessel slows the whole
+squadron** until it is repaired or detached.
+
+Source: [26](../code-findings/26-naval-combat.md) §3, §5,
+[manual-vs-code](manual-vs-code.md) §37.
+
 ## 3. Knobs that are exposed and do nothing
 
 Each of these is labelled in a config file the game ships for players to edit,
@@ -430,6 +479,9 @@ and reaches nothing.
 | `campaignprefs.txt` | "Readiness improvement factor based on intelligence value" (0.008) | Parsed, never read — and marked `[deactivated]`, unlike its live near-namesake. |
 | `campaignprefs.txt` | "LettersMarque, add on to max trade war subsidies" (1.2) and "LegalBlockade, add on to max trade war subsidies" (1.2) | Parsed, never read — the same removed Trade War category. Both Acts advertise the cap rise in Appendix A. |
 | `campaignprefs.txt` | "Improvement of intervention level per year of full diplomacy subsidies" (0.5) | Parsed, never read. European relations move only through Acts, policies and the Send Envoys project. |
+| `campaignprefs.txt` | "ROF factor min distance (close combat)" (1.00) | Read, and unreachable. The distance ratio it blends against is clamped to **at least** 1 and can never exceed 1, so naval rate of fire is always the long-range factor (0.25). |
+| `shiptypes.dat` | each record's ship-level `turrets` count | Parsed, never read. The live turret figures are the per-weapon-system `withinturret` field and the derived `gunsinturrets`. |
+| `shiptypes.dat` | each record's three `requiredtechids` slots | **−1 in all 41 records.** Ship availability is carried entirely by the record's last line and by the twelve ship-granting projects. |
 | `unitprefs.txt` | "Adjustment factor for experience to influence commander attributes (admin, initiative, cunning, leadership)… **[deactivated]**" (0.5) | **The opposite trap: it is live.** Every attribute getter multiplies by `exp × 0.5 + 0.5`, so a green commander really does operate at half his nominal attributes. The only `[deactivated]` label found so far that lies. |
 
 The first four add up to one missing feature: **enemy fire does not disrupt
@@ -540,7 +592,7 @@ Sources: [11](../code-findings/11-combat-resolution.md) §2,
 
 ---
 
-## 5. For modders: five label traps
+## 5. For modders: seven label traps
 
 None is player-facing, but each will bite a tool that reports game state.
 
@@ -574,6 +626,16 @@ States count compares it against a *share* of the two sides' support; the
 recruiting-list filters and the campaign AI compare it against an *absolute*
 support level. One number, two meanings, and a state can satisfy one and not
 the other ([17](../code-findings/17-politics-and-support.md) §6).
+
+**`withinturret` is a turret count that one consumer reads as a flag.** A
+weapon system's third field is the number of turrets its guns occupy; the ship
+panel reads it as `> 0` and the rate-of-fire bonus as `== 1`
+([26](../code-findings/26-naval-combat.md) §4).
+
+**A ship's `armor` is a rating, not a thickness.** Appendix E prints it as
+inches, which happens to line up from 2 upward; 0.5 is *Timber*, 1 is *Cotton
+Bales* and the Tinclad Gunboat's 1.5 is described as half an inch
+([26](../code-findings/26-naval-combat.md) §2).
 
 ---
 

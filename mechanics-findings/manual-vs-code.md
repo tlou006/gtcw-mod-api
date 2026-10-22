@@ -5,7 +5,8 @@
 against `Config/resources.dat`, `Config/buildingtypes.dat`,
 `Config/campaignprefs.txt`, `Config/weapons.txt`, `Config/unitprefs.txt`,
 `Config/battleprefs.txt`, `Config/campaignobjectives.dat`,
-`Campaigns/001/*/nations.dat` and the decompiled assembly
+`Campaigns/001/*/nations.dat`, `Config/shiptypes.dat` and the decompiled
+assembly
 **Translates:** [18](../code-findings/18-economy.md),
 [23](../code-findings/23-game-state.md),
 [11](../code-findings/11-combat-resolution.md),
@@ -21,23 +22,25 @@ The manual is the developers' own account of the mechanics, so it is the right
 yardstick for this folder: where it and the code agree, a finding is confirmed
 from both ends; where they disagree, one of them is misleading players.
 
-Five passes are recorded here. **Part I (§1–8)** covers the economy chapters
+Six passes are recorded here. **Part I (§1–8)** covers the economy chapters
 and both policy appendices; **Part II (§9–14)** the combat chapters and the
 three weapons tables; **Part III (§15–20)** supply, depots, raiding and
 readiness; **Part IV (§21–25)** the commander chapters and the attribute
 matrix; **Part V (§26–33)** politics, national morale, the policy panel and
-diplomacy, with the rest of Appendix A. The manual is 9,000 lines; the naval
-chapters and the ship tables are still unchecked (§34).
+diplomacy with the rest of Appendix A; **Part VI (§34–42)** the naval chapters
+and Appendices E and F. **Every chapter of the manual has now been checked**;
+what is left is listed in §43.
 
-> **The manual is accurate far more often than not**, in all five passes. Of
+> **The manual is accurate far more often than not**, in all six passes. Of
 > 37 production recipes and 38 producer assignments, 33 and 37 match the
 > shipped data exactly; of some 180 numbers in the weapons tables, four are
 > wrong; the supply chapters' readiness ladder matches the code gate for gate;
 > and most of the commander attribute matrix is implemented, several cells
 > understating what the code does; and of thirty-five entries in Appendix A
 > bearing on support, morale, relations or the treasury, thirty-one match
-> exactly. What follows is the exceptions, which is not a fair picture of the
-> document as a whole.
+> exactly; and of some 270 numbers in Appendix E's ship tables, six are wrong.
+> What follows is the exceptions, which is not a fair picture of the document
+> as a whole.
 
 ---
 
@@ -1679,16 +1682,440 @@ slows everything without being blocked.
 
 ---
 
-## 34. Open questions
+# Part VI — The naval chapters, Appendix E and Appendix F
 
-1. **The chapters still unchecked.** Five passes are done: the economy
-   chapters with both policy appendices (§1–8), combat with the weapons tables
-   (§9–14), supply, depots, raiding and readiness (§15–20), the commander
-   chapters with the attribute matrix (§21–25), and politics, national morale
-   and diplomacy (§26–33). Still open: the **naval** chapters and
-   **Appendix E**, the ship and ship-weapon tables — which on five passes'
-   evidence is the highest-value target left, since every data table checked
-   so far has had errors and every prose chapter has held up.
+Appendix E was the last unchecked data table in the manual and, on five
+passes' evidence, the likeliest place to find errors. It holds up better than
+that: **the ship data is internally perfect and the appendix is almost
+exactly right.**
+
+## 34. Appendix E against `shiptypes.dat`
+
+`Config/shiptypes.dat` declares **41 ship types**. Appendix E gives a stat
+block for **34** of them (§35 covers the other seven). Each block lists
+movement, propulsion, speed, length, beam, displacement, armour, complement
+and required port level, plus an armament line, so the table carries roughly
+270 checkable numbers.
+
+**The shipped data is self-consistent in every record.** For all 41 types the
+ship-level `guns` figure equals the sum of its weapon systems' gun counts, and
+the ship-level `turrets` figure equals the sum of their `withinturret` values —
+41 for 41, with no rounding slack. That is better than the weapons tables
+managed in Part II.
+
+**Every armament line in the appendix matches.** All 34 blocks agree with the
+data on the total gun count, the per-type counts, the turret placements and the
+Ram tag. The only blemishes are a typo (*"100-punder Rifle"* for the
+Double-Ender) and one block whose digits the PDF conversion scrambled.
+
+**Twenty-nine of the 34 stat blocks are correct in every field.** Six numbers
+across the other five are wrong:
+
+| Ship | Field | The manual says | The data holds |
+| --- | --- | --- | --- |
+| 4th Rate Steamer | length | 27 m | **37 m** |
+| Broadside Ironclad | length | 61 m | **64 m** |
+| Broadside Ironclad | beam | 10 m | **11 m** |
+| Gunboat | port level required | 2 | **1** |
+| Ironclad Monitor | port level required | 4 | **3** |
+| Ship-of-the-Line | propulsion | Steam and Sail | **Sail** — `engines = 0` and `coalcapacity = 0` |
+
+The Broadside Ironclad's 61 × 10 is the Sloop-of-War's hull, two entries
+earlier in the appendix, which reads like a copy-paste rather than a
+measurement. The two port-level errors both cost the player: the Gunboat is
+buildable at a **level-1** port, not level 2, and the Ironclad Monitor at
+**level 3**, not level 4 — so two ship classes are available earlier than the
+appendix implies.
+
+> **A caveat on the source.** The manual is read here from a Markdown
+> conversion of the PDF, which reflows the two-column stat blocks. Pairing was
+> therefore done by matching each block's displacement **and** complement
+> against the data — unique across all 41 types — rather than by page order,
+> and the five flagged blocks each agree with their ship on every other field.
+> A digit substitution is not a failure mode of the conversion, but the 4th
+> Rate Steamer's 27-for-37 is the one finding that a clean PDF would settle.
+
+## 35. Seven ship types the appendix does not list — and you can capture them
+
+Availability is not in `requiredtechids`, which is **empty for all 41 types**.
+It is in the record's last line, a list of the alliances for which the type is
+*not* yet available; everyone else gets it at once. Three cases occur:
+
+| Last line | Meaning | Count |
+| --- | --- | --- |
+| *(empty)* | available to both sides from the start | 15 types |
+| `0;1;` | neither the Union nor the Confederacy has it | 25 types |
+| `1;` | the Union has it, the Confederacy needs a project | 1 type (Gunboat) |
+
+The appendix's "Required Project" column is exactly this list decoded. Twelve
+projects grant ship types, and every one matches the appendix:
+
+| Project | Grants | Project | Grants |
+| --- | --- | --- | --- |
+| 30 Ironclad Monitors | 19 Ironclad Monitor, 27 River Monitor | 35 Modern Warships | 15 Ocean Casemate Ironclad, 16 Ironclad Warship |
+| 31 Ironclad Gunboats | 25 Ironclad River Gunboat, 26 Ironclad Gunboat | 36 Confederate Gunboats | 24 Cottonclad Ram, 38 Gunboat |
+| 32 Rebuilt Ironclads | 8 Broadside Ironclad, 13 Ironclad Frigate | 37 Armored Gunboats | 22 Timberclad, 23 Tinclad |
+| 33 Rebuilt Ironclads (CSA) | 14 Casemate Ironclad Ram | 38 British Warships | 17 Ironclad Turret Ship *(import)* |
+| 34 Ironclad Gunboats (CSA) | 28 Ironclad Gunboat Ram | 39 French Warships | 18 Ocean Ironclad Ram *(import)* |
+| | | 40 Gloire Class (CSA) | 30 Ironclad Ship-of-the-Line *(import)* |
+| | | 41 Warrior Class | 36 Warrior Class *(import)* |
+
+That leaves **eight types that no project ever grants to either side**. One of
+them, the **Ship-of-the-Line**, is in the appendix and honestly marked *"Port
+Level Required: Not buildable"* — its `requiredportlevel = 2` is simply never
+consulted. The other seven are absent from the appendix entirely:
+
+**29 Sail Spardeck Corvette, 31 Converted Screw Frigate, 32 Screw Spardeck
+Corvette, 33 Fast Screw Ship-of-the-Line, 34 Screw Schooner, 35 Screw
+Ship-of-the-Line, 37 Steam Corvette.**
+
+These are the European powers' ships — every alliance from 2 upward has them
+from the start — and they include the heaviest hulls in the game: the Fast
+Screw Ship-of-the-Line carries **80 guns**, the Screw Ship-of-the-Line **92**,
+against the Warrior Class's 40.
+
+> **And the appendix's own preamble says you can end up owning them**: *"Ship
+> types unavailable to a nation can end up into use, if captured during combat
+> from an enemy fleet."* That is implemented. At the end of a naval battle
+> every vessel on the losing side with condition below
+> `conditionfordisabledships` (0.25) that is no longer active is **moved into
+> the winning fleet** (`Autocalc` ~3489, `BattleUnits.MoveShip`). So beating a
+> British or French intervention squadron can hand a player a 92-gun
+> ship-of-the-line whose stats appear nowhere in the manual.
+
+## 36. What the ship-type chapter gets right, with the numbers
+
+| The manual says | The data holds |
+| --- | --- |
+| *"Sailing ships require no coal and will be able to remain at sea for a longer time"* | every `engines = 0` type has `coalcapacity = 0` and `daysatsea = 100`, the maximum in the file |
+| *"Steam ships require coal … If the steam ship also has large sails, the need for coal is lower"* | steam-only types burn **2.3 to 16.0** units of coal per 1,000 tons per year; steam-and-sail types **0.28 to 2.2** — roughly an order of magnitude, and their `daysatsea` is 60–80 against 20–60 |
+| *"Speed in knots restricts the fleet's movement speed, with the slowest ship dictating the maximum"* | `UpdateLowestShipSpeed` takes the minimum over attached ships |
+| *"Ram ships can use their hull as a weapon, by steaming into enemy ship in close combat"* | the ram branch requires `fleetdistance <= 0` — literal contact — plus `isram > 0` and condition ≥ **0.60** |
+| *"armor can even deflect shots without damage"* | exactly right: a hit that fails the penetration roll prints *"no effect!"* and does nothing |
+| *"Disabled ships will not continue fighting and can be captured during combat"* | both halves: `GetFiringStrength` returns 0 below condition 0.25, and §35's capture loop moves them to the winner |
+| *"Ships that can only move on rivers cannot be assigned to sea fleets, and vice versa"* | `abletomoveonriver` / `abletomoveonsea` are **ANDs over every ship in the fleet**, so the restriction is an intersection of capabilities rather than a prohibition |
+| Fleet Information: *"The fleet can travel only as fast as its slowest ship"* | true, with an addition the manual omits — see §40 |
+
+**Ramming rewards mass and punishes armour, in both directions.** Per tick the
+rammer deals
+`sqrt(ownTonnage / targetTonnage × isram) × k` and takes
+`sqrt(targetTonnage / ownTonnage) × 0.15 × k` itself, where
+`k = ramprobability (0.4) × elapsed × 3650` — about **0.058** on a 21-minute
+autocalc tick. `isram` is a rating of 1, 2 or 3, not a flag, so a
+rating-3 ram does **1.7×** the damage of a rating-1 at equal tonnage. If the
+*target* is an ironclad the damage is cut to 30 %; if the *rammer* is an
+ironclad, its own damage is cut to 30 %. A commander's initiative scales the
+whole term by `1 + 0.5 × initiative`.
+
+> Note that nothing rolls: `ramprobability` is applied as a **damage scale**,
+> not a chance, so a qualifying ram ship rams on every tick it is in contact.
+
+## 37. Three claims about naval combat that point at the wrong mechanism
+
+One sentence in the ship-types chapter carries most of the naval combat model:
+
+> *"Ship size, armor and armament influence naval combat calculation. The
+> larger the ship, the easier it is to hit. The stronger the armor, the less
+> damage it will suffer when hit, and armor can even deflect shots without
+> damage. The number and type of guns of course makes the ship more deadly. If
+> armed with turrets, the ship can fire at enemy ships with less maneuvering
+> and more accuracy when the ship is moving."*
+
+The model it describes is, in `Autocalc.UpdateNavalBattle` (~1650):
+
+```
+pen     = min(1, (avgPenetration / max(0.1, targetArmor)) ^ (1/1.25) / 10)
+hull    = targetSize × hullstrength (50)
+hitProb = avg over in-range guns of
+            accuracy × (0.006 × relDistance + 0.075 × (1 − relDistance))
+                     × rand(0.9, 1.1)                     × 10
+if rand < hitProb:
+    if rand < pen:
+        if rand <= 0.025:  damage = 1.0        // magazine explodes; instant loss
+        else:              damage = firingStrength / hull × 3
+    else: "no effect!"
+```
+
+**Armour does not reduce damage.** It appears only inside the penetration
+probability; on a penetrating hit the damage is `firingStrength / hull × 3`
+whatever the armour was. So the sentence's second clause ("can even deflect
+shots") is the whole of what armour does, and its first clause ("less damage
+when hit") is not implemented.
+
+**Size does not enter hit probability at all.** Nothing in
+`GetAverageHitProbability` reads the target. What size does is enter the target
+lottery: `PickTargetVessel` adds each active enemy vessel to the draw
+`ceil(size)` times, so a size-25 Ocean Casemate Ironclad is drawn 25 times
+against a size-1.3 tender. Bigger ships therefore *attract* fire — the
+manual's claim in outcome — but by a different route, **and `hull = size × 50`
+cancels most of it**: a ship twice the size is picked about twice as often and
+takes about half the condition damage per penetrating hit.
+
+> The lottery also uses the repo-wide `Random.Range(0, list.Count − 1)` slip
+> ([20](../code-findings/20-ai-campaign.md) §12.2), so the last active enemy
+> vessel can never be drawn.
+
+**Turrets buy rate of fire, not accuracy.** `withinturret` reaches exactly one
+formula in the game, `num7 *= (rofimprovementturrets − 1) × turretFraction + 1`
+with `rofimprovementturrets = 1.4` — a rate-of-fire multiplier. There is no
+accuracy term for turrets anywhere. (And three of the six turret ships do not
+even get the rate-of-fire bonus — §39.)
+
+**What is right:** the gun accuracy figure is live. Unlike land combat, where
+accuracy at or below 1.0 is thrown away by the aim-scatter floor (§11), naval
+hit probability multiplies the gun's `accuracy` directly, so a 1.1-rated rifle
+really is 10 % more likely to hit than a 1.0 cannon. **Closing the range is the
+dominant term**: hit probability runs from `0.006 × 10 = 6 %` at the opening
+range to `0.075 × 10 = 75 %` at contact, a factor of **12.5**.
+
+## 38. Naval rate of fire is a constant
+
+`Vessel.GetFiringStrength` builds a ship's firing strength from the guns whose
+range reaches the current fleet distance:
+
+```csharp
+// num4 = gun-count-weighted average range of the guns that ARE in range
+float num6 = Mathf.Max(1f, distance / Mathf.Max(1f, num4));
+float num7 = GamePrefs.navalbattlerofmaxdistance * num6
+           + GamePrefs.navalbattlerofmindistance * (1f - num6);
+```
+
+The two prefs are *"ROF factor max distance"* = **0.25** and *"ROF factor min
+distance (close combat)"* = **1.00**, so this is meant to be a blend running
+from a quarter rate at long range to full rate in close action, on a factor in
+[0, 1].
+
+**`num6` is always exactly 1.** Every gun counted in `num4` passed the test
+`range_yd >= distance`, so the weighted average range cannot be less than the
+distance, so `distance / num4 <= 1` — and `Mathf.Max(1f, …)` then raises it to
+1. The blend therefore always evaluates to `0.25 × 1 + 1.00 × 0`:
+
+> **Every ship in every naval engagement fires at the long-range rate.** The
+> close-combat rate of 1.00 is never reached, `navalbattlerofmindistance` is in
+> effect a dead pref, and closing the range does nothing for rate of fire. The
+> clamp wanted to be `Mathf.Min`, not `Mathf.Max` — or the ratio wanted to be
+> `num4 / distance`.
+
+Closing the range is still worth doing, through hit probability (§37), which is
+where the whole of the distance effect now lives. The two surviving
+modifiers on `num7` are real: the turret factor, and
+`navalbattleroflowammo = 0.05` — **a ship at or below 20 % ammunition fires at
+a twentieth of its rate**, which is the sharpest supply cliff in the naval
+model.
+
+## 39. Three turret ships get no turret bonus
+
+`withinturret` is not a flag: it is the number of turrets a weapon system is
+spread across. The rate-of-fire bonus tests it for equality with 1:
+
+```csharp
+if (GameVars.shiptypes[type].weaponsystems[i].withinturret == 1)
+    num3 += weaponsystems[i].guns;      // guns that count as turret-mounted
+```
+
+The ship panel's own `gunsinturrets` figure, by contrast, counts
+`withinturret > 0`. The six turret ships split cleanly:
+
+| Ship | Armament as the appendix prints it | `withinturret` | ROF bonus |
+| --- | --- | --- | --- |
+| 19 Ironclad Monitor | 2 × 11-inch, *2 in 1 turret* | 1 | **×1.4** |
+| 16 Ironclad Warship | 2 + 2 + 2, each *in a turret* | 1, 1, 1 | **×1.4** |
+| 18 Ocean Ironclad Ram | 1 + 2, each *in a turret* | 1, 1 | **×1.4** |
+| 15 Ocean Casemate Ironclad | 4 × 15-inch, *4 in 2 turrets* | 2 | **none** |
+| 17 Ironclad Turret Ship | 4 × 9-inch, *4 in 2 turrets* | 2 | **none** |
+| 27 River Monitor | 4 × 15-inch, *4 in 2 turrets* | 2 | **none** |
+
+So the three ships whose guns are divided between **two** turrets get no
+turret benefit, while the three with everything in one turret get the full
+40 %. The panel still reports their guns as turret-mounted, so nothing in the
+interface shows the difference.
+
+> **What to do with this:** all six turret ships are obtainable — 15 and 16
+> from project 35, 19 and 27 from project 30, 17 and 18 as British and French
+> imports — and three of them fire 40 % faster for their turrets while the
+> **Ocean Casemate Ironclad**, the **Ironclad Turret Ship** and the **River
+> Monitor** do not. For a modder, changing a weapon system's third field from
+> `2` to `1` restores the bonus at no cost: the ship-level `turrets` field is
+> parsed and read nowhere, so splitting the same guns into one nominal turret
+> changes nothing else.
+
+## 40. What the naval chapters leave out
+
+**Only seven ships a side can fire in a sea battle, three on a river.** The
+firing loop breaks once the number of vessels that engaged a target this tick
+passes `combatwidthsea = 7` or `combatwidthrivers = 3`. The manual explains
+fleet attrition entirely in terms of repairs and resupply — *"a fleet of 10
+ships on paper could mean only 3 available"* — and never mentions that a
+fully-crewed eleventh ship contributes nothing to a tick's damage either. The
+fleet-level Firepower figure, by contrast, sums **every** ship, so the victory
+balance and the damage model disagree about how much a large fleet is worth.
+
+**A raiding fleet forces a blockading fleet to fight on even numbers.** When
+one side's `fleetorders` is Raid (3) and the other's is Blockade (1), the
+battle is flagged a naval raid and the **blockading** side has vessels removed
+at random until it has no more than the raider does (floor of two):
+
+```csharp
+while (envolvedfleets[blockader].singlevessels.Count > Mathf.Max(2, smallerFleetCount))
+    RemoveVessel(random);
+```
+
+The removed ships are not sunk; they simply do not take part. Nothing in the
+Fleet Status chapter hints at this, and it is the mechanical content of
+commerce raiding: a three-ship raider can engage a twenty-ship blockade
+squadron three against three.
+
+**The Firepower number is computed at point-blank range.** `Fleet.UpdateFleetData`
+calls `GetFiringStrength(0f, …)`, so every gun counts as in range and the
+rate-of-fire term takes its best value. `Autocalc` then passes the real fleet
+distance to `EnvolvedFleets.GetCombatValue(float _fleetdistance)` — **which
+never reads its argument** and returns that stored sum. So the figure the panel
+shows, and the figure that sets the victory balance, are both the fleet's
+close-action strength regardless of the range the battle is actually fought at.
+
+**Damage slows a fleet.** A vessel's speed is
+`speedkn × condition + speedkn × 0.3 × (1 − condition)`, so a ship at zero
+condition still makes 30 % of its rated knots — and because the fleet moves at
+its slowest ship, **one badly shot-up vessel drags the whole squadron down**.
+The manual gives only the slowest-ship rule.
+
+**One hit in forty sinks the target outright.** `extraordinaryeventhit = 0.025`:
+on a penetrating hit, a 2.5 % roll sets the damage to 1.0 and the ship is gone
+*"ammunition magazine explodes!"* — independent of its size, armour or
+remaining condition. No tonnage of ironclad protects against it.
+
+**Ten of the gun names in Appendix E belong to other weapons.** Ships draw from
+19 naval weapon types, all named *"… Navy …"* in `weapons.txt`. Appendix E
+drops the word, and for ten of them the shortened name is the **exact name of a
+different weapon** — the fort or field piece:
+
+| Appendix E name | Naval weapon | Same-named other weapon |
+| --- | --- | --- |
+| 13-inch Mortar | 48 | 74, a fort mortar |
+| 12-pounder Howitzer | 49 | 40, the field howitzer |
+| 24-pounder Howitzer | 50 | 41, the field howitzer |
+| 8-inch Cannon | 51 | 76, a fort gun |
+| 10-inch Cannon | 53 | 77 |
+| 11-inch Cannon | 54 | 78 |
+| 32-pounder Cannon | 56 | 79 |
+| 30-pounder Rifle | 59 | 70 |
+| 42-pounder Rifle | 61 | 80 |
+| 100-pounder Rifle | 64 | 71 |
+
+Eight of the ten pairs are numerically identical, so the collision is only a
+naming trap for modders. **Two are not.** The naval howitzers fire a shell
+equal to their nominal poundage where the field versions do not:
+
+| | Naval | Field |
+| --- | --- | --- |
+| 12-pounder Howitzer | 12.0 lb shell, 1085 yd, firepower 6.37, accuracy 0.9 | 8.9 lb, 1072 yd, firepower 5.24, accuracy 1.0 |
+| 24-pounder Howitzer | 24.0 lb shell, 1270 yd, firepower 10.79, accuracy 0.9 | 18.4 lb, 1322 yd, firepower 8.74, accuracy 1.0 |
+
+So the naval howitzers hit about **30 % harder** than their same-named field
+twins, at slightly shorter range in the 24-pounder's case. A modder editing
+"12-pounder Howitzer" because Appendix E lists it on a gunboat will change the
+field artillery of both armies instead.
+
+## 41. For modders: one naval threshold you must not raise
+
+`Fleet.UpdateFleetData` accumulates the fleet's combat value like this:
+
+```csharp
+else   // reached only when condition >= conditionfordisabledships
+{
+    guns += …;
+    num2 = attachedships[i].GetFiringStrength(0f, …);
+    if (attachedships[i].condition <= GamePrefs.strengthrelationtriggerdefeatnavybattles)
+    {
+        combatvalue = 0f;          // assigns, does not subtract
+    }
+    combatvalue += num2;
+}
+```
+
+As shipped this branch is **dead**: it needs a ship whose condition is at or
+below `strengthrelationtriggerdefeatnavybattles` (**0.10**) inside a block that
+only runs for ships at or above `conditionfordisabledships` (**0.25**).
+
+Raise the first pref above the second — the config labels it `[0-1]` and
+invites exactly that — and the branch comes alive with the wrong operator: one
+sufficiently damaged ship **wipes the running total**, so the fleet's combat
+value becomes the sum of only the ships positioned after it in the array. It
+is the same assign-for-accumulate slip as `Alliance.powratio`
+([23](../code-findings/23-game-state.md) §6.2), waiting behind a threshold
+ordering.
+
+> The pref itself is live elsewhere, as the strength ratio below which a naval
+> battle is scored a defeat, so it cannot simply be zeroed.
+>
+> And it is read a third time for something unrelated: `BattleUnits` ~2848
+> tests a **garrison's condition** against it when deciding whether a unit can
+> hear a bugle. One pref, three meanings — a naval firepower ratio, a ship
+> condition and a garrison condition.
+
+---
+
+## 42. Appendix F, and the three battles it does not list
+
+Appendix F is the manual's only direct word to modders, and the checkable half
+of it is right.
+
+**The scenario letters are exact.** *"A = Spring 1861, B = Summer 1861, C =
+Spring 1862, D = Spring 1863, E = Spring 1864"* matches each folder's own
+`ScenarioDescr.txt` name for name. The install also has an **F**, the Tutorial,
+which the appendix does not mention.
+
+**The battlefield table is exact as far as it goes.** All sixteen entries —
+`000\A` 1st Manassas through `027\A` Olustee — match the shipped
+`ScenarioDescr.txt` titles. But the install holds **twenty** named sub-battles,
+and three playable ones are missing from the list:
+
+| Folder | Name |
+| --- | --- |
+| `000\C` | 1st Manassas (Regt.) — a regiment-scale version of the same field |
+| `011\A` | Champion Hill |
+| `020\A` | Stones River |
+
+(The twentieth, `006\B`, is the Tutorial.) So a player reading Appendix F to
+find a save folder for Stones River or Champion Hill will not find the battle
+listed at all, although it ships with the game.
+
+**The warning about file format is exactly right**, and worth repeating here
+because it is the premise of this whole repository: *"the code is looking for
+certain headers and lines in these files, so the file structure and line
+positions must remain intact."* Every config file in the game is parsed **by
+position**, with the label lines skipped and never matched
+([06](../code-findings/06-config-file-format.md)) — so inserting or deleting a
+single line silently shifts every value after it into the wrong field, which is
+the mechanism behind the eaten reload pref in §13.
+
+**The four files it names are not where most of the errors are.** Appendix F
+calls out `Debug.txt`, `Battleprefs.txt`, `Campaignprefs.txt` and
+`Unitprefs.txt` as *"the most important files"*, which is fair for tuning. But
+every data error found in six passes lives somewhere else — `resources.dat` and
+`buildingtypes.dat` (§2), `weapons.txt` (§9), `campaignprefs.txt` (§27, the one
+exception), `campaignobjectives.dat` (§32) and `shiptypes.dat` (§34) — and
+`policies.dat` cannot introduce a new policy at all, because `Policy` is
+prefab-authored and the file only supplies fields for records that already
+exist ([22](../code-findings/22-policy-and-project-catalogue.md) §1.1). That is
+the single most useful thing a modder could have been told here.
+
+> Appendix G is headed **"Engineer Corps Organization"** and contains the
+> development credits. Whatever was planned for it is not in the document.
+
+---
+
+## 43. Open questions
+
+1. **The manual is now fully checked.** Six passes: the economy chapters with
+   both policy appendices (§1–8), combat with the weapons tables (§9–14),
+   supply, depots, raiding and readiness (§15–20), the commander chapters with
+   the attribute matrix (§21–25), politics, national morale and diplomacy
+   (§26–33), and the naval chapters with Appendices E and F (§34–42). What
+   remains is not a chapter but the two appendices written qualitatively, which
+   cannot be checked number against number: **Appendix B** (projects, partly
+   done in §7) and **Appendix C** (perks, question 4). Appendix G is the
+   credits (§42).
 2. **Whether the fog-of-war accuracy function reads the wrong side
    deliberately.** §24 states what the code does; the config labels state the
    opposite intent. One word from a developer settles it, and nothing in the
@@ -1747,3 +2174,25 @@ slows everything without being blocked.
     Capturing enemy towns lowering your own policy research speed is a
     defensible design; it is also exactly what a loyalty-vs-ownership mix-up
     would look like.
+19. **Whether the 4th Rate Steamer's length is 27 m or 37 m in the published
+    PDF** (§34). It is the one finding in six passes that the Markdown
+    conversion could in principle have caused, and the only way to settle it is
+    to read the original.
+20. **Whether `Mathf.Max(1f, distance / averageRange)` in the naval
+    rate-of-fire term was meant to be `Mathf.Min`** (§38). Under either reading
+    the shipped behaviour is a constant, and the close-combat pref the config
+    ships is unreachable.
+21. **Whether `withinturret` was meant to be a flag or a count** (§39). As a
+    count it is correct data and a wrong consumer; as a flag the three "in 2
+    turrets" records are wrong data. The ship-level `turrets` field, which is
+    parsed and read nowhere, suggests the count reading.
+22. **Whether the seven European-only ship types are reachable by capture in
+    practice** (§35). The capture loop is unconditional on type, but it needs a
+    European squadron beaten in a fleet action, which needs an intervention —
+    and intervention is one-shot per power (§31.2). *Untested:* no play
+    evidence either way.
+23. **What the `combatwidthsea = 7` cap does to large-fleet value** (§40). The
+    firepower comparison that sets the victory balance sums every ship while
+    the damage model caps at seven a tick, so the two halves of a naval battle
+    disagree about fleet size. Whether that is deliberate pacing or an
+    oversight is not decidable from the code.

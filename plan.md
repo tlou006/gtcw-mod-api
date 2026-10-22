@@ -589,11 +589,12 @@ planned index are in [`mechanics-findings/README.md`](mechanics-findings/README.
 4. **[`manual-vs-code.md`](mechanics-findings/manual-vs-code.md) ✅** — the
    official manual used as a yardstick, which is the cheapest confirmation
    available: where it and the code agree a finding is confirmed from both
-   ends, and where they disagree one of them is misleading players. Five
-   passes: economy, combat, supply, commanders, politics. The headline is
-   that **the manual's prose is reliable and its data tables are where it has
-   drifted** — the pre-war policy appendix matched the shipped prefs 10 for 10,
-   while four production recipes, one producer and four weapon stats did not.
+   ends, and where they disagree one of them is misleading players. Six
+   passes: economy, combat, supply, commanders, politics, naval. The headline
+   is that **the manual's prose is reliable and its data tables are where it
+   has drifted** — the pre-war policy appendix matched the shipped prefs 10 for
+   10, while four production recipes, one producer and four weapon stats did
+   not.
 
    The economy pass found **project 98 Market Reform does nothing at all**
    (both its level lookup and its pref read are discarded statements), and a
@@ -709,7 +710,7 @@ planned index are in [`mechanics-findings/README.md`](mechanics-findings/README.
    - **one `[deactivated]` config label lies.** `factorcommanderexpattr` is
      tagged deactivated and is live in every attribute getter, so a green
      commander really does operate at half his nominal attributes. The six
-     other `[deactivated]` labels checked across four passes are all honest.
+     other `[deactivated]` labels checked across six passes are all honest.
 
    A fifth pass took the **politics** chapters — national morale, state
    support, the Policies panel, Projects, Diplomacy and Interventions — plus
@@ -778,11 +779,66 @@ planned index are in [`mechanics-findings/README.md`](mechanics-findings/README.
      support[1]` in the single call that activates Militia Act I, and nothing
      afterwards revisits it. Ties go to the Confederacy.
 
-**Next:** the manual's **naval** chapters plus **Appendix E** (the ship and
-ship-weapon tables), which on five passes' evidence is the highest-value target
-left — every data table checked so far has had errors and every prose chapter
-has held up; or `time-and-speed.md` and `why-units-break.md` from the planned
-index in [`mechanics-findings/README.md`](mechanics-findings/README.md).
+   A sixth pass took the **naval** chapters and **Appendix E**, and with them
+   the last unchecked data table in the manual. It needed a subsystem this
+   folder had never covered, now
+   [26-naval-combat](code-findings/26-naval-combat.md) with
+   [summary-naval](code-findings/summary-naval.md): **fleet actions, fort
+   bombardments and transport interceptions are a third damage model**,
+   resolved entirely in `Autocalc` on a 21-minute campaign cycle, sharing
+   nothing with either land path.
+
+   The data came out better than any file checked so far. All 41 ship records
+   are internally consistent — `guns` equals the sum of the weapon systems'
+   guns and `turrets` equals the sum of their `withinturret` values — and
+   Appendix E gets **all 34 armament lines** and **29 of its 34 stat blocks**
+   exactly right, against six wrong numbers. What the pass found is in the
+   consumers, not the data:
+
+   - **naval rate of fire is a constant.** The term blends a long-range and a
+     close-combat factor on `Mathf.Max(1f, distance / averageRangeOfInRangeGuns)`
+     — and since every gun in that average passed `range >= distance`, the
+     ratio can never exceed 1, so the `Max` pins it at exactly 1 and the blend
+     always returns the long-range 0.25. **Closing the range buys no rate of
+     fire**, and the shipped close-combat value of 1.00 is unreachable;
+   - **three of the six turret ships get no turret bonus.** The ×1.4
+     rate-of-fire bonus tests `withinturret == 1`, but the field is a turret
+     *count*, so the Ocean Casemate Ironclad, Ironclad Turret Ship and River
+     Monitor — each with a weapon system across two turrets — score zero
+     turret guns while the panel still shows their guns as turret-mounted;
+   - **the fleet Firepower figure is computed at point-blank range**, and the
+     function that hands it to a battle takes the real fleet distance and never
+     reads it — so the number that sets the victory balance is range-blind
+     while the damage rolls are not;
+   - **armour gates penetration rather than reducing damage**, and **target
+     size is absent from hit probability** — it enters as `ceil(size)` entries
+     in the target lottery and as `size × 50` hull strength, which roughly
+     cancel. Three of the four clauses in the manual's one paragraph on naval
+     combat point at the wrong mechanism;
+   - **two mechanics the manual never mentions**: only **seven ships a side**
+     fire per tick in a sea battle (three on a river) while the firepower
+     comparison sums the whole fleet, and a **raiding fleet forces a
+     blockading fleet to fight on even numbers**, culling the blockader's
+     vessels out of the engagement until it has no more than the raider;
+   - **seven ship types are in no appendix and in no project** — the European
+     powers' hulls, including a 92-gun Screw Ship-of-the-Line — and **ship
+     capture is unrestricted by type**, so beating an intervention squadron is
+     the one way to own one. The Ship-of-the-Line is the eighth, and the
+     appendix marks it honestly as *"Not buildable"*;
+   - **Appendix F checks out** where it can: the scenario letters are exact and
+     all sixteen battlefield ids match, but three playable historical battles —
+     Champion Hill, Stones River and the regiment-scale 1st Manassas — are
+     missing from its list, and the four config files it calls "the most
+     important" are not where any of the six passes' data errors live.
+
+**Next:** the manual is now checked end to end, so the yardstick is used up.
+The remaining `mechanics-findings/` items are the planned index in
+[`mechanics-findings/README.md`](mechanics-findings/README.md), in the stated
+order `time-and-speed.md` then `why-units-break.md`; the standing code-side
+backlog is the ~137 unverified dead prefs from the
+[07](code-findings/07-config-data-model.md) sweep, a reachability audit of the
+remaining project effects, and the four subsystems findings/26 §10 leaves open
+(transport interception, ship escape, blockade efficiency, ship construction).
 
 **Exit criteria per file:** a reader who has never opened `code-findings/` can
 act on it, and every claim in it can be traced back to a section that supports

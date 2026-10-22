@@ -163,6 +163,12 @@ the evidence than in a central list.
 | --- | --- |
 | [25-newspaper-and-events](25-newspaper-and-events.md) | The newspaper panel, its queue and its four producers; all 119 `historicalevents.dat` records with dates, images and the fifteen gating policies; the index-cursor scan and the game-day arithmetic that makes it safe; the eleven events no shipped campaign can reach; `endbattle` and `battleresulttype`; the procedural battle report and the two prefs that make its morale paragraph a constant |
 
+### Naval combat — [summary](summary-naval.md)
+
+| File | Contents |
+| --- | --- |
+| [26-naval-combat](26-naval-combat.md) | The third damage model: `shiptypes.dat`'s 41 variable-length records and its inverted availability string; `armor` as a rating with a dead display band; fleet aggregation and the point-blank Firepower figure; `GetFiringStrength`, whose rate-of-fire term is a constant because its distance ratio can never exceed 1; the turret bonus that tests `withinturret == 1` and so skips three turret ships; the hit/penetrate/damage rolls, where armour gates penetration rather than reducing damage and size is absent from hit probability; ramming as an unrolled per-tick damage scale; the seven-ship combat line; raiders forcing blockaders to even numbers; and ship capture |
+
 ## Planned
 
 Per `plan.md` Phase 2, one file per subsystem, in order: **combat ✅** →
