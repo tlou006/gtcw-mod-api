@@ -113,7 +113,7 @@ the evidence than in a central list.
 
 | File | Contents |
 | --- | --- |
-| [17-politics-and-support](17-politics-and-support.md) | State support and its 42 reason codes, national morale and the loss condition, foreign intervention, recruitment, and the support-breakdown NaN bug |
+| [17-politics-and-support](17-politics-and-support.md) | State support and its 42 reason codes, national morale and the loss condition, the three continuous couplings (including private wealth as a derivative), state loyalty decided once on the day the war starts, foreign intervention with its zero floor and per-scenario starting relations, the intervention script's sign and routing errors, recruitment, and the support-breakdown NaN bug |
 
 ### Economy — [summary](summary-economy.md)
 
@@ -143,7 +143,7 @@ the evidence than in a central list.
 
 | File | Contents |
 | --- | --- |
-| [22-policy-and-project-catalogue](22-policy-and-project-catalogue.md) | All 117 policies and 125 projects by id, with chapters, prerequisites and effects; the reset-and-replay effect contract; the five ladders and the ten dead pref arrays; support and national-morale reason codes mapped to their writers; the state-index table; the AI's policy queues and project lotteries |
+| [22-policy-and-project-catalogue](22-policy-and-project-catalogue.md) | All 117 policies and 125 projects by id, with chapters, prerequisites and effects; the reset-and-replay effect contract; the five ladders with their subsidy-cap tables, the ten dead pref arrays and the three Acts whose trade-war clause died with them; Militia Act I's before/after asymmetry; support and national-morale reason codes mapped to their writers; the state-index table; the AI's policy queues and project lotteries |
 
 ### Game state — [summary](summary-game-state.md)
 
@@ -155,7 +155,7 @@ the evidence than in a central list.
 
 | File | Contents |
 | --- | --- |
-| [24-campaign-objectives](24-campaign-objectives.md) | All 38 objectives by id with chapters, dates, prerequisites and prestige; the 1862 and 1864 elections, and the only loss condition in the game that is a date; the other half of the intervention trigger; national-morale codes 4–12/14 and support codes 7/8/41 mapped to their writing objectives; how objectives choose the map state set |
+| [24-campaign-objectives](24-campaign-objectives.md) | All 38 objectives by id with chapters, dates, prerequisites and prestige; the 1862 election's two-day window and the 1864 election's doubled penalty, which makes it an immediate loss; the other half of the intervention trigger; national-morale codes 4–12/14 and support codes 7/8/41 mapped to their writing objectives; how objectives choose the map state set |
 
 ### Newspaper and events — [summary](summary-newspaper.md)
 

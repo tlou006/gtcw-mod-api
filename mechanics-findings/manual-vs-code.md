@@ -4,33 +4,40 @@
 **Source:** `game-manual.md` — the official manual, version **1.13**, checked
 against `Config/resources.dat`, `Config/buildingtypes.dat`,
 `Config/campaignprefs.txt`, `Config/weapons.txt`, `Config/unitprefs.txt`,
-`Config/battleprefs.txt` and the decompiled assembly
+`Config/battleprefs.txt`, `Config/campaignobjectives.dat`,
+`Campaigns/001/*/nations.dat` and the decompiled assembly
 **Translates:** [18](../code-findings/18-economy.md),
 [23](../code-findings/23-game-state.md),
 [11](../code-findings/11-combat-resolution.md),
 [12](../code-findings/12-melee.md),
 [13](../code-findings/13-morale-and-cohesion.md),
 [14](../code-findings/14-supply-and-logistics.md),
-[19](../code-findings/19-commanders-and-perks.md)
+[19](../code-findings/19-commanders-and-perks.md),
+[17](../code-findings/17-politics-and-support.md),
+[22](../code-findings/22-policy-and-project-catalogue.md),
+[24](../code-findings/24-campaign-objectives.md)
 
 The manual is the developers' own account of the mechanics, so it is the right
 yardstick for this folder: where it and the code agree, a finding is confirmed
 from both ends; where they disagree, one of them is misleading players.
 
-Four passes are recorded here. **Part I (§1–8)** covers the economy chapters
+Five passes are recorded here. **Part I (§1–8)** covers the economy chapters
 and both policy appendices; **Part II (§9–14)** the combat chapters and the
 three weapons tables; **Part III (§15–20)** supply, depots, raiding and
 readiness; **Part IV (§21–25)** the commander chapters and the attribute
-matrix. The manual is 9,000 lines; politics, the naval chapters and the ship
-tables are still unchecked (§26).
+matrix; **Part V (§26–33)** politics, national morale, the policy panel and
+diplomacy, with the rest of Appendix A. The manual is 9,000 lines; the naval
+chapters and the ship tables are still unchecked (§34).
 
-> **The manual is accurate far more often than not**, in all four passes. Of
+> **The manual is accurate far more often than not**, in all five passes. Of
 > 37 production recipes and 38 producer assignments, 33 and 37 match the
 > shipped data exactly; of some 180 numbers in the weapons tables, four are
 > wrong; the supply chapters' readiness ladder matches the code gate for gate;
 > and most of the commander attribute matrix is implemented, several cells
-> understating what the code does. What follows is the exceptions, which is not
-> a fair picture of the document as a whole.
+> understating what the code does; and of thirty-five entries in Appendix A
+> bearing on support, morale, relations or the treasury, thirty-one match
+> exactly. What follows is the exceptions, which is not a fair picture of the
+> document as a whole.
 
 ---
 
@@ -632,7 +639,6 @@ doubles the risk to your brigade commanders**.
 code enforces as a hard gate on rank index.
 
 ---
----
 
 # Part III — Supply, logistics and readiness
 
@@ -913,7 +919,6 @@ removed and their effect constants were left in the file.**
 > is inert.
 
 ---
----
 
 # Part IV — The commander chapters
 
@@ -1186,16 +1191,504 @@ Two smaller traps in the same area:
 
 ---
 
-## 26. Open questions
+# Part V — The politics chapters
 
-1. **The chapters still unchecked.** Four passes are done: the economy
+## 26. What the politics chapters get right, with the numbers
+
+The prose chapters on national morale, support, policies and diplomacy hold up
+as well as every other prose chapter has. The checkable claims, and the figures
+the manual leaves out:
+
+| The manual says | The data holds |
+| --- | --- |
+| *"If national morale falls below 25, the campaign will be lost"* | `breakmoraletrigger = 0.25`, and the config label is `[<]` — strictly below |
+| *"The lower the average support, the slower the policy making"* | the research rate is **linear** in `averagesupport`: at 30 % support everything takes 3.3× as long ([22](../code-findings/22-policy-and-project-catalogue.md) §3.1) |
+| *"Politics: allows more active policies (up to 12 in total)"* | `minimumpolicies = 7`, `maximumpolicies = 12`, and widening that queue is the politics subsidy's **only** effect |
+| *"up to a hundred million dollars per year (except for politics subsidy type)"* | base cost $50 M × a ladder of {0.1, 0.25, 0.5, 1, 2}; politics is $10 M × 1 — see §33 for the two branches that are not $100 M |
+| *"deactivating Industrialization II will also deactivate Industrialization III and IV"* | `RemoveResearch` walks a **transitive** prerequisite closure, so every descendant is zeroed, not only the direct child |
+| *"Acts can be cancelled before they are activated. Once activated, they will remain so"* | `RemoveResearch` returns immediately for `IsAct && researchprogress >= 1` |
+| *"Acts will remain in effect even if the required policies are deactivated"* | the cascade skips completed acts explicitly |
+| *"Militia Act I … once Abraham Lincoln is inaugurated on March 4, 1861"* | policy 36 is suppressed before `Date(4, 3, 1861)` — one of exactly two entries in `IsDeactivated` |
+| *"a three-month contract"* | `militiaactcontract = {3, 12, 24, 36}` months |
+| *"States with low support will not change loyalty even if they are completely controlled by the enemy"* | stronger than stated: **nothing** changes a state's loyalty from support or conquest at all ([17](../code-findings/17-politics-and-support.md) §5a) |
+| *"a major victory is required to encourage an invasion"* | `GetInterventionProbability >= 1` **and** `winmajorbattleintervention == <side>` ([24](../code-findings/24-campaign-objectives.md) §4) |
+| *"If interventions are allowed in the Game Options"* | `GameVars.interventions` gates the trigger outright |
+| *"they are forced to sue for peace and will withdraw"* | armies pull back below 50 % strength, fleets below 25 % condition — though the relations penalty that follows lands on the wrong alliance (§31) |
+| *"Whenever the credit rating drops below B … no further construction or recruitment"* | the gate is one notch lower, **below B−**, and a third system goes with it (§33) |
+
+**The Militia Act claim is the best-confirmed thing in the chapter.** The
+manual says that calling out the militia before Fort Sumter *"will be
+considered an act of war by the CSA"*, that *"southern support in all slave
+states"* rises, and that *"this could lead to further states seceding."* All
+three are exact, and the mechanism is sharper than the sentence:
+
+- a **one-off +10 points** of Confederate support in every slave state,
+  applied only if the date is before 14 April 1861;
+- **+200 points per year** of Confederate support in every slave state, and
+  **+40 points per year** of Confederate national morale, for as long as the
+  Union holds Militia Act I and the Confederacy does not;
+- then, in the same call, the secession cascade: every state currently owned by
+  either side is reassigned to **whichever side it supports more**, by a bare
+  `support[0] > support[1]` — a tie goes to the Confederacy.
+
+So the +10 lands *before* the comparison that fixes every state's allegiance
+for the rest of the campaign. Going first is also expensive in itself: the
+Union moving first gives the Confederacy +200 points of slave-state support a
+year, where the **Confederacy** moving first gives itself only +75 and gives
+the Union +75 in the free states. Calling out the militia first is **2.7×
+worse** than letting the other side do it
+([22](../code-findings/22-policy-and-project-catalogue.md) §5).
+
+> **One date is wrong.** The manual says the Confederacy attacks Fort Sumter
+> *"on the historical date on April 12, 1861."* The code hands the fort over on
+> **14 April** and starts the war on **15 April**; the pre-Sumter support bonus
+> uses 14 April as its cut-off. The manual is quoting the bombardment, the code
+> is using the surrender.
+
+## 27. Appendix A's political numbers, checked
+
+Part I checked the ten pre-war numbers in Appendix A's first table (§6). The
+other four tables — the policy ladders and both sides' Acts — carry many
+more. **Thirty-five** of them bear on support, national morale, European
+relations or the treasury. **Thirty-one match exactly**, checked against
+`campaignprefs.txt`:
+
+| Act or policy | The manual says | The data holds |
+| --- | --- | --- |
+| Enforce Neutrality Act | chance of intervention against the Union −10 | `0.10` |
+| Bread Basket (pre-war) | relations with Europe +10 | `0.10` |
+| Tariff Act (both sides) | relations with Europeans −10, tariffs to 50 % | `-0.1`, `0.5` |
+| Confiscation Act | CSA support in slave states +3 annually | `0.03`/yr |
+| Revenue Act I / II / III | support −1 / −2 / −3 | `-0.01`, `-0.02`, `-0.03` |
+| Bank Act I / II | support −3 each, +$120 M / +$150 M, credit +2 each | `-0.03`, `-0.03`, `120e6`, `150e6`, `-2`, `-2` |
+| Northern Routes | capacity +50 %, crops +25 %, Midwest volunteers −10 % | `1.5`, `1.25`, `0.9` |
+| Feed Europe I / II | relations +10 / +20, trade +25 %, land sales −50 %, credit −1 | `0.1`, `0.2`, `1.25`, `0.5`, `+1` notch |
+| Enrollment / Conscription I–II | national morale −2 each | `-0.02`, `-0.02` |
+| Emancipation Proclamation (Union) | CSA morale +5, Union support +5, relations +20 | `0.05`, `0.05`, `0.20` |
+| Abolition of Slavery | relations +10, Union morale +5, CSA morale +10 | `0.1`, `0.05`, `0.10` |
+| Legal Blockade | intervention −20, trade with Europe −25 % | `0.2`, `0.75` |
+| Letters of Marque | relations with Europe −10 | `-0.1` |
+| The Old Dominion | CSA support in Virginia +10, Union morale −5 | `0.1`, `-0.05` |
+| Kansas a Slave State | Kansas +25, all slave states +5 | `0.25`, `0.05` |
+| Slavery to the West | +25, population +25 %, Texas trade doubled | `0.25`, `1.25`, `2.0` |
+| Apostles of Disunion | slave states +20, free states +10 | `0.20`, `0.10` |
+| Filibustering | CSA military experience +5 | `0.05` |
+| King Cotton (pre-war) | slave-state support +5, intervention +20 | `0.05`, `0.20` |
+| Arms Agents | weapons +50 %, Union morale −5 | `1.5`, `-0.05` |
+| Alliance with the Natives | Indian Territory +25 | `0.25` |
+| Southern Pacific Railroad | credit +2, capacity and speed +25 % | `-2`, `1.25`, `1.25` |
+| Impressment Act | recruits +10 %, supply cost −20 %, support −3 | `0.1`, `0.8`, `-0.03` |
+| Nationalize Trade Act | cotton demand +35 %, support −3 | `1.35`, `-0.03` |
+| Restrict Cotton Trade | cotton demand +10 %, relations +10, wealth −5 % | `0.1`, `0.1`, `0.95` |
+| Burn Cotton | cotton stock −50 %, relations +15 | `0.5`, `0.15` |
+| Slavery Restriction Act | slaves −25 %, relations +20, slave-state support −5 | `-0.25`, `0.2`, `-0.05` |
+| CSCT | three brigades, slave-state support −2 | `3`, `-0.02` |
+| Support Mexican Intervention | Texas recruits −50 %, relations +15, Union morale +3 | `-0.5`, `0.15`, `0.03` |
+| Free Trade Act | relations +10, maximum tariff rate 15 % | `0.1`, `0.15` |
+| Print Notes I / II, War Bonds | +$50 M each, wealth −10 % each; credit +2, wealth −10 % | `50e6`, `0.9`; `-2`, `0.9` |
+
+The other **four are wrong**, and all four
+are in the same shape as Part II's weapons-table errors — a single number, not
+a mechanism:
+
+| Act | The manual says | The data holds |
+| --- | --- | --- |
+| Southern Industrialization | population **+25 %** | `1.2` — **+20 %**, the same value as the Union's Northern Industrialization, whose text correctly says +20 % |
+| Alliance with the Natives | number of volunteers **doubled** | `3.0` — **tripled** |
+| Emancipation Proclamation (CSA) | Union national morale **−5** | `-0.1` — **−10**, twice as much |
+| Letters of Marque | enemy sea trade **−2.5 %** | `0.015` — a **1.5 %** *floor* on the blockade ratio of every enemy harbour, which is a different quantity as well as a different number |
+
+**Two more are not single numbers and should not be read as such.** The USCT
+Act's *"number of available volunteer recruits + 10 %"* is two separate 5 %
+terms — `usctmobilizationrateadj` multiplies the volunteer pool at once, and
+`usctvolunteersrunning` adds 0.05 a year to the running adjustment — so the
+manual's 10 % is the sum of two labels rather than a figure the code uses. The
+Recruitment Bounties' *"number of volunteers + 25 percent"* is an absolute
+`+0.12` added to a pool factor whose baseline depends on which Militia Acts are
+in force, so it is worth about +20 % after the full Militia ladder and more
+before it.
+
+**And the Free Trade Act contradicts itself in one sentence.** *"An Act that
+halves the maximum tariffs"* and *"maximum tariff rate 15percent"* cannot both
+be true when the Tariff Act's cap is 50 %. The data holds the second: the cap
+is set to `freetradetariffs = 0.15`.
+
+## 28. Three Acts still promise a subsidy category that was removed
+
+Appendix A sells three Acts partly on raising a spending cap:
+
+| Act | The manual says |
+| --- | --- |
+| Letters of Marque (both sides) | *"maximum trade war subsidies + 20 %"* |
+| Legal Blockade (Union) | *"20 % of additional Trade War subsidies are allowed"* |
+| Organized Blockade Running (CSA) | *"maximum trade war subsidies + 40 percent"* |
+
+**There is no Trade War subsidy.** The category was cut: `GameVars` still
+declares `subsidy_tradewarx = 5` with its vestigial `x`, and id 5 is now
+`subsidy_diplomacy`; the cost array's own config label names the eight slots
+*"(politics, economy, agriculture, industry, military, diplomacy, n/a, n/a)"*
+and prices the last two at zero
+([18](../code-findings/18-economy.md) §4, [the-war-economy](the-war-economy.md)).
+
+The two prefs that would have raised the cap are **shipped and never read** —
+`lettersmarquesubsidies` and `legalblockadetradewarsubsidies`, both `1.2`, each
+with exactly two references in the assembly, its declaration and its loader
+line. The third, `orgrunningtradewar`, kept its name and was **repurposed**:
+it is now a multiplier on the blockade ratio of the Confederacy's own harbours
+(`IIP.cs:677`), shipped at `0.75`.
+
+So each of the three Acts does something, and in two cases the real effect is
+not the advertised one:
+
+| Act | What it actually does |
+| --- | --- |
+| Letters of Marque | sets `lettersmarque = true`, which **floors** the blockade ratio of every enemy harbour at 1.5 %, and moves European relations by −10 |
+| Legal Blockade | intervention +20 and European trade demand ×0.75 — both as advertised; the subsidy clause alone is dead |
+| Organized Blockade Running | Union national morale +2, and **your own ports are blockaded 25 % less effectively** — a real and useful effect the manual never mentions |
+
+> **What to do with this:** Organized Blockade Running is worth more than its
+> description. It does not fund the trade war; it directly blunts the Union
+> blockade at every Confederate harbour, which is the thing the subsidy was
+> supposed to pay for. Letters of Marque is worth *less* than its description
+> against an opponent who already blockades properly — a floor of 1.5 % adds
+> nothing to a port already interdicted above that.
+
+## 29. European relations cannot go negative
+
+`AdjustInterventionLevel` floors each accumulator at zero after every write:
+
+```csharp
+interventionlevels[foralliance] += value;
+…
+if (interventionlevels[foralliance] < 0f) interventionlevels[foralliance] = 0f;
+```
+
+Each side keeps its own non-negative accumulator per foreign power, and the
+probability is the **difference** between them. Nobody can be worse than
+neutral. Two consequences the chapter does not prepare a player for.
+
+**A relations-damaging Act is free when your relations are at zero.** The Union
+starts every scenario at **0 with all three powers**, so the Tariff Act's −10
+and Letters of Marque's −10 are discarded outright, and taking them costs the
+Union nothing diplomatically. Taking them *after* banking relations does cost
+the full amount — so the order in which a Union player passes Acts changes the
+outcome.
+
+The Confederacy does not get this for free, because it starts with relations
+already on the books. These are shipped per scenario in `nations.dat` and the
+manual never mentions them:
+
+| Scenario | CSA–Britain | CSA–France | Union, all powers |
+| --- | --- | --- | --- |
+| A, Spring 1861 | 10 | 20 | 0 |
+| B, Summer 1861 | 20 | 25 | 0 |
+| C, Spring 1862 | 25 | 30 | 0 |
+| D, Spring 1863 | 20 | 30 | 0 |
+| E, Spring 1864 | 20 | 30 | 0 |
+| F, Tutorial | 20 | 25 | 0 |
+
+**And the worked example in the Diplomacy chapter is right for the wrong
+reason.** The manual works one through:
+
+> *"CSA King Cotton pre-war Policy increases relations with Europe by 20
+> points. During the game CSA activates Restrict Cotton Trade -act, which
+> increases relations by a further 10 points. The Union player activates the
+> Tariff Act, which decreases Union relations by 10 points. This results in
+> relations balance of 40 in favor of the Confederacy."*
+
+20 + 10 + 10 = 40 is the arithmetic of a signed two-way slider, which is not
+what the code has. What actually happens in scenario A is that the Confederacy
+reaches 10 + 20 + 10 = **40** on its own accumulator while the Union's Tariff
+Act is clamped away at zero. The answer is 40 because the Confederacy's
+undocumented starting +10 with Britain supplies exactly the ten points the
+Union's Act fails to contribute. **Two errors cancel.** Start from scenario C,
+where Britain begins at 25, and the same three decisions give 55, not 40.
+
+## 30. "European Relations" on the Strategy panel is not a relations balance
+
+The manual describes the row as *"the balance of who the European nations
+currently favor"* and says that *"if either nation reaches a relations level of
+100, there is a chance the Europeans will intervene."* The figure displayed is
+`GetInterventionProbability(…) × 100`, which is the raw difference **after**
+three transformations the description does not mention:
+
+```
+num = CSAlevel[power] − Unionlevel[power]        // powers 2 and 3, Britain and France
+num = Unionlevel[4]   − CSAlevel[4]              // power 4, Spain
+if power == 2:  num /= higherinterventionlevels          // 1.35
+num /= relationsintervention[CurrentChapter]             // 100, 0.75, 1.00, 1.5
+clamp [0, 1]
+```
+
+Four things follow.
+
+**Britain is 35 % harder to draw in than France.** `higherinterventionlevels =
+1.35` divides the British figure alone. The manual says only that *"the British
+can intervene in any case"*, which is true of the policy gates and silent about
+the threshold.
+
+**The requirement moves by chapter, and the number 100 is only right in
+Chapter III.** `relationsintervention = {100, 0.75, 1.00, 1.5}`, and a value of
+100 or more makes intervention impossible outright:
+
+| Chapter | Dates | Requirement | 40 points of British lead shows as |
+| --- | --- | --- | --- |
+| I | to 14 Apr 1861 | **impossible** | 0 |
+| II | 15 Apr 1861 – 5 Nov 1862 | 75 | 40 |
+| III | 6 Nov 1862 – 9 Nov 1864 | 100 | 30 |
+| IV | from 10 Nov 1864 | 150 | 20 |
+
+The manual's *"The Europeans will be more willing to intervene during the early
+Chapters"* is therefore half right: among the chapters where intervention is
+possible, Chapter II is the cheapest and Chapter IV the dearest — but **Chapter
+I is a hard zero**, so all the pre-war diplomacy a Confederate player buys with
+King Cotton and Filibustering displays as **0 for both sides** until the war
+starts. (The Chapter II column is why the manual's worked example happens to
+print 40: 0.40 ÷ 1.35 ÷ 0.75 = 0.395.)
+
+**The Union's figure is Spain, and only Spain.** `UpdateStats` builds the two
+numbers as `GetInterventionProbability(4)` for the Union and
+`max(GetInterventionProbability(2), GetInterventionProbability(3))` for the
+Confederacy. A Union player watching this row learns nothing about Britain or
+France — the two powers that can actually intervene against them. Their
+figures appear only in the row's tooltip.
+
+**And at 100 there is no chance about it.** `AICampaign.UpdateInterventions`
+tests `GetInterventionProbability(alliance) >= 1f`, and the function contains
+no `Random` call anywhere. The displayed "relations" is already the
+normalised probability, so when it reads 100 the next qualifying major victory
+brings the power in, deterministically. *"May intervene"* and *"there is a
+chance"* describe a roll that does not exist.
+
+> **The practical consequence for France.** Power 3 is zeroed before
+> `Date(7, 6, 1863)` and unless Confederate policy **144**, Support Mexican
+> Intervention, is active — and Chapter IV starts on 9 November 1864 and raises
+> the requirement to 150. So France's realistic window is **7 June 1863 to
+> 9 November 1864**, seventeen months at a requirement of 100. The date gate
+> is in neither the manual nor the in-game tooltip.
+
+## 31. Three places the intervention script points the wrong way
+
+**31.1 The Union's own major victory makes British intervention more likely.**
+Objective 24 is the Union's *"Gain a Major Victory / Discourage the
+Europeans."* It is deactivated unless `GetInterventionProbability(4) >= 0.75` —
+that is, unless **Spain** is three-quarters of the way to intervening *for the
+Union* — and when it fires it applies `winbattleinterventionlevelunion = −0.10`
+to the **Union's own** accumulator. Since the probability is a difference, a
+reduction on the Union's side lowers the chance of Spanish help and *raises* the
+chance of British or French intervention against them. Its Confederate mirror,
+objective 25, applies `+0.25` to the Confederacy's own accumulator, which
+raises British and French intervention as intended. **So both sides' major
+victories push Europe toward the Confederacy**, the Confederacy's 2.5× harder
+than the Union's. Either the sign or the subtitle is wrong; under both readings
+the shipped behaviour is self-defeating
+([24](../code-findings/24-campaign-objectives.md) §4).
+
+**31.2 The withdrawal penalty is charged to the wrong alliance.** When a
+European expeditionary force is ground down and sues for peace, the pullback
+branch does
+`GameVars.alliance[0].AdjustInterventionLevel(power, −100f)` for a power that
+was fighting the Union — that is, it wipes the **Union's** accumulator, which is
+the *subtrahend* in that power's probability. The floor of §29 means the figure
+was almost certainly zero already, so the penalty is inert; where it is not, it
+*increases* the difference and makes re-entry easier. Nothing is ever charged to
+the patron whose accumulated relations brought the power in.
+
+That it does not matter is an accident of a different guard:
+`Alliance.timesincewar` is set when a power enters a war and **never reset when
+it leaves**, while the intervention trigger requires `timesincewar <= 0f`. So
+each European power can intervene **exactly once per campaign**, and the
+mis-sided −100 never gets a chance to be wrong in practice.
+
+**31.3 The monthly intelligence report names the wrong powers.** Four defects
+in one block of `BattleUnits`:
+
+- the Confederate report prints Britain's probability under **France's** name,
+  because the France line re-uses `interventionProbability` instead of calling
+  `GetInterventionProbability(3)`;
+- its month-over-month delta for France subtracts France's stored figure from
+  Britain's current one;
+- the Union report is headed *"relations to Spain"* and computes
+  `GetInterventionProbability(3)` — **France's** pro-Confederate figure;
+- the baseline it compares against, `lastmonthinterventionprobability[4]`, is
+  written from `GetInterventionProbability(0)`, which is identically zero for a
+  belligerent, so the guard `> 0f` never passes and the Union's line **never
+  shows a monthly change**.
+
+The manual says of this report only that *"you can find the most important
+information about your enemy's political and military actions."* Its
+intervention paragraph is not usable.
+
+## 32. The elections the manual never mentions
+
+**Search the 9,000-line manual for "election" and the only hits are the word
+"selection".** There are two elections in the campaign, implemented as
+campaign objectives, and one of them is the Union's hardest loss condition.
+
+The manual's one statement about objectives covers them both and is false for
+them: *"Completing these objectives is not mandatory, but they will offer you
+bonuses during the campaign."*
+
+**32.1 The 1862 midterms are almost entirely inert.** Objective 9, *"Maintain
+Support Above 60 / Republican Majority"*, keys off 4 November 1862 and tests
+the Union's `averagesupport` against `republicanmajoritysupportlevel = 0.60`.
+Failing it charges `republicanmajorityunionmorale = −0.01` **per week** of
+Union national morale — a punishing −52 points a year if it ran for the rest
+of the war, which is how its own config label reads.
+
+It does not run. The objective's chapter list is `{1}`, and chapter 2 begins on
+6 November 1862, so the penalty's window is **4 and 5 November 1862 — two
+days**, worth −0.3 points of national morale. Reaching 60 % support in those
+two days latches the objective complete; missing it costs essentially nothing.
+Whether that is a deliberate token or a chapter-boundary accident, the midterms
+do not matter.
+
+**32.2 The 1864 election is not a −20 setback. It is an instant loss.** Both
+election objectives — 26, the Union's *"Maintain Morale Above 50 / Lincoln's
+Second Term"*, and 27, the Confederacy's *"Union Morale below 50 / Demoralize
+Union Voters"* — carry the same tooltip, *"Union national morale -20"*, and
+each applies its own −0.20 on the first campaign tick after 10 November 1864.
+In the branch where Lincoln loses, **both fire in the same pass**, so the Union
+takes **−40**, not −20.
+
+That is fatal by arithmetic. Lincoln loses when Union national morale is below
+0.50 on election day, so after the double hit it is below 0.10 — far under
+`breakmoraletrigger = 0.25`. Objective 1, *"Break Union Morale"*, is checked
+on every campaign-data pass, which runs every `0.00002` campaign years, about
+**ten game minutes**. The campaign ends in a Confederate victory within one
+tick of the election.
+
+Two further consequences, both corrections to what
+[24](../code-findings/24-campaign-objectives.md) §3.2 said before this pass:
+
+- **There is no four-month grace period.** The 4 March 1865 inauguration branch
+  reads as a chance to recover, but objective 26 only re-evaluates its
+  `accomplished` flag *before* election day + 1, so morale recovered afterwards
+  can never satisfy it. In practice the branch is unreachable anyway: if
+  Lincoln held, `Policy.CheckForChapterUpdate` advances the campaign to Chapter
+  IV **in the statement immediately before** the objective sweep, which
+  deactivates both election objectives; if Lincoln lost, the −40 ends the
+  campaign long before March.
+- **Objective 27's own end-of-campaign call is dead code.** It fires only while
+  the objective is *not* accomplished — that is, only while Union morale is
+  *above* 50 — which is exactly the branch the chapter advance has already
+  switched off.
+
+> **What to do with this, as the Union:** treat 9 November 1864 as a hard gate
+> at 50 national morale, not as a −20 event to absorb. One point under and the
+> campaign is over inside ten game minutes. As the Confederacy, the same date
+> is a win condition that needs no battle: hold the Union's national morale
+> under 50 on that one day.
+
+## 33. What the politics chapters leave out
+
+**A documented mechanic is switched off.** The Support map-filter section says
+*"your armies will move more slowly in states with low support, as the
+population is considered hostile and armies will need to take measures to cover
+their movement."* The term exists, in the campaign speed chain:
+
+```csharp
+float num15 = 1f * nation[state].support[alliance]
+            + GamePrefs.adjustmentmovingspeedsupport0
+              * (1f - nation[state].support[alliance]);
+```
+
+`adjustmentmovingspeedsupport0` ships as **1.0**, and the config label itself
+declares the intended range as `[<1]`. The blend collapses to exactly 1 for
+every value of support, so there is no penalty at any support level, and the
+rolling-text branch that would print *"Low state support (−x %)"* on the map
+can never fire. State support does still bite movement indirectly, through
+readiness: `readinessconsumptionmovement = {−8.5, −25.0}` per annum at support
+1 and 0, so a hostile state drains readiness **2.9× faster**
+([14](../code-findings/14-supply-and-logistics.md) §10b). That is the whole of
+the effect, and it is not what the sentence describes.
+
+**"National Support" is not the average of your loyal states.** The manual
+defines it as *"the average support of all the loyal states under the control
+of each side."* `Alliance.averagesupport` is a **population-weighted average
+over every town you own**, of your support in that town's state
+(`Economy.cs:2068`). Two differences matter. Big cities dominate, so one
+captured metropolis moves the figure more than a quiet state. And it is keyed
+on **ownership, not loyalty**: every enemy town you capture enters the average
+at your support level in an enemy state, which is low. Because this same figure
+is the linear multiplier on policy research speed
+([22](../code-findings/22-policy-and-project-catalogue.md) §3.1), **conquest
+slows your own legislature**.
+
+**"Loyal States" is a share, not a level.** The count tests
+`support[side] / (support[0] + support[1]) > statesupportownstate (0.65)`. A
+state at 20/5 counts as loyal; a state at 70/40 counts for neither side. The
+same pref is used as an **absolute** support level in the recruiting list's
+"Own states" filter and in the AI's zone checks, so a state can be loyal on the
+Strategy panel and neutral in the recruitment list at the same time.
+
+**Private wealth moves national morale by its change, not its level.** The
+Economy chapter says *"High private wealth will help improving national morale,
+while poverty will lower it."* Reason code 34 is
+`(privateincome − lastmonthsprivateincome) × elapsed × 10.0`, and
+`lastmonthsprivateincome` is re-snapshotted at the end of every month. So a
+nation with permanently high but flat private wealth earns **nothing**, and a
+poor nation whose wealth is rising earns morale every tick. The lever is
+growth, and it resets on the first of each month.
+
+**The credit-rating gate is one notch lower than the manual says, and catches
+a third system.** `IsRatingOkForRecruitment`, `IsRatingOkForConstruction` and
+`IsRatingOkForWeaponPurchases` share one test with all three thresholds at
+0.45, so recruitment, infrastructure construction **and weapon orders** stop
+together at notch 15, CCC+ — one notch below B−, where the manual says
+"below B" ([18](../code-findings/18-economy.md) §4). Weapon orders appear in
+neither the Finances chapter nor the top-panel description.
+
+**Two subsidy branches are not $100 M.** The ladder is per branch, and two of
+the five do not reach the figure the manual quotes:
+
+| Branch | Levels | Top factor | Annual cap |
+| --- | --- | --- | --- |
+| Politics | — | 1 | **$10 M** |
+| Funding (Economy) | I–III | 1.0 | **$50 M** |
+| Agriculture | I–IV | 2 | $100 M |
+| Industry | I–IV | 2 | $100 M |
+| Military | I–IV | 2.0 | $100 M |
+| Diplomacy | I–V | 3 | **$150 M** |
+
+The Funding array ships a fifth entry of `2.00` that the config labels *"last
+one not used"* — there is no Government Funding IV to read it. Diplomacy is the
+only branch with a fifth level, and the only one that beats the manual's
+number.
+
+**Military experience does nothing for training.** The Strategy panel's
+Military Experience row claims the figure makes armies *"more effective in
+entrenching, training, and keeping their morale high in battles."* Entrenching
+is right and understated — national experience is a **hard ceiling** on
+`entrenchmentlevel`, so at 50 % an army can never dig past the midpoint.
+"Keeping morale high" is loosely right by a different route: experience raises
+`GetUnbearableLossesTrigger`, the losses a unit will bear before it stops
+rallying ([13](../code-findings/13-morale-and-cohesion.md)). **Training is
+wrong.** The drill rate is the camp-state constant × project 118 × condition,
+with no national-experience term — the same shape as the administration/drill
+cell in §21.
+
+**Parallel research is a trap the chapter does not mention.** The Policies
+panel says only that activating a policy *"will reserve one available policy
+slot."* Throughput across N policies in research is `N × N^−1.1 = N^−0.1`,
+which **falls** as N rises: at the cap of twelve the aggregate rate is 0.79×
+that of researching one at a time, and the AI never parallelises
+([22](../code-findings/22-policy-and-project-catalogue.md) §3.1). Acts bypass
+the slot cap but still count in the divisor, so queueing acts past the cap
+slows everything without being blocked.
+
+---
+
+## 34. Open questions
+
+1. **The chapters still unchecked.** Five passes are done: the economy
    chapters with both policy appendices (§1–8), combat with the weapons tables
-   (§9–14), supply, depots, raiding and readiness (§15–20), and the commander
-   chapters with the attribute matrix (§21–25). Still open: **politics and
-   national morale**, the **naval** chapters, and **Appendix E**, the ship and
-   ship-weapon tables — which on four passes' evidence is the highest-value
-   target left, since every data table checked so far has had errors and every
-   prose chapter has held up.
+   (§9–14), supply, depots, raiding and readiness (§15–20), the commander
+   chapters with the attribute matrix (§21–25), and politics, national morale
+   and diplomacy (§26–33). Still open: the **naval** chapters and
+   **Appendix E**, the ship and ship-weapon tables — which on five passes'
+   evidence is the highest-value target left, since every data table checked
+   so far has had errors and every prose chapter has held up.
 2. **Whether the fog-of-war accuracy function reads the wrong side
    deliberately.** §24 states what the code does; the config labels state the
    opposite intent. One word from a developer settles it, and nothing in the
@@ -1236,3 +1729,21 @@ Two smaller traps in the same area:
     shipped value was not read.
 13. **`fillratiotarget`**, the per-depot buy/sell target, and whether the
     player can set it.
+14. **Whether objective 24's `−0.10` is a sign error or its subtitle is wrong**
+    (§31.1). Both readings leave the Union's major victory helping Europe side
+    with the Confederacy, so the shipped behaviour is wrong either way, but
+    which line to patch depends on the answer.
+15. **Whether the 1862 midterm penalty is meant to outlive chapter 1**
+    (§32.1). Its own config label describes a per-week rate "for the rest of
+    the campaign"; the chapter list gives it two days.
+16. **Whether the 1864 election's doubled penalty is intended.** Two objectives
+    with identical tooltips each charge −0.20 in the same pass (§32.2). If one
+    of them is meant to be the Confederate *score* rather than a second
+    penalty, the Union's loss condition at the election is −20, not −40.
+17. **What `adjustmentmovingspeedsupport0` was tuned to before it became 1.0**
+    (§33), and whether the hostile-territory movement penalty the manual
+    describes was ever live.
+18. **Whether `averagesupport`'s ownership keying is deliberate** (§33).
+    Capturing enemy towns lowering your own policy research speed is a
+    defensible design; it is also exactly what a loyalty-vs-ownership mix-up
+    would look like.

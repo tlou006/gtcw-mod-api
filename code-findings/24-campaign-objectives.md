@@ -178,22 +178,43 @@ last entry in `supportdescr`).
 
 ## 3. Two elections
 
-### 3.1 The 1862 midterms — objective 9
+### 3.1 The 1862 midterms — objective 9, and its two-day window
 
 Objective 9 "Maintain Support Above 60" keys off **4 November 1862**, the real
 midterm date, and tests `GameVars.alliance[0].averagesupport` — the
-population-weighted figure from findings/23 §8 — against
+population-weighted figure from [17](17-politics-and-support.md) §2 — against
 `republicanmajoritysupportlevel = 0.60`. Before the date it can only be marked
-*failed*; on and after it, meeting the threshold completes it, and **failing it
-charges `republicanmajorityunionmorale` (−0.01) per week for the rest of the
-campaign** under national-morale code 8. There is no end-of-campaign branch —
-the midterms bleed, the presidential election kills. Chapter 2 begins the next
-day, 5 Nov 1862 (findings/22 §3).
+*failed*; on and after it, meeting the threshold completes it, and failing it
+charges `republicanmajorityunionmorale` (−0.01) per week under national-morale
+code 8:
+
+```csharp
+if (!accomplished && date >= Date(4, 11, 1862))
+    alliance[0].AdjustNationalMorale(8, republicanmajorityunionmorale * num * 52f);
+    // num = date − lastupdate, in campaign years
+```
+
+**The rate is −0.52 per annum, and it runs for two days.** The objective's
+`ObjectiveChapters` is `{1}`, and `CheckForChapterUpdate` raises the chapter to
+2 once the date is strictly past 5 November 1862 — so from 6 November the
+objective is deactivated by the generic chapter gate (§5.1) and the charge
+stops. The reachable total is `(2/365) × 52 × 0.01` ≈ **0.003**, three tenths
+of a point of national morale.
+
+> **Corrects an earlier reading of this file**, which said the penalty runs
+> "for the rest of the campaign" — that is what the config label describes and
+> what the formula would do, but the chapter list prevents it. Either the
+> chapter list or the label is wrong; as shipped, **the 1862 midterms have no
+> mechanical consequence.**
+
+Its Confederate mirror, objective 10 "Union Support Below 60 / Union
+Elections", has no effect term at all: it latches `accomplished` from the same
+threshold before the date and is scored only through `influenceprestige`.
 
 ### 3.2 The 1864 election is the Union's hard loss condition
 
 Objectives 26 and 27 are not scored like the others. Both key off
-**9 November 1864**, plus one day (`0.002739726f` ≈ 1/365.25):
+**9 November 1864**, plus one day (`0.002739726f` = 1/365):
 
 ```
 before election day + 1
@@ -212,12 +233,45 @@ on or after election day + 1, while not accomplished
         bunits.SetEndOfCampaign(playeralliance == 0 ? 1 : 0)   // the Union loses
 ```
 
+`SetEndOfCampaign`'s argument is **player-relative** — 0 prints "Victory!", 1
+prints "Defeat!" — so `playeralliance == 0 ? 1 : 0` is a Confederate win
+whichever side the player is on.
+
 So: **hold Union national morale at or above 0.50 on 9 November 1864 or Lincoln
-loses re-election** — a −0.20 national morale hit immediately, and the campaign
-ends in a Confederate victory on **inauguration day, 4 March 1865**. The
-roughly four-month gap between the two dates is the player's last chance to
-recover morale, because the end-of-campaign branch is re-tested every update
-and only fires while `!accomplished`.
+loses re-election.** Three things follow that an earlier reading of this file
+got wrong.
+
+**The penalty is −0.40, not −0.20.** Both objectives are live in the same
+chapter, both are in their `!accomplished` branch on the first pass after the
+election when morale is below 0.50, and `CheckAccomplishmentOfAllObjectives`
+walks them in id order in a single loop — so objective 26 charges −0.20 and
+objective 27 charges another −0.20 immediately after. Both tooltips read
+*"Union national morale -20"*.
+
+**It is therefore an immediate loss, not a four-month countdown.** Lincoln
+loses only when morale is already under 0.50, so after −0.40 it is under 0.10,
+well below `breakmoraletrigger = 0.25`. Objective 1 "Break Union Morale" is
+evaluated in the same sweep, which runs every `updatetimeforcampaigndata =
+0.00002` campaign years — about **ten game minutes**
+([10](10-simulation-tick.md) §4). The campaign ends in a Confederate victory on
+the next pass, not on inauguration day.
+
+**And the 4 March 1865 branch is unreachable.** If Lincoln *held*,
+`Policy.CheckForChapterUpdate` — called in the statement immediately before the
+objective sweep (`BattleUnits` ~1549) — raises the chapter to 3 as soon as the
+date passes 9 November 1864, because its condition is exactly
+`GetObjectiveAccomplishment(26) && !GetObjectiveAccomplishment(27)`. Both
+election objectives have `ObjectiveChapters = {2}`, so they deactivate before
+their own post-election branch ever runs: neither −0.20 fires and no
+end-of-campaign is set. If Lincoln *lost*, objective 1 has already ended the
+campaign. Objective 27's copy of the `SetEndOfCampaign` call is dead either
+way — it fires only while 27 is *not* accomplished, i.e. only while Union
+morale is *above* 0.50, which is the branch the chapter advance switches off.
+
+> **For a player:** 9 November 1864 is a cliff at 50 national morale, not a
+> −20 event to absorb. For a modder: the two prefs are
+> `lincolninfluenceunionmorale` and `demoralizevotersunionmoraleinfluence`,
+> both −0.20, and zeroing either restores the −20 the tooltips promise.
 
 This is the only loss condition in the game that is a *date* rather than a
 threshold, and it is invisible in the objective's own tooltip text.
@@ -254,10 +308,22 @@ objectives — and each needs its own patron close to committing:
 | 24 | Union | `GetInterventionProbability(4) >= 0.75` — **Spain** |
 | 25 | Confederacy | `GetInterventionProbability(2) >= 0.75` **or** `(3) >= 0.75` — Great Britain or France |
 
-That matches findings/17 §4: Spain intervenes for the Union, Britain and
-France for the Confederacy. Note the **asymmetric payoff**: the Union's major
-victory moves intervention levels by −0.10 while the Confederacy's moves them
-by +0.25, two and a half times as much.
+That matches [17](17-politics-and-support.md) §4: Spain intervenes for the
+Union, Britain and France for the Confederacy.
+
+> **But the two payoffs are not mirror images, and the Union's has the wrong
+> sign.** Each applies to its *own* alliance's accumulator, and the probability
+> is a difference: `P(GB) = CSAlevel − Unionlevel`. Objective 25's `+0.25` on
+> the Confederate accumulator raises British and French intervention, as
+> "Encourage the Europeans" intends. Objective 24's `−0.10` on the **Union's**
+> accumulator *lowers* `P(Spain for Union)` — the very figure its own
+> `>= 0.75` gate waits for — and *raises* British and French intervention
+> against the Union. So **both sides' major victories push Europe toward the
+> Confederacy**, the Confederacy's 2.5× harder than the Union's, and with the
+> floor at zero ([17](17-politics-and-support.md) §4a) the Union's term is
+> often discarded entirely. Either `winbattleinterventionlevelunion` should be
+> `+0.10` or the objective's subtitle "Discourage the Europeans" is wrong; the
+> shipped combination is self-defeating under both readings.
 
 A "major battle" is defined in `campaignprefs.txt` as **each army at least
 10,000 strong and at least 2,000 total casualties**
@@ -338,7 +404,7 @@ This closes the last gaps in findings/17's and findings/22's tables.
 | 5 | Militia Act not triggered | obj 5 | `militiaactmoraledrop` | −0.01 **per day** |
 | 6 | Enemy on own soil | obj 6 | `invadeconfederacyunionmoraledrop` | −0.005 **per week** |
 | 7 | First major battle | obj 7 / 8 | `winfirstmajorbattleinfluenceunion` / `csawin…` | +0.025 / −0.05 |
-| 8 | Elections | obj 9 (rate), 26, 27 | `republicanmajorityunionmorale`, `lincolninfluenceunionmorale`, `demoralizevotersunionmoraleinfluence` | −0.01/wk, −0.20, −0.20 |
+| 8 | Elections | obj 9 (rate, two days only), 26, 27 (**both** fire) | `republicanmajorityunionmorale`, `lincolninfluenceunionmorale`, `demoralizevotersunionmoraleinfluence` | −0.01/wk, −0.20, −0.20 |
 | 9 | Captured forts / cities | obj 11 / 12 | `capturefortsnationalmorale` / `capturecitiesnationalmorale` | +0.05 each |
 | 10 | Battles won | obj 13, 18–23 | `invadenorthunionmorale`, `consecutivelandbattlesmorale`, `consecutiveseabattlesmorale`, `winbattleagainsteurope` | −0.025, +0.05, +0.025, +0.025 |
 | 11 | States seceding | obj 14, 15, 16 | `westvirginiacsanationalmorale`, `secedeunionmorale` | −0.025, −0.05 |
@@ -475,10 +541,19 @@ and therefore correct — but it is the reason the §1.2 hazard matters.
 5. **Unresolvable town names are silently dropped** at load (§1), and a list
    that empties completely flips the objective onto a different evaluation
    path rather than failing loudly.
-6. **The intervention payoff is asymmetric by 2.5×** (§4) — probably
-   deliberate, since the Confederacy needs intervention more, but it is not
-   stated anywhere the player can see.
+6. **The intervention payoff is asymmetric by 2.5× and the Union's half has
+   the wrong sign** (§4): objective 24's −0.10 on the Union's own accumulator
+   lowers the Spanish probability its own gate waits for, and raises the
+   British and French ones.
 7. **`CheckIfAccomplished` evaluates all 38 id tests per objective** (§5.4).
+8. **The 1864 election charges its −0.20 twice** (§3.2), from two objectives
+   whose tooltips each promise −20, which turns the Union's election loss into
+   an immediate campaign loss rather than a setback.
+9. **The 1862 midterm penalty is confined to a two-day window** by its chapter
+   list, against a config label describing an open-ended weekly rate (§3.1).
+10. **Objective 27's `SetEndOfCampaign` call is unreachable** (§3.2), and
+    objective 26's fires only in a branch the chapter advance has already
+    switched off.
 
 ---
 

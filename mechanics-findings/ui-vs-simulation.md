@@ -8,6 +8,8 @@
 [17](../code-findings/17-politics-and-support.md),
 [19](../code-findings/19-commanders-and-perks.md),
 [21](../code-findings/21-ai-battle.md),
+[22](../code-findings/22-policy-and-project-catalogue.md),
+[24](../code-findings/24-campaign-objectives.md),
 [25](../code-findings/25-newspaper-and-events.md)
 
 Every number in this game has two lives: the one the simulation computes with,
@@ -191,6 +193,47 @@ suspiciously precise.
 Source: [19](../code-findings/19-commanders-and-perks.md) §2.6,
 [manual-vs-code](manual-vs-code.md) §24.
 
+### 1.8 Three rows of the Strategy panel measure something else
+
+Three rows of the Strategy panel measure something other than what they are
+called.
+
+**European Relations** shows `GetInterventionProbability(…) × 100` — the raw
+difference between the two sides' accumulators, divided by Britain's 1.35
+handicap where applicable, divided again by the chapter's requirement, and
+clamped to [0, 1]. Three things follow for a reader of that number:
+
+- **in Chapter I it reads 0 for both sides no matter what**, because the
+  chapter requirement is the sentinel value 100, which the function turns into
+  a hard zero. Every point of pre-war diplomacy is invisible until the war
+  starts;
+- **the same lead displays as a different number in each chapter** — 40 points
+  of Confederate advantage over Britain shows as 40 in Chapter II, 30 in
+  Chapter III and 20 in Chapter IV;
+- **the Union's figure is Spain alone.** Britain's and France's probabilities
+  appear only in the row's tooltip, so the headline number tells a Union player
+  nothing about the two powers that can intervene against them.
+
+And when it does read 100 there is no roll: the intervention trigger is
+`>= 1f` with no `Random` anywhere, so the next qualifying major victory brings
+the power in.
+
+**National Support** is a population-weighted average over **every town you
+own**, of your support in that town's state — not an average over loyal
+states. Big cities dominate, and every enemy town you capture joins the average
+at your low support in enemy territory. Since this figure is the linear
+multiplier on policy research speed, **taking enemy cities slows your own
+legislature.**
+
+**Loyal States**, in the row below, is a *share*: `yours / (yours + theirs) >
+0.65`. A state at 20/5 counts as loyal; a state at 70/40 counts for neither
+side. The recruiting list reads the same 0.65 as an **absolute** support level,
+so a state can be loyal on this panel and neutral in the recruitment filter at
+once.
+
+Source: [17](../code-findings/17-politics-and-support.md) §2, §4a–4d, §6,
+[manual-vs-code](manual-vs-code.md) §30, §33.
+
 ## 2. Things the game tells you in words that are not true
 
 ### 2.1 The perk tooltip describes a system that does not exist
@@ -306,7 +349,6 @@ every weapon rated 1.0 or below.
 Source: [11](../code-findings/11-combat-resolution.md) §2,
 [manual-vs-code](manual-vs-code.md) §10.
 
-
 ### 2.6 Rail transport is described as costing readiness and saves it
 
 The readiness chapter says *"Transporting the unit using railroads or ships
@@ -335,6 +377,37 @@ normally, so it is still worth taking — just not for this.
 Source: [14](../code-findings/14-supply-and-logistics.md) §3a,
 [manual-vs-code](manual-vs-code.md) §18.2.
 
+### 2.8 The monthly intelligence report names the wrong European powers
+
+The Secretary of War's monthly report carries one paragraph on European
+relations, and it is unusable. Four defects in a single block:
+
+- as the **Confederacy**, the line about France prints Britain's figure, and
+  its "change during the recent month" subtracts France's stored value from
+  Britain's current one;
+- as the **Union**, the line is headed with Spain's name and prints **France's**
+  pro-Confederate probability;
+- that line's month-over-month baseline is written from an index that is
+  always zero, so a Union player is **never** shown a monthly change.
+
+The Strategy panel's tooltip has the correct per-power figures, so read those
+instead.
+
+Source: [17](../code-findings/17-politics-and-support.md) §4d,
+[manual-vs-code](manual-vs-code.md) §31.3.
+
+### 2.9 Three Acts promise a spending cap that no longer exists
+
+Letters of Marque, Legal Blockade and Organized Blockade Running all advertise
+raising *"maximum trade war subsidies"* by 20–40 %. **There is no Trade War
+subsidy category** — it was cut, and its id is now used by Diplomacy. Two of
+the three prefs are parsed and never read; the third was repurposed, and in
+the Confederacy's favour: Organized Blockade Running actually makes **your own
+ports 25 % harder to blockade**, which the description never mentions.
+
+Source: [22](../code-findings/22-policy-and-project-catalogue.md) §10.1,
+[manual-vs-code](manual-vs-code.md) §28.
+
 ## 3. Knobs that are exposed and do nothing
 
 Each of these is labelled in a config file the game ships for players to edit,
@@ -355,6 +428,8 @@ and reaches nothing.
 | `campaignprefs.txt` | "Upkeep cost factor of transports for transportation subsidies" (0.5), "Increased IIP transport capacity…" (1.5), "Increased railroad construction speed…" (2.0) | Parsed, never read. **The Transportation subsidy category was removed**; its effect constants were left in the file. Seven more in the same block are dead for the same reason. |
 | `campaignprefs.txt` | "Max supply ratio of units retreating or on forced march" (0.25) | Parsed, never read. Forced march cuts resupply to **zero**, not to a quarter. |
 | `campaignprefs.txt` | "Readiness improvement factor based on intelligence value" (0.008) | Parsed, never read — and marked `[deactivated]`, unlike its live near-namesake. |
+| `campaignprefs.txt` | "LettersMarque, add on to max trade war subsidies" (1.2) and "LegalBlockade, add on to max trade war subsidies" (1.2) | Parsed, never read — the same removed Trade War category. Both Acts advertise the cap rise in Appendix A. |
+| `campaignprefs.txt` | "Improvement of intervention level per year of full diplomacy subsidies" (0.5) | Parsed, never read. European relations move only through Acts, policies and the Send Envoys project. |
 | `unitprefs.txt` | "Adjustment factor for experience to influence commander attributes (admin, initiative, cunning, leadership)… **[deactivated]**" (0.5) | **The opposite trap: it is live.** Every attribute getter multiplies by `exp × 0.5 + 0.5`, so a green commander really does operate at half his nominal attributes. The only `[deactivated]` label found so far that lies. |
 
 The first four add up to one missing feature: **enemy fire does not disrupt
@@ -392,6 +467,17 @@ newspaper messages is checked *inside* the function that queues a paper, so
 turning newspapers off **discards** them rather than suppressing the panel.
 Papers skipped that way are gone, including ones that would have reported a
 battle you fought ([25](../code-findings/25-newspaper-and-events.md) §1.5).
+
+**And one knob that is read, and shipped at the value that means "off".**
+`campaignprefs.txt` ships *"Adjustment of movement speed (factor) if state
+support is zero [<1]"* as **1.0**. The term is a blend between 1 and that
+factor, so at 1.0 it is the identity at every support level: the
+hostile-territory movement penalty the manual describes in its Support
+map-filter section does not exist, and the *"Low state support (−x %)"*
+rolling text that would announce it can never print. This is the cheapest
+restorable mechanic found so far — lowering the number switches it on
+([17](../code-findings/17-politics-and-support.md) §2,
+[manual-vs-code](manual-vs-code.md) §33).
 
 ---
 
@@ -454,7 +540,7 @@ Sources: [11](../code-findings/11-combat-resolution.md) §2,
 
 ---
 
-## 5. For modders: three label traps
+## 5. For modders: five label traps
 
 None is player-facing, but each will bite a tool that reports game state.
 
@@ -475,6 +561,19 @@ apart ([16](../code-findings/16-enumerations.md)).
 on armies and corps of any composition — raiding efficiency sums a formation's
 infantry *and* cavalry brigades. The name is left over from an earlier design
 ([14](../code-findings/14-supply-and-logistics.md) §9).
+
+**"Intervention level" is not a relations score and `GetInterventionProbability`
+is not a probability.** The accumulators are per-side, per-power and floored at
+zero; the function returns their difference divided by a per-chapter
+requirement and clamped, and `relationsintervention[0] = 100` is a sentinel
+meaning "impossible", not a threshold. Nothing rolls against the result
+([17](../code-findings/17-politics-and-support.md) §4a–4b).
+
+**`statesupportownstate` (0.65) is read two ways.** The Strategy panel's Loyal
+States count compares it against a *share* of the two sides' support; the
+recruiting-list filters and the campaign AI compare it against an *absolute*
+support level. One number, two meanings, and a state can satisfy one and not
+the other ([17](../code-findings/17-politics-and-support.md) §6).
 
 ---
 

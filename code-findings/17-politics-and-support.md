@@ -161,6 +161,50 @@ way a slot becomes negative is the same path that makes it NaN.
 | Draft pool | Hard gate at `statesupportrecruiting` (§5) |
 | National morale | Reason code 33, "State Support" (§3) |
 | `GetBalance` | Via the `LoyalStatesSlider` and `NationalSupportSlider` (§6) |
+| Policy research | **Linear** multiplier on the rate, via `averagesupport` ([22](22-policy-and-project-catalogue.md) §3.1) |
+| Movement speed | The term exists and is **inert** — see below |
+| Readiness | Movement consumption lerps `{−8.5, −25.0}` per annum on the support of the state being crossed ([14](14-supply-and-logistics.md) §10b) |
+| Loyalty | **Nothing.** Only Militia Act I's one-shot cascade and three scripted objectives ever change `Nation.alliance` (§5a) |
+
+#### `averagesupport` is not an average over states
+
+`Alliance.averagesupport` — the figure the Strategy panel labels *National
+Support*, and the one that multiplies policy research speed — is accumulated in
+`Economy.UpdateMacroEconomy` (~2068) as
+
+```csharp
+// per town, if town.state >= 0 && town.Owner <= 1
+alliance[town.Owner].averagesupporttemp
+    += town.representingpopulation * nation[town.state].support[town.Owner];
+…
+alliance[n].averagesupport = averagesupporttemp / max(1f, totalpopulationtemp);
+```
+
+Three properties worth knowing before reading anything into the number:
+
+- it is **population-weighted**, so a single large city outweighs a quiet
+  state;
+- it is keyed on **town ownership**, not on `Nation.alliance`, so **every enemy
+  town you capture enters your own average** at your (low) support in that
+  enemy state. Conquest therefore *lowers* `averagesupport` and slows your own
+  policy research;
+- the denominator counts every owned town while the numerator skips towns with
+  `state < 0`, so any stateless owned town dilutes the figure downward.
+
+#### The movement-speed penalty is shipped off
+
+```csharp
+float num15 = 1f * GameVars.nation[num14].support[alliance]
+            + GamePrefs.adjustmentmovingspeedsupport0
+              * (1f - GameVars.nation[num14].support[alliance]);
+num11 *= num15;
+```
+
+`adjustmentmovingspeedsupport0 = 1.0` and the config label declares `[<1]`, so
+the blend is identically 1 and there is no penalty at any support level. The
+`"Low state support (−x %)"` rolling text guarded by
+`num15 < 1 − movementspeedrollingtextinfl` can never print. `Regiment` ~22128
+is the only consumer.
 
 ---
 
@@ -223,6 +267,56 @@ Slots 13 and 15–19 are empty strings — reserved or removed.
 > `minnationalmoralesurrender` is a fourth politics→combat link, and the
 > bluntest one: a politically collapsing nation's units stop fighting.
 
+### The three continuous couplings
+
+`BattleUnits.UpdateAllianceData` (~3860) runs three pairings every alliance
+pass, for `alliancerunthrough <= 1` only:
+
+```csharp
+// 34 "Private Wealth" — a DERIVATIVE, not a level
+value = (privateincome − lastmonthsprivateincome) × dt × convergencenatmoraletowardsprivatewealth;
+if (lastmonthsprivateincome == 0f) value = 0f;
+AdjustNationalMorale(34, value);
+
+// 33 "State Support" — symmetric convergence
+value = (averagesupport − nationalmorale) × dt × convergencenatmoraletowardsstatesupport;
+AdjustNationalMorale(33, value);
+
+// per state with nation.alliance == this side, reason 3 "National morale"
+value = (nationalmorale − nation[i].support[side]) × dt × convergencestatesupporttowardsnatmorale;
+nation[i].AdjustSupport(side, value, 3);
+
+// per state, reason 4 "State occupation"
+lostShare = (towns in state not owned by this side) / max(1, towns in state);
+nation[i].AdjustSupport(side, statesupportlosttowns × dt × lostShare, 4);
+```
+
+| Pref | Value | Meaning |
+| --- | --- | --- |
+| `convergencenatmoraletowardsprivatewealth` | 10.0 | per annum, on the **month-over-month change** in average private income |
+| `convergencenatmoraletowardsstatesupport` | 0.5 | per annum, toward `averagesupport` |
+| `convergencestatesupporttowardsnatmorale` | 0.25 | per annum, toward national morale, loyal states only |
+| `statesupportlosttowns` | −1.00 | per annum × the share of the state's towns in enemy hands |
+
+Three things follow.
+
+**Both convergences run in both directions.** High state support *raises*
+national morale as surely as low support lowers it, and national morale pulls
+every loyal state's support toward itself at half that rate. The chain is a
+feedback loop, not a one-way penalty.
+
+**Private wealth is a rate on a difference.** `lastmonthsprivateincome` is
+re-snapshotted in `UpdateEndOfMonthFunctions`, so the term measures growth
+*within the current month* and resets on the first. A nation with permanently
+high but flat private wealth earns nothing from code 34; a poor nation whose
+wealth is climbing earns it every tick. The `== 0f` guard suppresses the term
+on the first month of a campaign.
+
+**Losing towns is the heaviest single support term in the file.** At −1.00 per
+annum scaled by the share of towns lost, a state whose cities are all taken
+bleeds 100 points of support a year — against the +0.25/yr pull back toward
+national morale. Occupation wins that race by four to one.
+
 ---
 
 ## 4. Foreign intervention
@@ -281,6 +375,107 @@ withdrawal; `AICampaign` checks the latter against
 > date gate on one power. The `+100` policy-id offset convention
 > ([09](09-policy-and-project-effects.md) §2) means policies 144 and 174 are
 > in the second (Confederate) id block.
+
+### 4a. Each accumulator is floored at zero
+
+`AdjustInterventionLevel(foralliance, value, …)` clamps after every write:
+
+```csharp
+interventionlevels[foralliance] += value;
+if (!clearvalues && policyid >= 0) alliance[foralliance].interventionpointspolicy[policyid] ±= value;
+if (interventionlevels[foralliance] < 0f) interventionlevels[foralliance] = 0f;
+```
+
+The single-argument overload loops `for (int i = 2; i < alliance.Length; i++)`,
+so a policy's relations effect applies to **every** foreign power at once, not
+to a chosen one.
+
+Two consequences:
+
+- **Negative relations effects are silently discarded against the floor.** A
+  side at zero loses nothing from `tariffactrelations` or
+  `lettersmarqueintervention` (both −0.1), so the *order* in which acts are
+  taken changes the outcome.
+- **The per-policy breakdown is not clamped**, only `interventionlevels` is, so
+  `interventionpointspolicy[]` can sum to more than the accumulator it
+  explains — the same class of discrepancy as `supportinfluencelast` in §2,
+  with a less visible symptom.
+
+Starting values are per scenario, read from `nations.dat` as three-character
+fields divided by 100 (`GameVars` ~7306). The shipped campaign:
+
+| Scenario | CSA–GB | CSA–France | Union, all powers |
+| --- | --- | --- | --- |
+| A Spring 1861 | 0.10 | 0.20 | 0 |
+| B Summer 1861 | 0.20 | 0.25 | 0 |
+| C Spring 1862 | 0.25 | 0.30 | 0 |
+| D Spring 1863 | 0.20 | 0.30 | 0 |
+| E Spring 1864 | 0.20 | 0.30 | 0 |
+| F Tutorial | 0.20 | 0.25 | 0 |
+
+> **The Union's diplomacy is purely defensive.** It starts at zero with every
+> power in every scenario, and its only lever on Britain and France is to raise
+> its *own* accumulator, which subtracts from theirs. It can never push a power
+> below neutral.
+
+### 4b. There is no dice roll
+
+`AICampaign.UpdateInterventions(alliance)` tests
+`GetInterventionProbability(alliance) >= 1f && GameVars.interventions`, then
+requires the matching `CampaignObjective.winmajorbattleintervention` and
+`alliance[power].timesincewar <= 0f`, and declares war. **No `Random` call
+appears in either function.** The name "probability" describes a normalised
+difference, not a chance: when the displayed figure reaches 100, the next
+qualifying major victory brings the power in deterministically.
+
+`timesincewar` is set by `SetWarWithNation(n, isinwar: true)` and **never
+cleared** by the `isinwar: false` path, so the `<= 0f` guard means each power
+can intervene **exactly once per campaign**.
+
+### 4c. Three sign and routing errors
+
+- **The withdrawal penalty is charged to the wrong alliance.** Every pullback
+  branch in `AICampaign` does
+  `alliance[0].AdjustInterventionLevel(power, −100f)` for a power that was at
+  war with alliance 0, and `alliance[1]...` for one at war with alliance 1 —
+  that is, it wipes the accumulator of the power's *opponent*, which is the
+  subtrahend in `GetInterventionProbability`. With the §4a floor the figure is
+  normally already zero, so the penalty is inert; where it is not, it widens
+  the difference. The patron's accumulator is never touched.
+- **`winbattleinterventionlevelunion` has the wrong sign for its objective.**
+  Objective 24 ("Discourage the Europeans") applies −0.10 to the **Union's
+  own** accumulator, which lowers `P(Spain for Union)` and raises
+  `P(Britain/France for CSA)`. Its mirror, objective 25, applies +0.25 to the
+  Confederacy's own accumulator and does raise Confederate intervention. So
+  both sides' major victories move Europe toward the Confederacy
+  ([24](24-campaign-objectives.md) §4).
+- **The gates run before the DLC adjustment.** `GetInterventionProbability`
+  zeroes France for the date and policy-144 tests, then adds
+  `DLC_WL.EffectMultiplier(34, 0)` for a matching chosen commander — so in a
+  DLC scenario a commander's nationality can lift a gated-off power back above
+  zero. *Untested:* the `DLC_WL` layer is unexamined
+  ([01](01-assembly-partition.md)).
+
+### 4d. What the player is shown
+
+`CampaignStrategy.UpdateStats` fills the **European Relations** row from
+`GetInterventionProbability`, not from the accumulators: the Union's figure is
+`(4)` — Spain alone — and the Confederacy's is `max((2), (3))`. Both are
+post-division and clamped to [0, 1], so in Chapter 0 (`relationsintervention[0]
+= 100`) the row reads **0 for both sides whatever the accumulators hold**.
+
+The monthly intelligence report (`BattleUnits` ~1890) has four defects in one
+block:
+
+1. the Confederate report's France line prints `interventionProbability`, the
+   **Britain** value, instead of calling `GetInterventionProbability(3)`;
+2. its France delta is `Britain_now − France_lastmonth`;
+3. the Union report is headed with `alliance[4].name` (Spain) but computes
+   `GetInterventionProbability(3)` (France);
+4. `lastmonthinterventionprobability[4]` is written from
+   `GetInterventionProbability(0)` (`BattleUnits` ~2030), which is identically
+   0 for a belligerent, so the `> 0f` guard never passes and the Union's line
+   never reports a monthly change.
 
 ---
 
@@ -347,6 +542,39 @@ if (((name == "Illinois") | (name == "Ohio") | (name == "Indiana")
 
 ---
 
+## 5a. A state's loyalty is decided once, on the day the war starts
+
+`Nation.alliance` is written outside loading by exactly three kinds of caller:
+
+| Caller | What it does |
+| --- | --- |
+| `Policies.LaunchPolicyEffect` case 136 | the **one-shot secession cascade**, run on the first activation of Militia Act I |
+| `Policies` cases 170–179 | pre-war policies placing Kansas, Arizona/New Mexico, Cuba and Indian Territory |
+| `CampaignObjective` 14, 22, 39 | the scripted secessions of **Kentucky**, **Missouri** and **West Virginia** |
+
+The cascade is a bare majority test, evaluated once:
+
+```csharp
+for (int i = 0; i < GameVars.nation.Length; i++)
+    if ((nation[i].alliance == 0) | (nation[i].alliance == 1))
+        GameVars.SetNationToNewAlliance(i, nation[i].support[0] > nation[i].support[1] ? 0 : 1);
+```
+
+No threshold, no neutral band, and `>` rather than `>=`, so **a tie goes to the
+Confederacy**. It runs in the same call that applies Militia Act I's support
+effects, so the Union's pre-Sumter `militiaact1unionbeforesumter = +0.10` to
+every slave state lands *before* the comparison.
+
+> **Nothing afterwards revisits it.** Support can fall to zero, every city in a
+> state can be captured, and `Nation.alliance` does not move — which is exactly
+> what the manual promises ("States with low support will not change loyalty
+> even if they are completely controlled by the enemy"), and stronger: there is
+> no mechanism at all, not merely a high bar. The three scripted objectives and
+> the pre-war policies are the only exceptions
+> ([24](24-campaign-objectives.md) §7).
+
+---
+
 ## 6. The war balance is computed from UI sliders
 
 `CampaignStrategy.GetBalance(bool updatestats = true)` finds
@@ -378,6 +606,34 @@ morale polarises, the balance increasingly *is* national morale.
 dominance" to "Evenly matched". **The band `0.8333 ≤ balance < 0.9167` is not
 covered** — the chain tests `>= 0.75 && < 5f/6f`, then jumps to `>= 11f/12f`,
 so that range returns an empty string.
+
+### What feeds two of those sliders
+
+`UpdateStats` computes the ten displayed figures first, and two are worth
+pinning down because the panel's labels mislead.
+
+**Loyal States is a share, not a level** (`BattleUnits` ~3823):
+
+```csharp
+float b = Tools.SumUp(nation[i].support);                       // both sides' support
+if (nation[i].support[side] / Mathf.Max(1E-05f, b) > GamePrefs.statesupportownstate)
+    alliance[side].loyalstates++;
+```
+
+With `statesupportownstate = 0.65`, a state at 20/5 counts as loyal to the
+first side (0.80) while a state at 70/40 counts for **neither** (0.636). The
+counter is reset to 0 at the top of the pass, so it does not accumulate.
+
+> **The same pref is read as an absolute support level elsewhere** — the
+> recruiting list's "Own states"/"Enemy states"/"Neutral states" filters
+> (`RecruitingList` 141–151), `AICampaign` 1817 and 3809, and `Policies` 1902
+> all compare `support[side]` directly against `statesupportownstate` or
+> `statesupportenemystate` (0.35). So a state can be *loyal* on the Strategy
+> panel and *neutral* in the recruitment list at the same time, from one
+> number.
+
+**European Relations is the intervention probability**, not a relations
+balance, and the Union's figure is Spain alone — see §4d.
 
 ---
 
@@ -415,16 +671,29 @@ Progress is tracked in static fields on the class itself:
 `statesupportinfluenceraidingopposite`, `supportinfluenceenemysoil`,
 `supportinfluenceprintingworkslin`, `supportinfluenceprintingworksexp`,
 `inflcasualtiesonstatesupport`, `inflwoundedtreatedstatesupport`,
-`desertionfactorstatesupport`.
+`desertionfactorstatesupport`, `statesupportownstate` (0.65),
+`statesupportenemystate` (0.35), `statesupportlosttowns` (−1.00),
+`convergencestatesupporttowardsnatmorale` (0.25),
+`adjustmentmovingspeedsupport0` (**1.0, inert**), and the Militia Act family
+`militiaact1unionbeforesumter`, `militiaact1unionbeforecsasupport`,
+`militiaact1unionaftercsasupport`, `militiaact1csabeforeunionsupport`.
 
 **National morale:** `breakmoraletrigger`, `minnationalmoralesurrender`,
-`demoralizevotersunionmoralelevel`.
+`demoralizevotersunionmoralelevel`, `demoralizevotersunionmoraleinfluence`,
+`lincolnmaintainmoraleabove`, `lincolninfluenceunionmorale`,
+`republicanmajoritysupportlevel`, `republicanmajorityunionmorale`,
+`convergencenatmoraletowardsstatesupport` (0.5),
+`convergencenatmoraletowardsprivatewealth` (10.0),
+`militiaact1csabeforeunionnationalmorale`,
+`militiaact1unionaftercsanationalmorale`.
 
 **Intervention:** `higherinterventionlevels`, `interventionlevelincrease`,
 `winbattleinterventionlevelunion`, `winbattleinterventionlevelcsa`,
 `pullbackinterventionarmies`, `pullbackinterventionfleets`,
 `project_sendenvoysinterventionlevel`, and the ~16 per-policy
-`*intervention` prefs listed in §4.
+`*intervention` prefs listed in §4. `interventionlevelincrease` (0.5) is
+**parsed and never read** ([18](18-economy.md) §4), as are
+`lettersmarquesubsidies` and `legalblockadetradewarsubsidies`.
 
 **Recruitment:** `recruitratevolunteersfullsupport`,
 `recruitratedraftsfullmobilization`, `adjvolpoolshighnumberslin`,
@@ -487,3 +756,22 @@ Progress is tracked in static fields on the class itself:
    mapped to their writing policies in
    [22](22-policy-and-project-catalogue.md) §8. Support code 9 and
    national-morale code 32 turn out to have no writer at all.
+4. **Whether `adjustmentmovingspeedsupport0 = 1.0` is a disabled feature or a
+   typo.** The config label declares the range `[<1]` and the manual documents
+   the effect in prose (§2); the shipped value makes the blend an identity. A
+   mod can switch it on by lowering the number, which makes this the cheapest
+   restorable mechanic found so far.
+5. **Whether `averagesupport`'s keying on town ownership rather than
+   `Nation.alliance` is intended** (§2). It makes conquest slow your own policy
+   research, which is defensible as design and indistinguishable from a
+   loyalty-vs-ownership mix-up.
+6. **Whether objective 24's `winbattleinterventionlevelunion = −0.10` is a sign
+   error** (§4c). Under the shipped sign, both sides' major victories move
+   Europe toward the Confederacy.
+7. **Why the pullback penalty is charged to the intervening power's opponent**
+   (§4c). The one-shot `timesincewar` guard hides it, so a fix would be
+   invisible unless that guard is also changed.
+8. **The `DLC_WL` intervention terms.** `EffectMultiplier(34, 0)` is added
+   after the date and policy gates, and `DLC_WL` also calls
+   `AdjustInterventionLevel` on all three powers directly (~3504–3512). The
+   layer is unexamined.

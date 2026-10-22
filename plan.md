@@ -444,7 +444,6 @@ Suggested order — combat first, since it's what modders most want to change:
    `GameVars.nation[n]`; chapters 0–3 and the fact that **Militia Act I is the
    act that starts the war**; and the twenty AI doctrines' actual agendas.
 
-
 9. **Game state ✅** — [23-game-state](code-findings/23-game-state.md),
    [summary-game-state](code-findings/summary-game-state.md). The state every effect
    above writes to, and therefore the ModApi's core data surface:
@@ -590,11 +589,11 @@ planned index are in [`mechanics-findings/README.md`](mechanics-findings/README.
 4. **[`manual-vs-code.md`](mechanics-findings/manual-vs-code.md) ✅** — the
    official manual used as a yardstick, which is the cheapest confirmation
    available: where it and the code agree a finding is confirmed from both
-   ends, and where they disagree one of them is misleading players. Two
-   passes, economy then combat. The headline is that **the manual's prose is
-   reliable and its data tables are where it has drifted** — the pre-war
-   policy appendix matched the shipped prefs 10 for 10, while four production
-   recipes, one producer and four weapon stats did not.
+   ends, and where they disagree one of them is misleading players. Five
+   passes: economy, combat, supply, commanders, politics. The headline is
+   that **the manual's prose is reliable and its data tables are where it has
+   drifted** — the pre-war policy appendix matched the shipped prefs 10 for 10,
+   while four production recipes, one producer and four weapon stats did not.
 
    The economy pass found **project 98 Market Reform does nothing at all**
    (both its level lookup and its pref read are discarded statements), and a
@@ -712,12 +711,78 @@ planned index are in [`mechanics-findings/README.md`](mechanics-findings/README.
      commander really does operate at half his nominal attributes. The six
      other `[deactivated]` labels checked across four passes are all honest.
 
-**Next:** the manual's **politics** and **naval** chapters plus Appendix E (the
-ship and ship-weapon tables), which on four passes' evidence is the
-highest-value target left — every data table checked so far has had errors and
-every prose chapter has held up; or `time-and-speed.md` and
-`why-units-break.md` from the planned index in
-[`mechanics-findings/README.md`](mechanics-findings/README.md).
+   A fifth pass took the **politics** chapters — national morale, state
+   support, the Policies panel, Projects, Diplomacy and Interventions — plus
+   the four tables of Appendix A that §6 had not reached. The prose held up
+   again: fourteen checkable claims confirmed, including the loss threshold,
+   support as a linear multiplier on policy research, the transitive
+   deactivation cascade and the whole Militia Act I story. **Of thirty-five
+   Appendix A entries bearing on support, morale, relations or the treasury,
+   thirty-one match the shipped prefs exactly.** What the pass turned up went
+   into [17](code-findings/17-politics-and-support.md),
+   [22](code-findings/22-policy-and-project-catalogue.md) and
+   [24](code-findings/24-campaign-objectives.md):
+
+   - **the 1864 election charges its penalty twice.** Objectives 26 and 27
+     both carry the tooltip *"Union national morale -20"* and both fire
+     −0.20 in the same objective sweep, so a Union player who is under 50
+     national morale on 9 November 1864 drops below 10 and loses the campaign
+     on the next ten-minute tick. The 4 March 1865 inauguration branch that
+     reads like a grace period is unreachable from either side of the test,
+     and objective 27's copy of it is dead code — a correction to
+     [24](code-findings/24-campaign-objectives.md) §3.2;
+   - **the 1862 midterms are inert.** The −0.01-per-week national morale
+     penalty is gated to chapter 1, which ends the day after the election
+     date, so its reachable total is three tenths of a point;
+   - **European relations cannot go negative.** Each side's per-power
+     accumulator is floored at zero, so a relations-damaging Act is free when
+     your relations are already at zero — and the Union starts every scenario
+     at zero with all three powers. The manual's worked diplomacy example gets
+     the right answer because the Confederacy's undocumented starting +10 with
+     Britain supplies exactly the points the Union's Tariff Act fails to
+     subtract;
+   - **the Strategy panel's "European Relations" row is the intervention
+     probability**, divided by a per-chapter requirement — so it reads 0 for
+     both sides for the whole of Chapter I whatever the accumulators hold, the
+     same lead shows a different number in each chapter, and the Union's
+     figure is Spain alone. There is no dice roll behind it: the trigger is
+     `>= 1f` with no `Random` in the path, and France's practical window is
+     seventeen months;
+   - **three routing errors in the intervention script**: objective 24's
+     −0.10 lands on the Union's own accumulator, so *both* sides' major
+     victories push Europe toward the Confederacy; the pullback penalty is
+     charged to the intervening power's opponent rather than its patron
+     (harmless only because `timesincewar` is never reset, making intervention
+     one-shot); and the monthly intelligence report prints Britain's figure
+     under France's name for the Confederacy and France's under Spain's name
+     for the Union;
+   - **a documented mechanic is shipped off.** The hostile-territory movement
+     penalty the Support map filter describes is a blend against
+     `adjustmentmovingspeedsupport0`, which ships at **1.0** — the identity —
+     against a config label declaring `[<1]`. State support still costs
+     readiness 2.9× faster, which is the whole of the real effect;
+   - **"National Support" is a population-weighted average over the towns you
+     own**, not over your loyal states, so capturing enemy cities lowers it
+     and therefore slows your own policy research; and "Loyal States" counts a
+     *share* of the two sides' support where the recruiting list reads the same
+     pref as an absolute level;
+   - **national morale tracks private wealth's *change*, not its level** —
+     reason code 34 is a derivative against a monthly snapshot, so flat wealth,
+     however high, pays nothing;
+   - **three Acts still promise a subsidy category that was cut.** Letters of
+     Marque, Legal Blockade and Organized Blockade Running all advertise
+     raising the Trade War subsidy cap; two of the prefs are dead and the third
+     was repurposed into a 25 % reduction in the blockade of your own ports —
+     a better effect than the one advertised, and undocumented;
+   - **a state's loyalty is decided once**, by a bare `support[0] >
+     support[1]` in the single call that activates Militia Act I, and nothing
+     afterwards revisits it. Ties go to the Confederacy.
+
+**Next:** the manual's **naval** chapters plus **Appendix E** (the ship and
+ship-weapon tables), which on five passes' evidence is the highest-value target
+left — every data table checked so far has had errors and every prose chapter
+has held up; or `time-and-speed.md` and `why-units-break.md` from the planned
+index in [`mechanics-findings/README.md`](mechanics-findings/README.md).
 
 **Exit criteria per file:** a reader who has never opened `code-findings/` can
 act on it, and every claim in it can be traced back to a section that supports

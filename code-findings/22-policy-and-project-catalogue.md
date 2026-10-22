@@ -297,6 +297,46 @@ repeatedly cancels the **non-act with the greatest `ResearchDuration +
 (1 − progress)`** — i.e. the one with most work left — up to 50 removals per
 call.
 
+### 3.2a What a policy ladder actually buys: the subsidy cap
+
+Each ladder's only shared effect is to overwrite one slot of
+`Alliance.subsidiesfactor[]`, which multiplies that category's cost — and
+therefore its cap — in `GetSubsidyCost`:
+
+```csharp
+cost(id) = Mathf.Min(1f, subsidies[id]) * GamePrefs.basicsubsidiescost[id]
+                                        * subsidiesfactor[id];
+```
+
+`basicsubsidiescost = {10e6, 50e6, 50e6, 50e6, 50e6, 50e6, 0, 0}` for
+*(politics, economy, agriculture, industry, military, diplomacy, n/a, n/a)*,
+and `subsidiesfactor` initialises to all `1f`. `UpdatePolicyEffects` resets the
+five live slots to each array's `[0]` entry every tick, then each completed
+ladder policy writes its own index:
+
+| Branch | Levels | Array | Values | Cap at the top |
+| --- | --- | --- | --- | --- |
+| Politics | — | *(never written)* | stays 1 | **$10 M** |
+| Funding / Economy | I–III | `economysubsidies[5]` | 0.1, 0.25, 0.5, 1.0, **2.00 unused** | **$50 M** |
+| Agriculture | I–IV | `agriculturalsubsidies[5]` | 0.1, 0.25, 0.5, 1, 2 | $100 M |
+| Industry | I–IV | `industrialpolicyadj[5]` | 0.1, 0.25, 0.5, 1, 2 | $100 M |
+| Military | I–IV | `militarysubsidies[5]` | 0.1, 0.25, 0.5, 1.0, 2.0 | $100 M |
+| Diplomacy | I–V | `diplomacysubsidyadj[6]` | 0.1, 0.25, 0.5, 1, 2, **3** | **$150 M** |
+
+Three things to note.
+
+- **With no policy in a branch the factor is 0.1**, so the cap starts at $5 M
+  (or $1 M for politics) and doubles roughly per level.
+- **The Funding array's fifth entry is dead**, and the config says so —
+  *"last one not used"*. There is no Government Funding IV.
+- **Diplomacy is the only six-entry array** and the only branch whose top cap
+  exceeds $100 M. It is also the only ladder with five levels.
+
+`GetSubsidyFactor(id) = subsidies[id] × subsidiesfactor[id]` has exactly one
+consumer, the `maxpolicies` line above, where the factor is always 1 — so the
+fact that it can return up to 3 for diplomacy never leaks into anything that
+expects a [0, 1] fraction.
+
 ### 3.3 `ResearchPolicy` and the three lists
 
 `Policy.ResearchPolicy(id, alliance, progress = 1f, additive = false)` clamps
@@ -366,6 +406,41 @@ support each tick (`militiaact1csabeforeunionsupport`,
 `militiaact1unionaftercsasupport`, reason codes 14 and 15) and national morale
 moves on code 5. The case also uses **`goto case 136;`** — the only `goto` in
 the switch — so the Union arm falls into the shared arm deliberately.
+
+### 5.1 Who moves first, and what it costs
+
+The "before" and "after" branches are not symmetric, and the gap is large. All
+rates are per annum, applied as `pref × timediff`, so about 1/730 of the
+figure lands per alliance pass:
+
+| Situation | Effect | Pref | Value |
+| --- | --- | --- | --- |
+| Union passes 36 **before 14 Apr 1861** | CSA support in every slave state, **once** | `militiaact1unionbeforesumter` | **+0.10** |
+| Union holds 36, CSA lacks 136 | CSA support in every slave state | `militiaact1unionbeforecsasupport` | **+2.00**/yr |
+| Union holds 36, CSA lacks 136 | CSA national morale, code 5 | `militiaact1csabeforeunionnationalmorale` | +0.40/yr |
+| CSA holds 136, Union lacks 36 | Union support in every **free** state | `militiaact1csabeforeunionsupport` | +0.75/yr |
+| CSA holds 136, Union lacks 36 | CSA support in every **slave** state | `militiaact1unionaftercsasupport` | +0.75/yr |
+| CSA holds 136, Union lacks 36 | Union national morale, code 5 | `militiaact1unionaftercsanationalmorale` | +0.40/yr |
+
+> **Going first is 2.7× worse for the Union.** Calling out the militia hands
+> the Confederacy +2.00/yr of slave-state support; letting the Confederacy
+> move first costs the Union only the mirrored +0.75/yr and pays the Union
+> +0.75/yr in the free states plus +0.40/yr of national morale. And the
+> one-shot +0.10 lands in the **same call** as the secession cascade, before
+> the `support[0] > support[1]` comparison that fixes every state's allegiance
+> for the campaign ([17](17-politics-and-support.md) §5a).
+>
+> Note that the two field names are the wrong way round relative to their
+> config labels — `militiaact1csabeforeunionnationalmorale` is applied on the
+> **Union**-first path, and `militiaact1unionaftercsasupport` on the
+> CSA-first path. The labels are right; the names describe the same situations
+> from the other side.
+
+The window is bounded by the chapter gate (`CurrentChapter <= 1`) and by the
+other side passing its own Militia Act I. The Confederate act is chapter 0 with
+`ResearchDuration = 0.027` years, so the AI closes the window in about ten
+days — worth roughly +5 points of slave-state support on top of the one-shot
++10.
 
 Every Militia / Conscription act then sets `contractlength` from
 `militiaactcontract[]` and adds to `volunteerspolicyadj` /
@@ -699,6 +774,26 @@ Consequences, stated plainly:
 The three vestigial `subsidy_*x` constants line up with three of these arrays
 (transport, trade war, civil order), which is the strongest evidence that this
 is one abandoned design rather than ten separate oversights.
+
+### 10.1 And three Acts whose trade-war clause died with it
+
+The same cut removed the Trade War subsidy category, and three Acts still
+advertise raising its cap. Two of their prefs are **parsed and never read**,
+with exactly two references each — the declaration and the loader line:
+
+| Pref | Config label | Value | Status |
+| --- | --- | --- | --- |
+| `lettersmarquesubsidies` | LettersMarque, add on to max trade war subsidies | 1.2 | **dead** |
+| `legalblockadetradewarsubsidies` | LegalBlockade, add on to max trade war subsidies | 1.2 | **dead** |
+| `orgrunningtradewar` | OrgRunning, multiplier to blockade ratios if policy was chosen | 0.75 | **live, repurposed** — `IIP.cs:677` multiplies the blockade ratio of the owner's own harbours |
+
+So Letters of Marque (43/143) reduces to setting `lettersmarque = true`, which
+floors every enemy harbour's blockade ratio at `lettersmarquefloorblockade =
+0.015`, plus its intervention term; Legal Blockade (41) keeps its intervention
+and `legalblockadetrade = 0.75` European-demand terms; and Organized Blockade
+Running (142) gives +0.02 Union national morale and a real 25 % reduction in
+the blockade of Confederate ports that its description never mentions
+([manual-vs-code](../mechanics-findings/manual-vs-code.md) §28).
 
 ---
 
