@@ -831,14 +831,57 @@ planned index are in [`mechanics-findings/README.md`](mechanics-findings/README.
      missing from its list, and the four config files it calls "the most
      important" are not where any of the six passes' data errors live.
 
-**Next:** the manual is now checked end to end, so the yardstick is used up.
-The remaining `mechanics-findings/` items are the planned index in
-[`mechanics-findings/README.md`](mechanics-findings/README.md), in the stated
-order `time-and-speed.md` then `why-units-break.md`; the standing code-side
-backlog is the ~137 unverified dead prefs from the
+**Pass 7 — `mechanics-findings/time-and-speed.md`** (first item off the planned
+index). Translating [10](code-findings/10-simulation-tick.md) needed the file
+itself extended by five findings, and corrected two published claims:
+
+- **Battle and campaign do not share the day length.** `battleprefs.txt` sets
+  `battledaylengthinmins = 120`, `campaignprefs.txt` sets the same field to
+  **1.25**, under identical label text, and the campaign loader runs second —
+  so a game day is **240/gamespeed real minutes in a battle and
+  2.5/gamespeed in the campaign**. findings/10 §5 had claimed there was no
+  campaign override.
+- **That makes the historical-event cursor tight rather than safe.** A
+  campaign game day at speed 50 is 3.0 real seconds, i.e. `3 × fps` frames, so
+  the one-record-per-frame sweep of 119 records needs about **40 fps**, not the
+  0.41 fps findings/25 §2.4 published from the battle value. Below 40 the tail
+  of the catalogue — nearly the whole late war — is never tested. Corrected in
+  findings/25 and `summary-newspaper.md`.
+- **`Time.deltaTime` has no consumer in any simulation class**: 18 of 251
+  files, 155 occurrences, 113 of them inside UniStorm, and the rest are two fps
+  overlays, three light fades and unreferenced MeshAnimator demo code. Every
+  simulation rate is a game-time delta, so a slow machine samples the same war
+  rather than running a slower one.
+- **`Application.targetFrameRate = 60`**, set once in `MainMenuControls.Awake`
+  — but Unity ignores it whenever the player's VSync option sets
+  `vSyncCount = 1`, so frame-paced work runs 2.4× faster on a 144 Hz monitor.
+- **The battle end-of-day cycle is a seven-state machine** that fast-forwards
+  the night at `SetGameSpeed(1000f, overrideminmax: true)` — the only place the
+  clamp is deliberately bypassed — and pauses at dawn leaving `gamespeed == 1`.
+  Daylight is 9 game hours in January and 16 in July, so a July battle day is
+  160 real minutes at 1× against January's 90.
+- **`UpdateEndOfMonthFunctions` is a day-counter rollover test**, not a month
+  threshold: it fires when `dayCounter` *decreases*. It is the fifth scheduling
+  mechanism and the only monthly one, and it is where both ministerial reports
+  and every "last month" figure come from.
+- **Pause stops the clock, not the frame.** `gamepaused` has thirteen readers;
+  every frame-paced rolling sweep in the campaign branch keeps running, so a
+  paused campaign keeps converging its derived panels.
+- **The speed ladder is a UI convention.** The +/− keys step by 1.0, so every
+  integer speed below the array tail is reachable and the panel highlights none
+  of them — added to `ui-vs-simulation.md` as §1.10, with the day-length
+  collision as its eighth label trap.
+
+**Next:** `why-units-break.md`, the second item on the planned index
+([13](code-findings/13-morale-and-cohesion.md),
+[12](code-findings/12-melee.md)). The standing code-side backlog is unchanged:
+the ~137 unverified dead prefs from the
 [07](code-findings/07-config-data-model.md) sweep, a reachability audit of the
 remaining project effects, and the four subsystems findings/26 §10 leaves open
 (transport interception, ship escape, blockade efficiency, ship construction).
+Two new items joined it — whether Unity's `maximumDeltaTime` is overridden in
+`globalgamemanagers` (an asset dump), and whether any other frame-paced rolling
+sweep can miss its reset window at campaign speed 50.
 
 **Exit criteria per file:** a reader who has never opened `code-findings/` can
 act on it, and every claim in it can be traced back to a section that supports

@@ -205,23 +205,48 @@ So the catalogue is swept **one record per unpaused campaign frame**, and the
 sweep must reach index 118 before the date rolls over or the tail of the file
 goes unchecked for that day.
 
-It comfortably does. `GameVars.SetGameSpeed` sets
-`uniStormSystem.dayLength = nightLength = GamePrefs.battledaylengthinmins /
-gamespeed`, with `battledaylengthinmins = 120`, so one game day is
-`240 / gamespeed` real minutes. The campaign speed ladder is
-`gamespeedcampaigns = {1, 5, 20, 50}`, so the shortest game day is
-**4.8 real minutes = 288 s**. Sweeping 119 records inside that needs only
-**0.41 fps**. The cursor design is safe for any plausible frame rate, and it
-stays safe up to roughly 17,000 records at 60 fps.
+It does **not** comfortably do so at maximum campaign speed. This note
+originally computed the window from `battledaylengthinmins = 120` and found a
+0.41 fps requirement; that is the *battle* value. `campaignprefs.txt` sets the
+same field to **1.25**, and `loadcampaigncontrols()` runs after
+`loadcontrols()`, so in the campaign scene one game day is
+`2 × 1.25 / gamespeed = 2.5 / gamespeed` real minutes
+([10-simulation-tick](10-simulation-tick.md) §5). The campaign speed ladder is
+`gamespeedcampaigns = {1, 5, 20, 50}`, so:
 
-Two side notes from the same arithmetic:
+| Campaign speed | Game day | Frames per game day at 60 fps | Records reachable |
+| --- | --- | --- | --- |
+| 1 | 2.5 min | 9000 | all 119 |
+| 5 | 30 s | 1800 | all 119 |
+| 20 | 7.5 s | 450 | all 119 |
+| 50 | **3.0 s** | **180** | all 119, with 1.5× margin |
 
-- `GamePrefs.maxgamespeed` (`battleprefs.txt`: `Maximum Gamespeed 10`) has
-  **no consumer anywhere in the assembly**. The real ceilings are the hardcoded
-  array tails — 20 in battle, 50 in the campaign.
-- There is **one** day length shared by battle and campaign; no campaign
-  override exists.
+A campaign game day at speed 50 is `3 × fps` frames, so the sweep needs about
+**40 fps** to reach index 118. At 60 fps it clears with a 1.5× margin; below 40
+it does not.
 
+> **At campaign speed 50 on a machine under ~40 fps, the tail of the catalogue
+> is never tested.** At 30 fps the cursor reaches index 89 — record 89 is dated
+> 21-05-1864 — so records 90–118 are skipped every day they are due. The file
+> is roughly date-ordered (§2.2), so what sits in that tail is almost the whole
+> late war: Grant's Overland campaign, the fall of Atlanta, Lincoln's
+> re-election, Sherman's march, Appomattox and after. The four final records
+> are the dead 01-01-1900 placeholders, but the other twenty-five carry real
+> dates a campaign reaches.
+>
+> This is a **live** defect at the speed most players use for 1864–65, not a
+> latent one, and it is frame-rate dependent — which is exactly when a late-war
+> campaign map is at its slowest. It has not been confirmed in play; the test
+> that settles it is an 1865 start at speed 50 with the frame rate capped below
+> 40, checking whether the late-war papers print.
+>
+> The cheapest fix for a mod is to sweep more than one record per frame; the
+> cursor is a bare `int` and nothing else reads it.
+
+One side note from the same arithmetic: `GamePrefs.maxgamespeed`
+(*"Maximum Gamespeed 10"* in **both** prefs files) has **no consumer anywhere
+in the assembly**. The real ceilings are the hardcoded array tails — 20 in
+battle, 50 in the campaign.
 `lasthistoricaleventsupdate` is a static that `Awake()` does *not* reset, but
 `Tools.Date.IsMatching(null)` returns `false`, so the first frame of a campaign
 resets the cursor correctly either way.

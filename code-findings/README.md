@@ -86,7 +86,7 @@ the evidence than in a central list.
 
 | File | Contents |
 | --- | --- |
-| [10-simulation-tick](10-simulation-tick.md) | How the game is driven: the frame counter, the boot state machines, the four scheduling patterns |
+| [10-simulation-tick](10-simulation-tick.md) | How the game is driven: the frame counter, the boot state machines, the five scheduling patterns, the day length each scene actually uses, the battle end-of-day state machine, what pausing stops, and the clock-paced / frame-paced census |
 
 ### Combat — [summary](summary-combat.md)
 
@@ -161,7 +161,7 @@ the evidence than in a central list.
 
 | File | Contents |
 | --- | --- |
-| [25-newspaper-and-events](25-newspaper-and-events.md) | The newspaper panel, its queue and its four producers; all 119 `historicalevents.dat` records with dates, images and the fifteen gating policies; the index-cursor scan and the game-day arithmetic that makes it safe; the eleven events no shipped campaign can reach; `endbattle` and `battleresulttype`; the procedural battle report and the two prefs that make its morale paragraph a constant |
+| [25-newspaper-and-events](25-newspaper-and-events.md) | The newspaper panel, its queue and its four producers; all 119 `historicalevents.dat` records with dates, images and the fifteen gating policies; the index-cursor scan and the game-day arithmetic that makes it tight rather than safe; the eleven events no shipped campaign can reach; `endbattle` and `battleresulttype`; the procedural battle report and the two prefs that make its morale paragraph a constant |
 
 ### Naval combat — [summary](summary-naval.md)
 

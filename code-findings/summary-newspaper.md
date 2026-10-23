@@ -55,11 +55,15 @@ the norm.
 changes. So the catalogue is swept **one record per unpaused campaign frame**,
 and the sweep has to finish before the day rolls over.
 
-It does, with room to spare. One game day is `240 / gamespeed` real minutes
-(`battledaylengthinmins = 120`, day **and** night), and the campaign speed
-ladder tops out at 50 — so the shortest game day is **4.8 real minutes**, and
-sweeping 119 records inside it needs **0.41 fps**. The design is safe to
-roughly 17,000 records.
+It does **not**, at the top of the campaign speed ladder. The campaign sets
+`battledaylengthinmins = 1.25` (the battle file's 120 is a different scene's
+value — [10-simulation-tick](10-simulation-tick.md) §5), so one campaign game
+day is `2.5 / gamespeed` real minutes: **3.0 real seconds at speed 50**, which
+is `3 × fps` frames. The sweep needs about **40 fps** to reach index 118, and
+clears 60 fps with only a 1.5× margin. Below 40 the tail is never tested, and
+the tail is the late war — Atlanta, the 1864 election, Sherman's march,
+Appomattox. **A live defect at the speed most players use for 1864–65**, and
+one that bites hardest exactly when the late-war map is slowest.
 
 The same arithmetic turned up a dead pref: **`GamePrefs.maxgamespeed` has no
 consumer anywhere.** The real ceilings are the hardcoded array tails — 20 in

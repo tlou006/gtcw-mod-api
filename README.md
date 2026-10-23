@@ -37,6 +37,7 @@ engine's. **Start with a summary:**
 | [The war economy](mechanics-findings/the-war-economy.md) | Local prices and the price curve, how goods move, blockade, the five taxes, debt and interest, and the scripted boom/bust cycle |
 | [Production and workforce](mechanics-findings/production-and-workforce.md) | The labour map that limits every building, slavery, what recruitment costs your industry, fertility, and where new companies come from |
 | [The manual against the code](mechanics-findings/manual-vs-code.md) | The official manual cross-checked against the shipped data in full — economy, combat, supply, commanders, politics, naval — what it confirms, and where it misleads |
+| [Time and speed](mechanics-findings/time-and-speed.md) | What a game day costs in real minutes in each scene, what the speed buttons do, why fast-forwarding starves the AI without changing the war, what pausing stops, and how often every number is recalculated |
 
 [`code-findings/00-build-provenance.md`](code-findings/00-build-provenance.md) records
 which build everything was written against.

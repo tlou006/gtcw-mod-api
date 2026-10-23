@@ -14,7 +14,10 @@ frame gates) rather than simulation. The actual per-frame work lives in
 branching on `IsCampaign`, and in `Regiment.Update` per unit. Expensive
 campaign work is gated on **accumulated game time** against a `GamePrefs`
 value, cheaper work is staggered by `GameVars.frame % N`, and the clock itself
-comes from UniStorm — the third-party weather asset.
+comes from UniStorm — the third-party weather asset, which holds the only
+`Time.deltaTime` in the simulation path. One game day is **240/gamespeed real
+minutes in a battle** and **2.5/gamespeed in the campaign**: the two scenes read
+the same `GamePrefs` field from two different files.
 
 ## The findings
 
@@ -24,9 +27,13 @@ comes from UniStorm — the third-party weather asset.
 | 2 | **One global frame counter**, `GameVars.frame++` in `MainMenuControls.Update`, immediately after the batch queue drains. | The only clock a plugin can trust for ordering — but see the rewind below. |
 | 3 | **Controllers boot, they don't simulate.** `CampaignController.Update` has 55 `if (frame == N)` gates, `BattleController.Update` 48, spanning frames 1–51. | This is the **authoritative initialization order**, i.e. the answer to "when is it safe to touch X?" |
 | 4 | **`BattleUnits.Update` is the real driver**, split on `IsCampaign`; `Regiment.Update` (458 lines) is the per-entity tick. | One hook point covers both scenes — but it must respect the flag. |
-| 5 | **Four scheduling mechanisms**: game-time thresholds, frame-modulo staggering, config-driven iteration counts, readiness gates. | Each is a different hook point with different semantics. Copy the game-time pattern, not the modulo one. |
-| 6 | **Game time comes from UniStorm**, a third-party asset. | Changing time flow means touching `UniStormWeatherSystem_C`. `GameVars.SetGameSpeed(float)` is the better hook. |
+| 5 | **Five scheduling mechanisms**: game-time thresholds, frame-modulo staggering, config-driven iteration counts, readiness gates, and a day-counter rollover test. | Each is a different hook point with different semantics. Copy the game-time pattern, not the modulo one. |
+| 6 | **Game time comes from UniStorm**, a third-party asset, and **`Time.deltaTime` has no consumer in any simulation class** — 113 of its 155 occurrences are inside UniStorm itself. | Changing time flow means touching `UniStormWeatherSystem_C`. `GameVars.SetGameSpeed(float)` is the better hook. A slow machine samples the same war less often; it does not run a slower war. |
 | 7 | **The batch queue is 16 named ids** with a frame-delay offset and **no default branch**. | A mod can carry its own deferred operations through the game's queue and inherit its ordering and pacing. |
+| 8 | **Battle and campaign do not share the day length.** `battleprefs.txt` sets `battledaylengthinmins = 120`, `campaignprefs.txt` sets the same field to **1.25**, and the campaign loader runs second. | A game day is **240/gamespeed real minutes in a battle** and **2.5/gamespeed in the campaign** — 12 real minutes vs **3.0 real seconds** at each ceiling. |
+| 9 | **The battle night is a seven-state machine** that fast-forwards at `SetGameSpeed(1000f, overrideminmax: true)` and pauses at dawn, leaving `gamespeed == 1`. | The only place the speed clamp is deliberately bypassed, and the reason your afternoon speed setting is gone the next morning. |
+| 10 | **Pause stops the clock, not the frame.** `gamepaused` has thirteen readers; every frame-paced rolling sweep in the campaign branch keeps running. | A paused campaign keeps converging its derived panels. Clock-gated work cannot fire, because the clock is stopped. |
+| 11 | **The speed ladder is a UI convention.** The +/− keys step by 1.0, so every integer speed up to the array tail is reachable and the panel highlights none of the off-ladder ones. | A modder changing the ladder arrays has not changed the reachable speed set. |
 
 ## Load-order milestones worth knowing
 
@@ -55,7 +62,10 @@ units must wait until **after frame 12**.
 - **The batch queue drains before the increment**, so an operation scheduled
   for frame N runs while `GameVars.frame` still reads N−1.
 - **Modulo staggering keys off the display frame rate**, so `% 85` is a
-  different real-world interval on every machine.
+  different real-world interval on every machine. `MainMenuControls.Awake` sets
+  `Application.targetFrameRate = 60`, which bounds it — but Unity ignores that
+  cap whenever the player has VSync on, so a 144 Hz monitor runs every
+  frame-paced subsystem 2.4× faster.
 
 ## For the ModApi
 
@@ -78,10 +88,15 @@ units must wait until **after frame 12**.
 
 - `BattleController`'s 48 frame gates are not transcribed; the battle boot
   order is known to exist but not documented step by step.
-- `UpdateEndOfMonthFunctions` / `eodcycle` — a month boundary mechanism
-  distinct from the four scheduling patterns, and a likely mod target.
-- The full `GamePrefs` tick-tuning surface beyond the four confirmed values.
-- **Whether `Autocalc` shares the combat model with `Regiment`** or
-  reimplements it. Still the most important open question for a combat mod: if
-  they diverge, auto-resolve and manual battles will disagree after any combat
-  change.
+- The full `GamePrefs` tick-tuning surface beyond the seventeen clock intervals
+  and eleven frame periods now tabulated in [10](10-simulation-tick.md) §10.
+- Whether Unity's `maximumDeltaTime` is overridden in the project settings. At
+  its 0.333 s default a single long frame loses game time, and at campaign
+  speed 50 that is 11 % of a game day. The answer is in `globalgamemanagers`
+  and needs an asset dump.
+- Whether any frame-paced rolling sweep besides the historical-event cursor can
+  fail to complete inside its reset window at campaign speed 50.
+
+`UpdateEndOfMonthFunctions`, `eodcycle` and whether `Autocalc` shares
+`Regiment`'s combat model are all now answered — see
+[10](10-simulation-tick.md) §9, §8 and the closing note.

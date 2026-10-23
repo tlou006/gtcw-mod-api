@@ -1,7 +1,8 @@
 # What the game shows you, and what it actually does
 
 **Build:** see [00-build-provenance](../code-findings/00-build-provenance.md)
-**Translates:** [11](../code-findings/11-combat-resolution.md),
+**Translates:** [10](../code-findings/10-simulation-tick.md),
+[11](../code-findings/11-combat-resolution.md),
 [12](../code-findings/12-melee.md),
 [13](../code-findings/13-morale-and-cohesion.md),
 [16](../code-findings/16-enumerations.md),
@@ -263,6 +264,38 @@ rate of fire it will actually fight at.
 Source: [26](../code-findings/26-naval-combat.md) §3, §4,
 [manual-vs-code](manual-vs-code.md) §39, §40.
 
+### 1.10 The speed panel cannot show the speed you are running at
+
+The timer panel has four speed buttons and lights one of them only when
+`gamespeed` is exactly equal to that button's ladder value — `{1, 2, 5, 20}` in
+battle, `{1, 5, 20, 50}` in the campaign. The four number keys set exactly
+those values, so the display is correct for them.
+
+The **increase-speed and decrease-speed keys do not use the ladder.** They call
+`SetGameSpeed(gamespeed ± 1f)`, clamped only at the array tail. So one press
+of increase-speed from 1× in the campaign puts you at
+**speed 2 — a rate the panel has no button for, with nothing highlighted at
+all**. Speeds 3, 4, 6 … 49 are reachable the same way, and the game is then
+running between two and fifty times normal with no indication of which.
+
+Two related behaviours have no display at all:
+
+- **Decrease-speed at 1× pauses the game**, because the arithmetic reaches
+  zero and zero is the pause value. The previous speed is preserved, so the
+  next unpause returns to 1×.
+- **Holding Left Ctrl with a unit selected pauses the game** for as long as the
+  key is down, so you can lay a path on a still map. This is deliberate and
+  useful; it is simply undocumented, and the pause indicator does not
+  distinguish it from a real pause.
+
+A third is visible but easy to misread: a battle's overnight sequence sets
+speed 1 and then pauses, so **the second morning of a multi-day battle always
+resumes at 1×** rather than at the speed you were using the previous
+afternoon.
+
+Source: [10](../code-findings/10-simulation-tick.md) §8, §11,
+[time-and-speed](time-and-speed.md) §2.
+
 ## 2. Things the game tells you in words that are not true
 
 ### 2.1 The perk tooltip describes a system that does not exist
@@ -468,7 +501,7 @@ and reaches nothing.
 | `unitprefs.txt` | "Cohesion increase by enemy infantry fire" (0.001) | Parsed, never read. |
 | `unitprefs.txt` | "Cohesion increase by enemy artillery fire" (0.01) | Parsed, never read. |
 | `unitprefs.txt` | "Cohesion increase by enemy cavalry shock" (0.15) | Parsed, never read. |
-| `battleprefs.txt` | "Maximum Gamespeed" (10) | **No consumer anywhere.** The real ceilings are hardcoded: ×20 in battle, ×50 in the campaign. |
+| `battleprefs.txt` **and** `campaignprefs.txt` | "Maximum Gamespeed" (10) | **No consumer anywhere**, in either file. The real ceilings are hardcoded: ×20 in battle, ×50 in the campaign — and the +/− keys reach every integer below them ([10](../code-findings/10-simulation-tick.md) §11). |
 | `aistrategies.dat` | night-retreat trigger (0.275) | Computed and discarded on the two paths that would use it. |
 | commander prefs | subordinate command limit | No consumer — and the config is honest about it, marking the pref `[deactivated]`. |
 | `battleprefs.txt` | "No micro ai charge if unit is outflanked or receiving flanking fire" — ships **true** | Parsed, never read. A unit under the Charge order will go in while outflanked. |
@@ -592,7 +625,7 @@ Sources: [11](../code-findings/11-combat-resolution.md) §2,
 
 ---
 
-## 5. For modders: seven label traps
+## 5. For modders: eight label traps
 
 None is player-facing, but each will bite a tool that reports game state.
 
@@ -636,6 +669,14 @@ panel reads it as `> 0` and the rate-of-fire bonus as `== 1`
 inches, which happens to line up from 2 upward; 0.5 is *Timber*, 1 is *Cotton
 Bales* and the Tinclad Gunboat's 1.5 is described as half an inch
 ([26](../code-findings/26-naval-combat.md) §2).
+
+**`battledaylengthinmins` is the same field under the same label in two files,
+with values 96× apart.** `battleprefs.txt` sets 120 and `campaignprefs.txt`
+sets 1.25, both labelled *"Day Length in Realtime Minutes (calculated out of a
+day of 6-18h)"*. The campaign loader runs second, so the campaign value wins in
+the campaign scene and the battle loader restores 120 on entering a battle. A
+tool that reports "the day length" has to say which scene it means
+([10](../code-findings/10-simulation-tick.md) §5).
 
 ---
 
