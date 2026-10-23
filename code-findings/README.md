@@ -105,7 +105,7 @@ the evidence than in a central list.
 
 | File | Contents |
 | --- | --- |
-| [14-supply-and-logistics](14-supply-and-logistics.md) | The two supply models with their shipped numbers, the depot/local split and the node-selection rule, the corps wagon train and the overnight handout, depots as economy buildings, transport capacity node by node, raiding as a third supply source, readiness, the 5% shortage cliff, and the three flat per-night hits of the end-of-day batch |
+| [14-supply-and-logistics](14-supply-and-logistics.md) | The two supply models with their shipped numbers, the depot/local split and the node-selection rule, the corps wagon train and the overnight handout, depots as economy buildings, transport capacity node by node, raiding as a third supply source, readiness, the 5% shortage cliff, the three flat per-night hits of the end-of-day batch, and **replacements, which come down the same pipe** — 26 men a week at best, none at all on low priority |
 | [15-attrition-and-condition](15-attrition-and-condition.md) | Condition, sickness, desertion, wounded recovery, fatigue and drill — with every shipped rate, the establishment sizes the wounded model is keyed to, the decoded hospital modes, and four mis-wired features |
 | [16-enumerations](16-enumerations.md) | Cross-cutting reference: `unittyp`, branches, stance, ammo, loss types, supply slots, status and condition label tables, perk-id reuse |
 
@@ -113,7 +113,7 @@ the evidence than in a central list.
 
 | File | Contents |
 | --- | --- |
-| [17-politics-and-support](17-politics-and-support.md) | State support and its 42 reason codes, national morale and the loss condition, the three continuous couplings (including private wealth as a derivative), state loyalty decided once on the day the war starts, foreign intervention with its zero floor and per-scenario starting relations, the intervention script's sign and routing errors, recruitment, and the support-breakdown NaN bug |
+| [17-politics-and-support](17-politics-and-support.md) | State support and its 42 reason codes, national morale and the loss condition, the three continuous couplings (including private wealth as a derivative), state loyalty decided once on the day the war starts, foreign intervention with its zero floor and per-scenario starting relations, the intervention script's sign and routing errors, recruitment with the Militia and Draft Act ladders, contracts and the reenlistment roll, and the support-breakdown NaN bug |
 
 ### Economy — [summary](summary-economy.md)
 
@@ -149,7 +149,7 @@ the evidence than in a central list.
 
 | File | Contents |
 | --- | --- |
-| [23-game-state](23-game-state.md) | `GameVars.alliance[]` and `GameVars.nation[]` field maps; the two `nations.dat` formats and what a save does and does not overwrite; the 12-game-hour per-alliance master campaign tick; the three recompute idioms that decide whether a write survives; treasury, taxes and the subsidy trio; the national-morale/state-support coupling; the top-level statics and the two meanings of `currenttimefromstart` |
+| [23-game-state](23-game-state.md) | `GameVars.alliance[]` and `GameVars.nation[]` field maps; the two `nations.dat` formats and what a save does and does not overwrite; the 12-game-hour per-alliance master campaign tick; the three recompute idioms that decide whether a write survives; treasury, taxes and the subsidy trio; the national-morale/state-support coupling; the recruiting pools as lifetime quotas and the USCT exception that leaks to the Confederacy; the top-level statics and the two meanings of `currenttimefromstart` |
 
 ### Campaign objectives — [summary](summary-campaign-objectives.md)
 

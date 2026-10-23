@@ -25,8 +25,8 @@ engine's. **Start with a summary:**
 | [Simulation](code-findings/summary-simulation.md) | How the game is driven: the frame counter, the boot state machines, the four scheduling patterns |
 | [Combat](code-findings/summary-combat.md) | The three combat models, the weapon unit-system split, `firepower[3]`, accuracy, melee and casualty formulas |
 | [Morale](code-findings/summary-morale.md) | The morale slots and rally pipeline, the 3-to-5× loss amplifier, `fightingspirit` as a politics→combat cap, cohesion and the terrain table, four unwired or mis-wired features |
-| [Logistics](code-findings/summary-logistics.md) | The two supply models, depots as economy buildings, the 5% shortage cliff, attrition in men per week, fatigue, drill, and the enumerations reference |
-| [Politics](code-findings/summary-politics.md) | State support as the manpower tap, national morale and the loss condition, foreign intervention, and the broken support breakdown |
+| [Logistics](code-findings/summary-logistics.md) | The two supply models, depots as economy buildings, the 5% shortage cliff, replacements down the supply pipe, attrition in men per week, fatigue, drill, and the enumerations reference |
+| [Politics](code-findings/summary-politics.md) | State support as the manpower tap — the two recruiting pools, contracts and reenlistment — national morale and the loss condition, foreign intervention, and the broken support breakdown |
 | [Economy](code-findings/summary-economy.md) | `IIP` nodes as local markets, S-curve pricing, boolean production recipes, and the debt→rating→interest loop |
 
 **And the mechanics write-ups so far:**
@@ -41,6 +41,7 @@ engine's. **Start with a summary:**
 | [Why units break](mechanics-findings/why-units-break.md) | Morale against cohesion, the two break thresholds and the casualty cliff that nothing recovers, what rallying can and cannot get back, and the campaign cap on battle morale |
 | [What kills your men](mechanics-findings/what-kills-your-men.md) | Where a brigade's men go in men per week — the wounded pool you control, disease as a steady state, desertion, condition, fatigue and drill |
 | [Supply in practice](mechanics-findings/supply-in-practice.md) | What a depot is for, why an army starves in friendly territory, what a shortage costs in morale and men, battlefield supply and readiness |
+| [The manpower tap](mechanics-findings/the-manpower-tap.md) | Where men come from and what spends them: the two pools per state, the lifetime quota, the ninety-day men, replacements at 26 men a week, and what every support term is worth |
 
 [`code-findings/00-build-provenance.md`](code-findings/00-build-provenance.md) records
 which build everything was written against.

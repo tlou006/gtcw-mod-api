@@ -68,6 +68,47 @@ terms are flat per-night hits with no `elapsed` scaling
   0.03 on the campaign map — **roughly two thousand times the rate.** This is
   why multi-day battles dissolve units rather than merely bleeding them.
 
+## Replacements come down the supply pipe
+
+The largest gap in this subsystem is now closed:
+**[14](14-supply-and-logistics.md) §3b**. There is no separate replacement
+system — the same method that resupplies a formation in the campaign fills its
+brigades back up to establishment from their home states' recruiting pools, on
+the slow frame-paced cycle, with no player order.
+
+| Term | Shipped value |
+| --- | --- |
+| Time to fill a whole unit, at its supply node | **1.5** campaign years |
+| …at map distance 2,000 | 4.0 campaign years |
+| Priority steps (low / medium / high) | **{0, 0.5, 1.0}** |
+| Readiness multiplier at zero readiness | ×0.25 |
+| Full snow or rain | ×0.25 |
+| Reforming (one month, at home) | **×10**, and supply treated as full |
+| Draft Act I / II | ×1.5 / ×2.0, **not cumulative** |
+| Supply state | multiplies directly |
+
+So a 2,000-man brigade at the best case gets **26 men a week**, and a brigade
+left on *low* priority gets **none** — `prioritysteps[0]` is zero, so the
+lowest setting is an off switch rather than a slower rate.
+
+Three defects and a label trap:
+
+- **`refpoint` is the distance to the chosen supply node**, not to the home
+  state as both config labels claim, and it is initialised to the maximum, so a
+  brigade with no node in range refills at the 4.0-year rate.
+- **The winter penalty ignores winter quarters.** `GetWeatherAdjustment()`'s
+  winter-quarters branch resets four of its five values and leaves the
+  reinforcement multiplier weathered, although the config label says *"if unit
+  is not encamped"*. A second routine, `GetReinforcementspeedWinter()`,
+  implements the label — at **1 %** outside winter quarters — and has **no
+  callers anywhere in the assembly.**
+- **Replacement equipment comes out of depot stock first**, so filling units up
+  competes with daily supply for the same goods, and the purchase enters the
+  alliance's army-order demand and therefore national prices
+  ([23](23-game-state.md) §13).
+- **Drafted replacements charge their home state the drafting support penalty**
+  exactly as a new unit would ([17](17-politics-and-support.md) §5).
+
 ## `EntryPoint` was more important than it looked
 
 [02-type-inventory](02-type-inventory.md) flagged `EntryPoint` as a "false
@@ -179,7 +220,7 @@ place.
 stance, ammunition, supply slots, and the partially-known `formation`,
 `movementmode`, `combatbehavior` and `currentterrain` sets.
 
-## Four suspected bugs
+## Six suspected bugs
 
 - **Drill buffers men and horses against forced-march wear, but not guns** —
   `conditioninfluencefastmarch[2]` is applied without the drill buffer that the
@@ -200,6 +241,12 @@ stance, ammunition, supply slots, and the partially-known `formation`,
   `grouplosses` drops deserters too, while the battle branch keeps them — so
   **men who desert leave the army without appearing in any readable loss
   total**.
+- **A unit on low reinforcement priority receives no replacements at all** —
+  `prioritysteps[0]` is 0, and the UI presents it as the first of three
+  settings ([14](14-supply-and-logistics.md) §3b).
+- **The winter reinforcement penalty applies in winter quarters**, although its
+  config label exempts encamped units — and the routine that does implement the
+  exemption has no callers (§3b).
 - **The hospital tooltip prints a 300 % mortality reduction** at a level-3
   hospital, by printing the raw −3 coefficient as a percentage. The real
   reduction is **75 %**, since the coefficient is applied as a divisor. The
@@ -219,8 +266,11 @@ stance, ammunition, supply slots, and the partially-known `formation`,
    **winter quarters are a camp building**, which is why they also carry the
    encamped wounded rates and the ×0.5 sickness factor. What *builds* a camp
    and what the eight `Camp.GetModifier` ids do is still untraced.
-4. **Reinforcement and replacement flow** — the other half of attrition, and
-   now the largest gap in this subsystem.
+4. ~~**Reinforcement and replacement flow**~~ — **resolved** in
+   [14](14-supply-and-logistics.md) §3b and summarised above. What is left is
+   how reinforcement priority propagates to units attached after it was set,
+   and whether the recruiting panel's offered figure is the pool or the pool
+   clamped at the maximum unit size.
 5. **Fleet supply** takes a separate harbour path that was not followed.
 6. **`eodcycle`'s full state machine** — ~~gates firing, melee, cohesion,
    fatigue and the whole overnight batch~~ — **resolved** in

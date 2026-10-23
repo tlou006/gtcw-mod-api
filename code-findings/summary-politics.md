@@ -11,9 +11,10 @@ alliance, 35 reason codes, and the campaign-loss condition), and **foreign
 intervention levels** (per alliance × foreign power, almost entirely a policy
 game with one hardcoded date gate). Politics is not a system that reacts to the
 war — it is an *input* to recruitment, battle morale, desertion and surrender.
-State support is the manpower tap: volunteers scale **linearly** with it and
-drop to zero below a threshold. And the support breakdown UI is **broken by a
-NaN bug**, which makes it the hook library's best first target.
+State support is the manpower tap: volunteers scale with it inside a power law
+and drop to zero below a threshold, drafts are gated outright, and contracts
+renew at a rate read straight off it. And the support breakdown UI is **broken
+by a NaN bug**, which makes it the hook library's best first target.
 
 ## Taken out of order, and it earned it
 
@@ -139,8 +140,71 @@ of the simulation/UI entanglement flagged in
 `GetBalanceDescription()` also leaves **`0.8333 ≤ balance < 0.9167`
 uncovered**, returning an empty string for that band.
 
+## The manpower tap, in numbers
+
+Every state holds one recruiting pool per side, and both are **lifetime
+quotas** — a ceiling minus every man ever raised there, with casualties never
+credited back ([23-game-state](23-game-state.md) §5.2).
+
+| | Volunteers | Drafts |
+| --- | --- | --- |
+| Ceiling | `3 × (pop × 0.016 × support × policyMods)^0.9` | `pop × 0.04 × mobilizationrate × growth` |
+| Support gate | zero below 30 % | hard gate at 30 % |
+| Territory gate | none | **must own a town in the state** |
+| Shipped starting value | live from turn one | **zero — needs a Draft Act** |
+| Support cost | none | **−1.6 points per 1,000 men** |
+
+> **Every authored campaign ships a mobilization rate of zero in all 53
+> states**, so the draft does not exist until a Draft Act is researched. And
+> because drafting burns the support it is gated on, a state at 90 % support
+> yields about **37,500 drafted men** before it closes itself off.
+
+The power law is backwards from its label: `3 × raw^0.9` crosses `raw` at
+59,049, and no shipped state reaches that, so the *"reduction of volunteers
+pools for higher recruiting numbers"* multiplies every real pool **up**.
+
+**The Militia Acts are the volunteer game.** They raise a level multiplier from
+0.15 to 0.60 (Union, four Acts) or 0.70 (Confederate, three), and start a
+second multiplier *growing* at +0.50/yr for the first Act and +0.15/yr for each
+later one. The catch is in the contracts.
+
+## Contracts: the ninety-day men
+
+A unit holds an enlistment date and a term in months; at expiry it keeps
+`0.10 + 0.50 × support` of its men (±20 %), and the rest are gone from the unit
+**and** from the pool ([17](17-politics-and-support.md) §5b). Its wounded are
+scaled down by the same ratio.
+
+Both sides start on 12-month contracts. **The Union's Militia Act I cuts that
+to three months** — the historical ninety-day men — and Acts II–IV take it to
+12, 24 and 36. The Confederate ladder runs 12, 24, 36. Short contracts grow the
+volunteer pool fastest (the growth multiplier is throttled ×1.0/0.9/0.6/0.3 by
+contract length) and churn units hardest.
+
+The Draft Acts are asymmetric: both sides' units get their contract clock
+reset, but **only Confederate units get the term extended** — to 36 months and
+then 99, which is the rest of the war. The Union's own extension values are
+shipped and never read.
+
 ## Smaller findings
 
+- **`recruitable` is written in exactly one place** — the Union's Militia Act I,
+  which unlocks ten border states for *both* sides. Seven states (California,
+  Oregon, Nevada, Utah, Dakota, Nebraska, Unorganized) ship unrecruitable and
+  never change, so they contribute no men to the war at all.
+- **The USCT support-floor exception leaks to the Confederacy**: its flag is
+  declared outside the per-alliance loop, so in any slave state where the Union
+  holds a town, the Confederacy also recruits below the 30 % floor
+  ([23](23-game-state.md) §5.2).
+- **Pardoning prisoners shrinks the recruiting pool** rather than refilling it,
+  and adds strength to no unit.
+- **The recruitment subsidy buys no recruits.** The config's *"additional
+  recruits available for full recruitment subsidies"* = 2 is used as the slew
+  *rate* of a factor whose target contains no subsidy term — only project 109
+  at +5 % per level ([17](17-politics-and-support.md) §5c).
+- **Policy 30's five-state list is matched by name**, and so is policy 144's
+  Texas charge by index; the first is the rename trap, the second double-counts
+  its own subtraction.
 - **Elections are a campaign objective**, not a separate system (national
   morale reason code 8), and low Union morale affects the outcome via
   `demoralizevotersunionmoralelevel`.

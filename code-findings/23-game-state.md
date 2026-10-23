@@ -407,6 +407,86 @@ Both pools can go negative internally; `GetRecruitAmounts` clamps with
 and `HasEnoughRecruits` returns `true` unconditionally for `alliance > 1` —
 **intervention forces have unlimited recruits.**
 
+#### The pools are lifetime quotas, not rates
+
+Both pools are stored as *remaining*: `ceiling − alreadyRecruited`, recomputed
+by `UpdateRecruitData()` whenever anything touches them.
+`Nation.AdjustRecruitingPool(amount, recruitingtype, alliance)` adds `amount`
+to `volunteersrecruited[]` or `draftsrecruited[]` and immediately recomputes,
+and those two counters are **the only persistent record of what a state has
+given**. Five call sites:
+
+| Caller | Sign | Amount |
+| --- | --- | --- |
+| `BattleUnits.RecruitUnit` | + | the new unit's `strength` |
+| `Regiment.UpdateIIPSupplyLink` (replacements, [14](14-supply-and-logistics.md) §3b) | + | men delivered, per pool |
+| `BattleUnits.DeleteUnit(transferrecruitstopool: true)` | − | `strength` only |
+| `BattleUnits.ReduceRecruitsPool` | + | `strength + losses[0]`, every unit |
+| `CBuilding.PardonPrisoners` | + | released men × reenlistment ratio |
+
+Three things follow. **Casualties are never credited back** — `DeleteUnit`
+refunds the survivors and leaves `losses[0]` charged, and a unit that dies in
+the field is simply gone. **The starting army is billed to the pools**:
+`ReduceRecruitsPool` runs at `GameVars.frame == 41` of a *new* campaign only
+(`CampaignController` ~455) and charges `strength + losses[0]` for every
+`unittyp <= 13` unit, so a scenario's initial order of battle is deducted from
+its states' quotas. A loaded save restores the counters directly and must not
+re-run it, which is what the `newcampaign` guard is for.
+
+And **`PardonPrisoners` has its sign the wrong way round, or is half
+written.** `CBuilding.PardonPrisoners(number, alliance)` distributes the
+released men across states in proportion to each state's
+`volunteersrecruited[alliance]`, scales each share by
+`nation[j].GetReenlistmentRatio(alliance)` — and then *adds* it to
+`volunteersrecruited`, which **shrinks** the remaining pool. No unit gains
+strength anywhere in the path. Called from `CBuilding.PardonPrisoners()`
+(all prisoners in one camp, from `PanelHandler` ~5142 and the burn-down path at
+~519) and from `ImportExportUnitData` ~3164 for a battle's prisoners.
+
+The two counters are also what `Town.representingpopulation` and the workforce
+drain read, at `workforcereductionrecruited` workers per man
+([18-economy](18-economy.md)), which is why recruitment's effect on the economy
+is permanent too.
+
+#### Two authored fields that do nothing
+
+- **`Nation.contractlength`** is loaded from `nations.dat`, written to the save
+  and **never read**. A unit takes `GameVars.alliance[a].contractlength` at
+  creation (`BattleUnits` ~11078) and at every renewal
+  ([17](17-politics-and-support.md) §5b). All 53 shipped states carry 3.
+- **`mobilizationrate[]` ships {0, 0} for every state in all six authored
+  campaign starts**, so `drafts[]` is identically zero until a Draft Act, an
+  Emancipation Act or policy 144 writes it ([17](17-politics-and-support.md)
+  §5c).
+
+#### The USCT support-floor bypass leaks to the Confederacy
+
+`UpdateRecruitData`'s `bool flag` — the USCT exception that lets the Union
+recruit in a slave state below `statesupportrecruiting` — is declared
+**outside** the `for (int i = 0; i < 2; i++)` loop over alliances and written
+only in the `i == 0` branch:
+
+```csharp
+bool flag = false;
+for (int i = 0; i < 2; i++) {
+    …
+    if (i == 0 && Policy.GetStatusByPolicyID(33)) {
+        …
+        foreach (town in townsinstate) if (town.Owner == 0 && slaveryallowed) flag = true;
+    }
+    float num2 = support[i];
+    if (num2 < GamePrefs.statesupportrecruiting && !flag) num2 = 0f;
+    …
+}
+```
+
+The Union pass sets it, the Confederate pass reads it. So **in any slave state
+where the Union holds a town and USCT is active, the Confederacy also recruits
+volunteers below the 30 % support floor** — in its own former territory, from
+the policy that was meant to be a Union-only concession. The flag is per call,
+and `UpdateRecruitData` is per state, so the leak is scoped to exactly the
+states the exception applies to.
+
 ### 5.3 `menfielded` is the player's number, not the state's
 
 `UpdateUnitStatistics(stateid)` zeroes `menfielded` and then sums `strength`
@@ -956,15 +1036,31 @@ is 179.
 18. **`OverwriteNationsData` trusts the save's state count** (§3.3).
 19. **`import_nations` reads `militaryexperience` as a fraction while the save
     format uses percent** (§3.3).
+20. **`PardonPrisoners` shrinks the recruiting pool instead of refilling it**
+    (§5.2) — and adds no strength to any unit, so a prisoner release is a pure
+    manpower loss to the side getting its men back.
+21. **The USCT support-floor exception leaks to the Confederacy** (§5.2) — its
+    `flag` is declared outside the per-alliance loop.
+22. **`Nation.contractlength` is authored, saved and never read** (§5.2); the
+    alliance-level field is the live one.
+23. **`mobilizationrate[]` ships zero in every state of every authored
+    campaign** (§5.2), so the draft is a policy effect rather than a starting
+    capability.
 
 ---
 
 ## 13. Open questions
 
-- `Alliance.aodemand[38]` / `aodemandtmp[38]`: the pass smooths them as
-  `(tmp/dt/5 + old*4)/5` per goods, but who writes `aodemandtmp`, and what
-  consumes `aodemand`? Likely the army-order demand feeding findings/18's
-  markets.
+- ~~`Alliance.aodemand[38]` / `aodemandtmp[38]`~~ — **resolved.** The writer is
+  `GameVars.ResourceUsage.AddAODemand(alliance, lvg)`, which every priced
+  military requisition calls: `Economy.GetUnitCost` for new units *and* for
+  replacements ([14](14-supply-and-logistics.md) §3b), the supply purchases in
+  `BattleUnits`, and `Vessel`. The consumer is `Economy` ~1772, which adds
+  `aodemand[m]` into `resources[m].productalliancedata[n].demandpa_tmp` — the
+  per-goods national demand that sets prices. So **recruiting and replacing
+  troops bids up the national price of uniforms, rifles, horses and gun
+  pieces**, through the same demand figure civilian consumption uses. The pass
+  smooths it as `(tmp/dt/5 + old*4)/5` per goods.
 - `bestiipplaces[]` / `bestiipplacesprob[]`: saved by name + world position +
   probability; produced by which AI pass?
 - `Alliance.orgrunning`, `impressment`, `lettersmarque`, `legalblockade`,

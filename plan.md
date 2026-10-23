@@ -1039,16 +1039,67 @@ left out: the battlefield half, and the end-of-day batch.
 - `eodcycle`'s state machine, open in findings/14 since the supply pass, is now
   closed by pointing at [10](code-findings/10-simulation-tick.md) §8.
 
-**Next:** `the-manpower-tap.md`, the fifth item on the planned index
+**Pass 11 — `mechanics-findings/the-manpower-tap.md`** (fifth item off the
+planned index). Taken as two halves: where men come from
 ([17](code-findings/17-politics-and-support.md),
-[23](code-findings/23-game-state.md)) — and the natural follow-on, since the
-last three passes have all ended by pointing at state support as the variable
-that caps battle morale, multiplies desertion and now gates readiness
-consumption. The standing code-side backlog is unchanged, with two additions
-from this pass: **reinforcement and replacement flow** is now the largest gap
-in the logistics subsystem, and **the campaign map's unit-to-mile scale** needs
-an asset dump (`FilterMap.GetFieldRealWorldFieldSize()` is two scene values),
-without which the foraging distance figures stay relative.
+[23](code-findings/23-game-state.md)) and what spends them — which closed the
+largest named gap in the logistics subsystem.
+
+- **Replacements have no system of their own.** `UpdateIIPSupplyLink` — the
+  campaign resupply method — fills a formation's brigades back up from their
+  home states' pools, with no player order, at **a full unit in 1.5 campaign
+  years** at its supply node and 4.0 at map distance 2,000. That is **26 men a
+  week** for a 2,000-man brigade. Now [14](code-findings/14-supply-and-logistics.md) §3b.
+- **`prioritysteps` is {0, 0.5, 1.0}**, so the *low* reinforcement priority the
+  panel offers as the first of three settings **switches replacements off
+  entirely**.
+- **Reforming is the only fast channel**: ×10 rate, supply treated as full, one
+  month, returning a brigade at about **55 % of establishment**.
+- **The winter reinforcement penalty applies in winter quarters**, because
+  `GetWeatherAdjustment()`'s winter-quarters branch resets four of its five
+  values and not that one — and `GetReinforcementspeedWinter()`, which
+  implements the config label's rule at **1 %**, has **no callers anywhere**.
+  Two implementations of a published rule, neither matching the label.
+- **Both recruiting pools are lifetime quotas.** `volunteersrecruited` /
+  `draftsrecruited` only ever grow: casualties are never credited back,
+  disbanding refunds survivors only, and the scenario's starting order of
+  battle is billed to its states at frame 41 of a new campaign.
+- **The draft ships switched off.** All six authored campaign starts carry
+  `mobilizationrate = {0, 0}` in every state, so a 1861 campaign cannot draft
+  until a Draft Act passes; 1863 and 1864 pre-research theirs.
+- **Drafting burns the support it is gated on** at −0.000016 per man, which is
+  **625 men per point** — so a 90 %-support state yields about **37,500**
+  drafted men before it crosses the 30 % gate and closes itself off. Volunteers
+  cost no support at all.
+- **The ninety-day men are modelled.** Contract expiry keeps
+  `0.10 + 0.50 × support` of a unit (±20 %) and the leavers are gone from the
+  pool as well as the unit, wounded included — and the Union's Militia Act I
+  *shortens* contracts from 12 months to **3**. The Draft Acts' extension is
+  Confederate-only: `draftresetcontractlength`, the Union's own {36, 36}, is
+  parsed and never read.
+- **The USCT support-floor exception leaks to the Confederacy** — its `flag` is
+  declared outside the per-alliance loop in `UpdateRecruitData`.
+- **The recruitment subsidy buys no recruits**: `additionalrecruitssubsidies`
+  = 2, labelled as a doubling of volunteers under full funding, is used as the
+  *slew rate* of a factor whose target has no subsidy term.
+- **`aodemand` closed** ([23](code-findings/23-game-state.md) §13): written by
+  `ResourceUsage.AddAODemand` from every priced requisition including
+  replacements, consumed by `Economy` as per-goods national demand — so
+  recruiting bids up its own equipment prices.
+
+**Next:** `how-you-lose.md`, the sixth item on the planned index
+([17](code-findings/17-politics-and-support.md),
+[24](code-findings/24-campaign-objectives.md)) — the natural follow-on, because
+the manpower pass ends on national morale from both directions at once: it is
+what pulls every loyal state's support back up, what the elections turn on, and
+what makes units surrender outright. The standing code-side backlog loses
+**reinforcement and replacement flow** (closed by this pass) and gains three
+items: the **recruiting panel's own arithmetic** against the pool formulas, the
+**eight `Camp.GetModifier` ids**, and **whether `GetReinforcementspeedWinter`
+is dead code or a call site that was lost** — the only published rule found so
+far with two disagreeing implementations and no live one matching the label.
+The campaign map's unit-to-mile scale still needs an asset dump, and now bounds
+the replacement-distance figures as well as the foraging ones.
 
 **Exit criteria per file:** a reader who has never opened `code-findings/` can
 act on it, and every claim in it can be traced back to a section that supports

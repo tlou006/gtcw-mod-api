@@ -368,6 +368,33 @@ battle.
 Source: [15](../code-findings/15-attrition-and-condition.md) §2a, §2c,
 [what-kills-your-men](what-kills-your-men.md) §10.
 
+### 1.13 "Estimated reenlistment ratio" is one unit's dice roll
+
+The campaign top panel prints a national *Estimated reenlistment ratio*
+alongside the current contract length. The field it reads is **assigned, not
+accumulated**: whichever unit most recently reached the end of its contract
+writes its own roll — a figure drawn from *that unit's home state's* support,
+with a ±20 % random swing — into the alliance's slot, and the alliance pass
+then smooths it into a trailing average.
+
+So the number is not an average over your army, and it is not a forecast. It is
+the last expiry's result, decayed. The **"men whose contracts expire soon"**
+figure is computed from that same smoothed value against every unit whose term
+lapses in the next quarter, so one roll in a 20 %-support state can make the
+whole army's forecast look catastrophic — and one in a 95 % state can hide a
+genuine problem.
+
+Two related gaps in the same area:
+
+| It shows | What is true |
+| --- | --- |
+| three reinforcement priorities, low / medium / high | **low is off.** The multiplier steps are 0, 0.5 and 1.0, so a unit on the lowest setting receives no replacements at all, ever |
+| state support's "what is hurting us" breakdown | **permanently empty** — every support loss writes a NaN that the list's filter rejects. The gains list works (§3) |
+
+Source: [17](../code-findings/17-politics-and-support.md) §5b, §2,
+[14](../code-findings/14-supply-and-logistics.md) §3b,
+[the-manpower-tap](the-manpower-tap.md) §8.
+
 ## 2. Things the game tells you in words that are not true
 
 ### 2.1 The perk tooltip describes a system that does not exist
@@ -727,7 +754,7 @@ Sources: [11](../code-findings/11-combat-resolution.md) §2,
 
 ---
 
-## 5. For modders: eight label traps
+## 5. For modders: eleven label traps
 
 None is player-facing, but each will bite a tool that reports game state.
 
@@ -771,6 +798,26 @@ panel reads it as `> 0` and the rate-of-fire bonus as `== 1`
 inches, which happens to line up from 2 upward; 0.5 is *Timber*, 1 is *Cotton
 Bales* and the Tinclad Gunboat's 1.5 is described as half an inch
 ([26](../code-findings/26-naval-combat.md) §2).
+
+**The two replacement-speed prefs say "distance to home state" and measure
+something else.** `refillspeeddistance0` and `refillspeeddistance2000` are
+interpolated on the distance to the brigade's chosen *supply node*, not to its
+recruiting state, and the variable is initialised to the maximum so a unit with
+no node in range gets the worst rate
+([14](../code-findings/14-supply-and-logistics.md) §3b).
+
+**The winter reinforcement penalty's label exempts encamped units and the live
+code does not.** The config reads *"Lower reinforcements multiplier during
+winter months if unit is not encamped [<1]"*; the live path blends on snow and
+precipitation and never looks at the camp. A second routine implements the
+label's rule — at 1 % rather than 25 % — and has no callers anywhere (§3b).
+
+**`additionalrecruitssubsidies` is a slew rate wearing a target's label.** The
+config calls its 2 *"additional recruits (volunteers) available for full
+recruitment subsidies (1 = no change)"*, but the code uses it only to pace how
+fast a factor converges, and the target that factor converges to has no subsidy
+term at all ([17](../code-findings/17-politics-and-support.md) §5c). A modder
+raising it makes the ramp faster, not the army bigger.
 
 **Two `GamePrefs` fields are parsed from two different config files with
 incompatible units, and the last loader wins.** `battledaylengthinmins` is 120

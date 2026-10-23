@@ -477,6 +477,122 @@ condition:
 
 ---
 
+### 3b. Replacements come down the same pipe
+
+`Regiment.UpdateIIPSupplyLink()` — the method §3a's campaign resupply lives in
+— finishes by **filling the formation's brigades back up to establishment**,
+from their home states' recruiting pools. Nothing else in the assembly does;
+there is no separate replacement system, and no player order triggers it. It
+runs on the slow frame-paced cycle
+([10-simulation-tick](10-simulation-tick.md) §10) with `num6` as the elapsed
+campaign time since the method last ran for this unit.
+
+Per attached brigade:
+
+```
+targetSize  = GetMaxUnitSize(alliance, unittyp)            // or unittypesize[]/basicgarrisonsize[]
+            × horseartillerysizefactor if horse artillery
+
+time        = Interpolate([0, 2000], refpoint,
+                          [refillspeeddistance0, refillspeeddistance2000])
+time       /= draftActSpeed × dlc × Interpolate([0,1], readiness,
+                                 [reinforcementspeedadjustmentreadiness, 1])
+time       /= GetWeatherAdjustment()[4]
+
+men         = targetSize × elapsed / time × supplyTerm
+            × prioritysteps[reinforcementpriority]
+            × reformrecruitingfactor if reforming
+```
+
+then clamped so `men + strength + losses[0] + sick ≤ targetSize`, and drawn
+from the home state's pools — volunteers (`recruitingtype` 0) first, drafts
+second, each capped at `GetRecruitAmounts`. Each draw calls
+`Economy.GetUnitCost(…, payforunit: true, …)` for the men delivered and
+`AdjustRecruitingPool`, and a drafted draw also calls
+`BattleUnits.AdjustStateSupportDrafts` ([17](17-politics-and-support.md) §5).
+
+| Term | Pref | Value |
+| --- | --- | --- |
+| Refill time, at the supply node | `refillspeeddistance0` | **1.5** campaign years for a whole unit |
+| Refill time, at distance 2,000 | `refillspeeddistance2000` | **4.0** campaign years |
+| Readiness floor | `reinforcementspeedadjustmentreadiness` | 0.25 at readiness 0, lerped to 1 |
+| Winter / rain | `reinforcementmultiplierwinter` | 0.25 at full snow or full precipitation |
+| Priority steps | `prioritysteps` | **{0, 0.5, 1.0}** — low, medium, high |
+| Reforming | `reformrecruitingfactor` | ×10, for `timetoreform` = 0.08333 yr (one month) |
+| Draft Act I / II | `draftactreplacementspeed` | ×1.5 / ×2.0 |
+
+So a 2,000-man brigade at the best case takes `2000 / 1.5 / 52` ≈ **26 men a
+week**, and the table in
+[the-manpower-tap](../mechanics-findings/the-manpower-tap.md) §5 works the rest
+of the combinations out.
+
+Six findings fall out of the detail.
+
+**1. `prioritysteps[0]` is zero.** The low reinforcement priority does not slow
+replacements, it stops them: the whole per-brigade figure is multiplied by 0.
+`CampaignMainPanel` ~3676 cycles the setting 0 → 1 → 2 → 0 over three buttons
+labelled low/medium/high, so this is reachable in one click and has no other
+symptom.
+
+**2. `refpoint` is the distance to the chosen supply node, not to the home
+state.** It is initialised to **2000** at the top of the method and overwritten
+only when the IIP scoring loop (§3a) picks a node, so a brigade with no node in
+range refills at `refillspeeddistance2000` — the worst rate. The config labels
+both prefs *"…if distance to home state is 0 / 2000"*, which is not what the
+code measures.
+
+**3. The winter penalty ignores winter quarters, twice over.**
+`GetWeatherAdjustment()` computes five values and the winter-quarters branch
+resets only the first four — snow, precipitation, movement and supply —
+leaving index **4**, the reinforcement multiplier, at its weathered value. The
+config label is *"Lower reinforcements multiplier during winter months if unit
+is not encamped [<1]"*, and encampment is never consulted. Meanwhile
+`Regiment.GetReinforcementspeedWinter()` — a public method with **no callers
+anywhere in the assembly** — implements the label's rule and disagrees with the
+pref as well:
+
+```csharp
+// winter = monthCounter <= winterquartersmonthuntil(3) || >= winterquartersmonthfrom(11)
+if (!inWinterQuarters && winter) return 0.01f;                             // 1 % of normal
+if (inWinterQuarters  && winter) return Mathf.Max(0.01f, 0.25f);           // 25 %
+return 1f;
+```
+
+So the published rule exists in two implementations: a live one that applies
+0.25 to everyone in snow or rain, and a dead one that would apply **0.01** to
+anyone outside winter quarters between November and March.
+
+**4. Reforming is the only way to go fast.** `SendToReform()` sets
+`reformtime = now + timetoreform` and transfers the unit toward
+`nation[state].averageposition`; while `reformtime` is in the future the refill
+term uses `supplystate = 1` regardless of actual supply **and** multiplies by
+`reformrecruitingfactor = 10`. Effective refill time is 0.15 campaign years
+against a one-month window, so a brigade that leaves empty comes back at about
+**55 % of establishment**. The flag is cleared by the same loop the moment it
+expires.
+
+**5. The Draft Acts do not stack.** `num38` is **assigned** from
+`draftactreplacementspeed[0]` by Act I and then from `[1]` by Act II, so the
+second Act replaces the first's ×1.5 with ×2.0 rather than compounding to ×3.
+The two tests are per alliance against policies 39/40 (Union) and 139/140
+(Confederate), and this is the only consumer of the pref.
+
+**6. Replacement equipment is drawn from the connected depots first.**
+`GetUnitCost` is handed the same `supplydepotsfirst` list the supply pass built,
+so a brigade filling up consumes uniforms, rifles, horses and gun pieces out of
+depot stock before anything is bought at market
+([18-economy](18-economy.md) for the price path). Replacements therefore
+compete with daily supply for the same depot stock, and the purchase enters the
+alliance's army-order demand for each of those goods via
+`ResourceUsage.AddAODemand` ([23](23-game-state.md) §13).
+
+Two readouts come out of the same loop: `latestreinforcements` is a trailing
+average of **men per week** actually delivered, and `latestrecruitmentcostpa`
+is the formation's replacement spend per annum. `reinforcementsneeded` is the
+raw shortfall across the formation, reset at the top of each run.
+
+---
+
 ## 4. Depots are an economy building
 
 `CBuilding.id_supplydepot = 22`. A depot holds `stock[]` of **economy

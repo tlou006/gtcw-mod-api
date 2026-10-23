@@ -159,6 +159,8 @@ way a slot becomes negative is the same path that makes it NaN.
 | Desertion | `(desertionfactorstatesupport − 1) / (1 + support) + 1` multiplies desertions ([15-attrition-and-condition](15-attrition-and-condition.md) §2c) |
 | Volunteer pool | Linear in the inner term, then `3 × raw^0.9` (§5) |
 | Draft pool | Hard gate at `statesupportrecruiting` (§5) |
+| Reenlistment | `0.10 + 0.50 × support`, ±20 %, when a contract expires (§5b) |
+| Replacements | The same two pools, drawn automatically ([14](14-supply-and-logistics.md) §3b) |
 | National morale | Reason code 33, "State Support" (§3) |
 | `GetBalance` | Via the `LoyalStatesSlider` and `NationalSupportSlider` (§6) |
 | Policy research | **Linear** multiplier on the rate, via `averagesupport` ([22](22-policy-and-project-catalogue.md) §3.1) |
@@ -540,6 +542,206 @@ if (((name == "Illinois") | (name == "Ohio") | (name == "Indiana")
 > example of the "hardcoded effects" risk being worse than it looks — this one
 > is coupled to *localisable text*.
 
+### The shipped starting data
+
+All six authored campaign starts ship `mobilizationrate[] = {0, 0}` for
+**every one of the 53 states**, so the draft ceiling is identically zero until
+a policy raises it (§5c). The Spring 1863 and Spring 1864 starts pre-research
+policy 39/139, which supplies the 0.5 on the first effects pass; the Union
+never starts with policy 40.
+
+Starting support, Spring 1861 (`Campaigns/001/A/nations.dat`, percent, Union /
+Confederate):
+
+| State | Sup | State | Sup | State | Sup |
+| --- | --- | --- | --- | --- | --- |
+| South Carolina | 0/100 | Virginia | 25/85 | Kansas | 60/35 |
+| Georgia | 5/95 | Arkansas | 25/75 | Oregon | 70/5 |
+| Florida | 5/95 | Dakota Terr. | 30/30 | West Virginia | 70/40 |
+| Louisiana | 5/95 | Tennessee | 35/75 | Delaware | 75/25 |
+| Texas | 4/96 | Arizona Terr. | 35/60 | Maryland | 75/25 |
+| Alabama | 10/90 | Indian Terr. | 35/50 | Illinois | 80/20 |
+| Mississippi | 15/90 | New Mexico | 40/60 | Ohio | 82/18 |
+| North Carolina | 20/80 | Kentucky | 60/40 | Massachusetts | 99/1 |
+| Utah Terr. | 20/20 | Missouri | 60/45 | D.C. | 100/0 |
+
+Several pairs sum to more than 100 — Tennessee 110, Virginia 110, West
+Virginia 110, Missouri 105 — which is legal because the two figures are
+independent (§2), and which is what makes those states contested rather than
+merely divided. The 1863 and 1864 starts ship materially lower Union figures in
+the loyal states (New York 70 rather than 90).
+
+`contractlength` is authored per state (3 everywhere) and **never read** — the
+unit takes `Alliance.contractlength` at creation. `volunteersadj` is authored
+per alliance and is 1 for all eight.
+
+---
+
+## 5b. Contracts, expiry and reenlistment
+
+Every `unittyp <= 13` unit carries `contractdate` (its enlistment date) and
+`contractlength` in months, assigned at creation from
+`GameVars.alliance[a].contractlength`. `Regiment.CheckContractExpiries()`, on
+the slow frame-paced cycle and **skipped while `inbattle`**, walks
+`allattachedunits` and acts when `contractdate + contractlength` has passed:
+
+```
+r = nation[state].GetReenlistmentRatio(alliance)
+  = reenlistmentscontractexpiredsupport1(0.60) × support
+  + reenlistmentscontractexpiredsupport0(0.10) × (1 − support)
+  , then × (1 ± reenlistmentscontractexpiredvariation(0.2)), clamped [0,1]
+
+leaving      = floor(strength × (1−r)) + floor(losses[0] × (1−r))
+strength     = floor(strength × r)
+losses[0]    = floor(losses[0] × r)                  // the wounded pool shrinks too
+weaponstock += the leavers' weapons (statsguns for artillery)
+contractdate = today;  contractlength = alliance.contractlength
+```
+
+So the ratio runs **0.10 at zero support to 0.60 at full**, ±20 % relative.
+Three consequences:
+
+- **The leavers are not credited back to the recruiting pool.**
+  `AdjustRecruitingPool` is not called here, so `volunteersrecruited` stays
+  charged: expiry destroys manpower on both sides of the ledger
+  ([23](23-game-state.md) §5.2). Their *weapons* do come back.
+- **The wounded go with them.** `losses[0]` is scaled by the same ratio, so a
+  contract expiry silently disposes of the unit's disabled men as well.
+- **Contracts cannot expire mid-battle** (`inbattle` is tested), so the roll
+  lands on the campaign map.
+
+**`averagereenlistmentratioexp_tmp` is assigned, not accumulated** — the same
+shape as `powratio`'s denominator ([23](23-game-state.md) §6.2). Whichever unit
+most recently expired sets the figure, which `UpdateAllianceData` ~3718 then
+feeds into a trailing average (seeded at 0.5 if zero) as
+`Alliance.averagereenlistmentratio`. That is what `CampaignTopPanel` ~1170
+prints as *"Estimated reenlistment ratio"* and what
+`Regiment.GetContractExpiries(timeframe = 0.25f)` uses to forecast the men
+whose contracts lapse in the next quarter — a forecast built on one unit's
+roll.
+
+The Draft Acts' effect on contracts is **asymmetric**:
+
+| | Union (policies 39, 40) | Confederate (139, 140) |
+| --- | --- | --- |
+| Resets every unit's `contractdate` to today | ✔ | ✔ |
+| Raises every unit's `contractlength` | — | ✔ to 36, then 99 months |
+| Sets the alliance's default `contractlength` | — | ✔ |
+| Pref actually read | — | `draftresetcontractlengthcsa` {36, 99} |
+
+`draftresetcontractlength` — the Union's own {36, 36} — is **parsed and never
+read**: both writes sit inside `if (alliance == 1)`. A Union Draft Act therefore
+buys a restart of the current term and no extension, and the Confederacy's
+second Act, at 99 months, is for the duration of the war. Each Act also costs
+`draftnationalmorale` = **−0.02** national morale, once.
+
+---
+
+## 5c. The Act ladders, and what Militia Act I switches on
+
+Militia Act I (policy 36 Union, 136 Confederate) is the start of the war. Its
+one-shot block is guarded on `uniquePolicyID == 36` — **the Union's version
+only** — so the cascade in §5a, the fort handover, `SetWarWithNation(1)` and
+the recruitable unlocks all wait for the Union to pass it:
+
+```csharp
+GameVars.nation[2].recruitable = true;   // Arkansas
+… 10, 13, 14, 22, 28, 34, 38, 39, 50    // Indian Terr., Kansas, Kentucky, Missouri,
+                                         // N. Carolina, Tennessee, Virginia,
+                                         // W. Virginia, New Mexico Terr.
+```
+
+`recruitable` is written **nowhere else in the assembly**, and never set false.
+Seven states ship unrecruitable and stay that way for the whole game:
+California, Oregon, Nevada, Utah Territory, Dakota Territory, Nebraska
+Territory and the Unorganized Territory. The flag gates `RecruitingList` ~116
+and `BattleUnits.GetBestRecruitingState`, not `UpdateRecruitData`, so an
+unrecruitable state still *computes* pools — and a brigade's replacement draw
+([14](14-supply-and-logistics.md) §3b) never consults it.
+
+The two ladders, with the shipped values:
+
+| Act | `militiaactcontract` | `volunteerspolicyadj` += | `volunteerspolicyadjrunning` += p.a. |
+| --- | --- | --- | --- |
+| Militia I, Union | **3 months** | 0.08 | 0.50 × contractFactor |
+| Militia II, Union | 12 | 0.15 | 0.15 × contractFactor |
+| Militia III, Union | 24 | 0.12 | 0.15 × contractFactor |
+| Militia IV, Union | 36 | 0.10 | 0.15 × contractFactor |
+| Militia I, CSA | 12 | 0.25 | 0.50 × contractFactor |
+| Militia II, CSA | 24 | 0.20 | 0.15 × contractFactor |
+| Militia III, CSA | 36 | 0.10 | 0.15 × contractFactor |
+
+with `premilitiaactvolunteersfact` = **0.15** as the pre-war level that
+`UpdatePolicyEffects` resets `volunteerspolicyadj` to on every pass, and
+
+```csharp
+contractFactor = Tools.Interpolate([3, 12, 24, 36], alliance.contractlength,
+                                   recruitsgrowthreductioncontract);
+// recruitsgrowthreductioncontract = {1.0, 0.9, 0.6, 0.3}
+```
+
+Two structural points. **`volunteerspolicyadj` is a level** (reset and rebuilt
+each pass, so it tracks the Acts you hold), while
+**`volunteerspolicyadjrunning` is an unreset integral** that starts at 1.0 and
+grows for as long as the Acts are active — it is the only term in the
+recruiting formulas that rewards simply having passed a policy early. And the
+contract factor throttles that growth: a Union at 3-month contracts accrues
+0.50/yr, the same Union with all four Acts and 36-month contracts accrues
+`0.95 × 0.3 = 0.285`/yr. **Short contracts grow the pool fastest and churn
+units hardest.**
+
+The Draft Acts (39/40 Union, 139/140 Confederate) are the draft-side ladder:
+
+| Term | Pref | Value |
+| --- | --- | --- |
+| Mobilization rate, added to **every** state | `draftmobilization` | +0.5, then +0.3 |
+| Volunteer level | `draftsvolunteersfactor` | +0.05, +0.025 |
+| Draft growth integral | `draftvolunteersrunning` → `draftspolicyadjrunning` | +0.15, +0.15 per annum |
+| National morale | `draftnationalmorale` | −0.02 each, once |
+| Replacement speed | `draftactreplacementspeed` | ×1.5, then ×2.0 (not cumulative) |
+| Contract reset | §5b | asymmetric |
+
+`draftspolicyadjrunning` starts at 1.0 and, like its volunteer twin, is never
+reset — so four years with both Acts active puts it at 2.2 and a late-war draft
+ceiling at roughly **227,000 men for New York alone**. The draft is not limited
+by its ceiling; it is limited by `influenceonsupportifdrafted`.
+
+Two more writers of `mobilizationrate` exist: Emancipation on the Confederate
+side (`emancipationcsadrafts`, every state) and policy 144 Mexico, which raises
+**Texas** alone by `mexicoavailablerecruits` and in the same breath charges
+half of Texas's remaining volunteer pool:
+
+```csharp
+GameVars.nation[35].volunteersrecruited[alliance]
+    += Mathf.FloorToInt(Mathf.Max(0, nation[35].volunteers[alliance]
+                                   − nation[35].volunteersrecruited[alliance]) * 0.5f);
+```
+
+`volunteers[]` is *already* `ceiling − volunteersrecruited`, so the second
+subtraction double-counts and the charge is half of
+`remaining − recruited` rather than half of the remainder. It is also the only
+place in the assembly that bills a pool without raising a unit.
+
+### The recruitment subsidy does not buy recruits
+
+`campaignprefs.txt` ships `additionalrecruitssubsidies` = **2** under the label
+*"Additional recruits (volunteers) available for full recruitment subsidies
+(1 = no change)"*, alongside `timetoreachrecruitstarget` = 2 campaign years.
+`Alliance.UpdateSubsidyRecruitment(dt)` uses them like this:
+
+```csharp
+float step = GamePrefs.additionalrecruitssubsidies * timediff
+           / GamePrefs.timetoreachrecruitstarget;
+recruitmentprojectfactortarget = 1f + GetProjectLevel(109) * GamePrefs.project_recruitment;
+// then recruitmentprojectfactor steps toward the target by ±step
+```
+
+The pref that the label makes the *target* is used as the **slew rate**, and
+the target itself has no subsidy term — only project 109 Recruitment Offices at
++5 % per level. `GetSubsidyFactor(subsidy_military)` has no consumer at all
+beyond cost accounting ([23](23-game-state.md) §7.3), so the Military subsidy
+reaches recruitment only by funding that project.
+
 ---
 
 ## 5a. A state's loyalty is decided once, on the day the war starts
@@ -698,7 +900,22 @@ Progress is tracked in static fields on the class itself:
 **Recruitment:** `recruitratevolunteersfullsupport`,
 `recruitratedraftsfullmobilization`, `adjvolpoolshighnumberslin`,
 `adjvolpoolshighnumbersexp`, `northernroutesvolunteersmodifier`,
-`usctmobilizationrateadj`, `project_farmmechanizationrecruitment`.
+`usctmobilizationrateadj`, `project_farmmechanizationrecruitment`,
+`influenceonsupportifdrafted` (−0.000016 per man),
+`premilitiaactvolunteersfact` (0.15), `militiaactcontract` {3, 12, 24, 36},
+`militiaactvolunteersfact{union,csa}`, `militiaactvolunteersfact{union,csa}running`,
+`recruitsgrowthreductioncontract` {1.0, 0.9, 0.6, 0.3}, `draftmobilization`
+{0.5, 0.3}, `draftsvolunteersfactor`, `draftvolunteersrunning`,
+`draftnationalmorale` (−0.02), `draftresetcontractlengthcsa` {36, 99},
+`draftresetcontractlength` (**parsed, never read**), `emancipationcsadrafts`,
+`mexicoavailablerecruits`, `additionalrecruitssubsidies` (**mis-wired, §5c**),
+`timetoreachrecruitstarget`, `project_recruitment`.
+
+**Contracts:** `reenlistmentscontractexpiredsupport0` (0.10),
+`reenlistmentscontractexpiredsupport1` (0.60),
+`reenlistmentscontractexpiredvariation` (0.2).
+
+**Replacements** are in [14](14-supply-and-logistics.md) §3b.
 
 ---
 
@@ -775,3 +992,22 @@ Progress is tracked in static fields on the class itself:
    after the date and policy gates, and `DLC_WL` also calls
    `AdjustInterventionLevel` on all three powers directly (~3504–3512). The
    layer is unexamined.
+9. **Whether the Union's missing contract extension is deliberate.** Both
+   writes of `draftresetcontractlength` sit inside `if (alliance == 1)` and the
+   Union array ships {36, 36}, so a Union Draft Act resets the clock without
+   lengthening the term (§5b). The Confederate asymmetry is large enough —
+   36 then 99 months — that it could be intended balance or a copy-paste that
+   lost its Union branch.
+10. **Whether `additionalrecruitssubsidies` was meant to be the target rather
+    than the slew rate** (§5c). The label and the shipped 2 both point at a
+    doubling of volunteers under full recruitment subsidies; the code uses it
+    only to pace the project-driven factor. A one-line fix either way, and it
+    would make the Military subsidy worth buying for its own sake.
+11. **Whether policy 144's double subtraction on Texas's volunteer pool is a
+    bug or a flat 50 % charge that happens to read oddly** (§5c). It is the
+    only site that bills a recruiting pool without raising a unit.
+12. **What a pardoned prisoner is supposed to do.** The release path charges
+    the released men against their home states' *volunteer* pools, scaled by
+    the reenlistment ratio, and no unit gains strength
+    ([23](23-game-state.md) §5.2). Either the sign is inverted or the strength
+    half of the feature was never written.
