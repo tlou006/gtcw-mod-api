@@ -110,6 +110,156 @@ Four things worth drawing out:
 > reinforcement marker: it is where battlefield supply physically originates.
 > Capturing or threatening entry points cuts an army's supply.
 
+### The shipped numbers, and what they weigh
+
+`unitprefs.txt`, under *Supply & End of Day*. The first label is unusually
+generous: it **decodes the echelon ladder** in passing.
+
+| Pref | Value | Config label |
+| --- | --- | --- |
+| `supplytoplevelbf` | **15** | *"Top unit for starting supply chains on battlefield (according to unit type: 13=Brigade, 14=Division, 15=Corps, 16=Army), using overridden state"* |
+| `supplyfactormalusnotopunit` | **0.5** | applied when no top unit of that echelon exists |
+| `supplydistancemodificatorbf` | **0.1** | the exponent on distance |
+| `supplydistanceweightingbf` | **0.15** | how much the distance term counts |
+| `supplyadminweightingbf` | **0.25** | commander administration's share |
+
+> **Battlefield supply chains are rooted at corps.** A division links to its
+> corps, a brigade to its division, and the corps to the map edge.
+
+**Distance barely matters.** With an exponent of 0.1 and a weighting of 0.15
+the factor is nearly flat:
+
+| Distance | `distanceFactor` |
+| --- | --- |
+| 1 | 1.000 |
+| 100 | 0.945 |
+| 500 | 0.931 |
+| 2 000 | **0.920** |
+
+What costs a unit is **depth and its commander**, because the links multiply:
+
+| | `supplystate` |
+| --- | --- |
+| Corps, 800 from its entry point | 0.925 |
+| Division under it, 200 away | 0.868 |
+| Brigade under that, 50 away | 0.825 |
+| …× admin 0.5 (`1 − 0.25 × 0.5`) | **0.722** |
+| …× admin 0.0 | **0.619** |
+| Detached, no corps above it | a further ×0.5 |
+
+### `overridesymbol` is an echelon override
+
+Closing §11's first open question. `CalculateSupplyLine` opens with
+
+```csharp
+int num = overridesymbol;
+if (num == 0 && unittyp > 0) num = unittyp;
+```
+
+so `overridesymbol` is the **echelon this unit is treated as**, falling back to
+its `unittyp` when unset. Against `supplytoplevelbf = 15` that gives three
+branches: `num < 15` links to the parent, `num == 15` links to an entry point
+and sets `istopsupplyunit`, and `num > 15` (army, army group) becomes a top
+supply unit **only** if the `flag` loop finds an attached unit below corps
+level — in which case it also collects the ×0.5 malus.
+
+Two slips in the same method, both inert but worth knowing before anyone
+patches it:
+
+- `if (overridesymbol > GamePrefs.supplytoplevelbf) supplystate = -1f;` is the
+  first statement, and `supplystate = 0f` eight lines later overwrites it
+  unconditionally. A dead store.
+- Inside the `flag` loop, `int num2 = …overridesymbol;` is followed by
+  `if (num == 0 && unittyp > 0) num = unittyp;` — which normalises the **outer**
+  echelon rather than `num2`. The guard cannot fire there (`num > 15` already),
+  so the line does nothing, but it means an attached unit whose
+  `overridesymbol` is 0 is compared as 0 and always sets `flag`.
+
+### 2a. The corps wagon train, and the overnight handout
+
+Three methods in `BattleUnits` do all the work, and together they are the whole
+battlefield supply economy.
+
+**`CalculateOriginalSupplyStates()`** (called once, from
+`BattleController` ~284) seeds each **top supply unit** with
+`groupsupplyreserve[k] × scenarioFraction × relevantStrength`, then calls
+`ResupplyAllUnits(1f)` so everyone starts full.
+
+| `groupsupplyreserve` | Days carried | Config label |
+| --- | --- | --- |
+| 0 — small-arms ammunition | **1.0** | *"Group supply reserve in days -> ammunition infantry"* |
+| 1 — artillery ammunition | **1.0** | *"…ammunition artillery"* |
+| 2 — provisions | **2.5** | *"…provision"* |
+| 3 — forage | **2.5** | *"…forage"* |
+
+scaled by the scenario file's per-group `ammoinf / ammoart / provisions /
+forage` fractions, so a scenario can start a corps short.
+
+**`EatProvisionsAndForage(consumeratio = 1f)`** runs once a night, at the
+`eodcycle` 0 → 1 transition ([10](10-simulation-tick.md) §8), and subtracts
+**one full man-day** of provisions per brigade — plus one of forage for
+`unittyp` 1, 2 **and 4**.
+
+> **Two and a half nights of food, and a battlefield has no other source.** A
+> third night puts the army at the 5 % cliff (§5). That, rather than an
+> explicit limit, is what ends long battles.
+
+**`ResupplyAllUnits()`** runs at the `eodcycle` 1 → 2 transition and is where
+`supplystate` finally does something. Per top supply unit, in two passes:
+
+```
+request[k]  = Σ over its brigades of max(strength − stock[k], 0) × brigade.supplystate
+ration[k]   = min(1, poolStock[k] / max(1, request[k]))
+each brigade: stock[k] += max(strength − stock[k], 0) × supplystate × ration[k]
+              pool[k]  -= the same amount
+```
+
+skipping any brigade that is `isrouted` or has `surrenderstate > 0`.
+
+> **A cut supply line means no resupply at all, not slower resupply.** The
+> handout is scaled by each brigade's own `supplystate`, which interdiction
+> sets to 0 — so a brigade with an enemy on its line receives nothing however
+> full the corps' wagons are. **Routed brigades are skipped outright** and
+> start the next day on whatever they had left.
+>
+> `ration[k]` is a straight pro-rata when the corps cannot cover every
+> request, so a short corps spreads the shortfall evenly across its brigades
+> rather than prioritising any of them.
+
+**And the chain is only recomputed at nightfall.** `CalculateSupplyLine()` is
+called from `Regiment.Update`'s battle branch under
+`if ((bunits.eodcycle > 0) | supplyiconactive)` — so outside the end-of-day
+cycle it runs **only while the player has the supply overlay switched on**.
+
+> **Battlefield interdiction is judged at dusk.** A line cut during the
+> afternoon and cleared before nightfall costs nothing; a line cut at dusk
+> costs that brigade its entire night's resupply. The supply figures shown
+> mid-battle are stale unless the overlay is on.
+
+### Which unit types draw what, four ways
+
+The three battlefield methods and the campaign consumption path do not agree on
+which `unittyp` values spend from which slot:
+
+| | Ammo slot 0 | Forage slot 3 |
+| --- | --- | --- |
+| Supply-icon tooltip (§1) | — | 1, 2, **4** |
+| Battle allocation (`CalculateOriginalSupplyStates`) | 0, 1, **3, 4** | 1, 2, **4** |
+| Battle fill ratio (`groupsupplystate`) | 0, 1 | 1, 2 |
+| Battle overnight meal (`EatProvisionsAndForage`) | — | 1, 2, **4** |
+| Campaign consumption (§3a) | 0, 1 | 1, 2 |
+
+> So **allocation and consumption include the light types while the fill ratio
+> excludes them.** The effect is small and one-directional: a corps with
+> skirmishers and scouts is issued ammunition and forage for them that its own
+> percentage does not count, so the reading sits at 100 % until a few per cent
+> has been spent. Worth knowing before trusting the figure to the point.
+
+`groupsupplystate[k] = stock[k] / relevantStrength / groupsupplyreserve[k]`,
+clamped to `[0, 1]` — **closing §11's seventh open question**: the formation
+figure is *days carried as a fraction of the full reserve*, not a ratio against
+consumption, and it is computed only for top supply units.
+
 ---
 
 ## 3. Campaign supply: Liebig's law of the minimum
@@ -445,19 +595,96 @@ if (supplyinstock[3] / max(1, strength + sick) <= 0.05f)
 > between. The `0.05` is a **hardcoded literal**, not a pref — one of the few
 > combat-relevant magic numbers found so far.
 
-### The overnight morale hit
+### 5a. The whole overnight batch, with its shipped curves
 
-In the end-of-day batch (the same pass that computes
-`desertionslastnight`):
+`BattleUnits.CheckDesertionsAndMorale()` (`BattleUnits` ~8114) runs **once per
+night**, from the `eodcycle` 0 → 1 transition
+([10](10-simulation-tick.md) §8). It applies three things in order, and none of
+them is scaled by elapsed time — each is a flat per-night hit.
+
+**1. Casualty shock.**
+
+```
+r    = Tools.SumUp(losses) / (strength + Tools.SumUp(losses))
+hit  = −( r × (1 − Experience()) × expinfluenceofhighcasualtiesinfluenceonmorale
+        + r × (1 − GetTraining()) × drillinfluenceofhighcasualtiesinfluenceonmorale )
+       ^ casualtiesinfluenceonmoraleexp
+       × casualtiesinfluenceonmoralelvg
+```
+
+with both influence prefs at **1**, the exponent at **5** and the leverage at
+**3**:
+
+| Day's losses | Green, undrilled | Both at half | Elite **and** fully drilled |
+| --- | --- | --- | --- |
+| 10 % | −0.001 | 0.000 | **0** |
+| 20 % | −0.031 | −0.001 | **0** |
+| 30 % | **−0.233** | −0.007 | **0** |
+| 40 % | **−0.983** | −0.031 | **0** |
+
+> **Full drill plus full experience removes the overnight casualty shock
+> entirely**, at any casualty level, because both terms carry `(1 − stat)`. For
+> green troops it is negligible below a fifth of the unit lost and the whole
+> morale bar above two fifths. Note `losses` here is the **full** six-slot sum,
+> prisoners included.
+
+**2. The supply hit.**
 
 ```
 morale += −( clamp(1 − GetAvgSupplyState(), 0, 1) ) ^ supplyinfluenceonmoraleexp
            × supplyinfluenceonmoralelvg
 ```
 
+with the exponent at **7** and the leverage at **0.7**:
+
+| Average supply | Morale lost that night |
+| --- | --- |
+| 70 % | −0.000 |
+| 50 % | −0.005 |
+| 40 % | −0.020 |
+| 30 % | **−0.058** |
+| 20 % | **−0.147** |
+| 10 % | **−0.335** |
+| 0 % | **−0.700** |
+
 > **Supply only hits morale once per day**, not per frame, and it uses the
 > **average** supply state here while `supplystate` itself is the **minimum**.
-> So the morale penalty is softer than the headline supply figure suggests.
+> So the morale penalty is softer than the headline supply figure suggests —
+> and `GetAvgSupplyState()` averages only the slots a unit actually uses
+> (ammunition plus provisions, ÷2; plus forage ÷3 for `unittyp` 1, 2 and 4).
+>
+> The seventh power means **half-empty wagons cost nothing and a tenth-full
+> army collapses overnight**. There is no useful middle.
+
+**3. Desertion — and it is nothing like the campaign rate.**
+
+```
+num7 = max(min(1 − morale − 0.2 × fame − 0.2 × admin, 1), 0)
+       ^ moraleinfluenceondesertionsexp (2)
+       × moraleinfluenceondesertionslvg (0.2)
+       × strength
+     → SufferCasualties(num7, …, overridelosstype: 2)
+```
+
+Compare the campaign formula
+([15](15-attrition-and-condition.md) §2c), which is
+`0.5 × drive² × 0.2 × strength × supportFactor × elapsed`: the overnight pass
+drops the **0.5 base rate**, drops **`supportFactor`**, and above all drops
+**`× elapsed`**. It is a flat `drive² × 0.2 × strength` men, once.
+
+| Morale (average general) | `drive` | Overnight, 3,000-man brigade | Campaign equivalent for one night |
+| --- | --- | --- | --- |
+| 0.8 | 0.0 | 0 | 0 |
+| 0.5 | 0.3 | **54 men** | 0.03 men |
+| 0.2 | 0.6 | **216 men** | 0.11 men |
+
+> **A night in the field during a battle costs roughly two thousand times the
+> desertion of a night on the campaign map at identical morale.** Whether the
+> missing `elapsed` is intended — a battle night *is* a discrete event, so a
+> flat hit is defensible — or whether the two formulas were meant to match is
+> not decidable from the code. Either way the magnitude is what makes
+> multi-day battles dissolve units rather than merely bleed them, and the lever
+> is morale, squared.
 
 See [15-attrition-and-condition](15-attrition-and-condition.md) for what
 condition then does, and [13-morale-and-cohesion](13-morale-and-cohesion.md)
@@ -466,26 +693,22 @@ horses / guns).
 
 ---
 
-## 6. `eodcycle` — the end-of-day state machine
+## 6. `eodcycle` — resolved
 
 `BattleUnits.eodcycle` is an `int` phase counter that gates a surprising amount
-of behaviour. Confirmed: it suspends firing
-([11](11-combat-resolution.md) §3b), melee ([12-melee](12-melee.md) §1),
-cohesion updates and fatigue accumulation, and it drives the overnight
-attrition, desertion and morale batch.
+of behaviour: it suspends firing ([11](11-combat-resolution.md) §3b), melee
+([12-melee](12-melee.md) §1), cohesion updates and fatigue accumulation,
+continuous objective points and autosave, and it drives the overnight
+attrition, desertion and morale batch (§5a).
 
-Transitions observed are driven by UniStorm's clock against the month-indexed
-daylight prefs:
-
-```
-if ((uniStormSystem.Hour < lastunistormhrspoint) | (dayCounter != lastunistormday)) && eodcycle == 2
-    → eodcycle = 3
-if (eodcycle == 3 && hourCounter < GamePrefs.dayendhours[month − 1] && …)
-    → eodcycle = 4
-```
-
-Values 0 through at least 4 exist; 0 means "normal play". The full state
-machine is not traced.
+**The full seven-state machine is now transcribed in
+[10-simulation-tick](10-simulation-tick.md) §8**, including the ordering this
+section needed: state 0 → 1 at `hourCounter >= dayendhours[month−1]` fires
+`EatProvisionsAndForage()` and `CheckDesertionsAndMorale()`; state 1 → 2 fires
+`LevelAmmo()`, `ResupplyAllUnits()` and `AdjustConditionOfArmies()`, and sets
+game speed to 1000 to fast-forward the night; state 3 → 4 pauses the game at
+dawn. So **the supply batch of §2a and §5a all happens inside states 1 and 2**,
+on the positions and supply states the army held at nightfall.
 
 ---
 
@@ -510,7 +733,6 @@ machine is not traced.
 `influenceonconditionifprovisionsnegative`,
 `influenceonconditionifforagenegative`, `supplyinfluenceonmoraleexp`,
 `supplyinfluenceonmoralelvg`.
-
 
 **Campaign supply, added in §3a:** `supplyspeeddistance2000`,
 `supplyspeeddepots`, `supplyspeedammo`, `supplyefficiencyfactor`,
@@ -786,26 +1008,35 @@ this codebase, the config is being straight with the modder.
 
 ## 11. Open questions
 
-1. **`overridesymbol`** is the echelon value compared against
-   `supplytoplevelbf`, and defaults to `unittyp` when 0. Its own derivation and
-   value set are untraced — it decides where the supply chain is rooted.
+1. ~~**`overridesymbol`**~~ — **resolved** in §2: an echelon override falling
+   back to `unittyp` when 0, compared against `supplytoplevelbf = 15` (Corps),
+   whose own config label names the ladder 13 Brigade / 14 Division / 15 Corps
+   / 16 Army.
 2. **`IIP`** — "important infrastructure point"? `IIP.id_harbor` is confirmed;
    the full type set and how IIPs relate to towns and depots is not. It is the
    junction between the economy and logistics and deserves its own pass with
    the economy subsystem.
 3. ~~**The depot/local split.**~~ **Resolved** in §3a: both draws, the node
    selection rule, the shipped rates in days, and the forced-march cut-off.
-4. **`eodcycle`'s full state machine** (§6).
+4. ~~**`eodcycle`'s full state machine.**~~ **Resolved** in
+   [10-simulation-tick](10-simulation-tick.md) §8; §6 records what it means
+   here.
 5. **`Economy.resid_*` constants and `resids_regularsupply[]`** — needed to
    finish the resource↔supply mapping, and they belong with the economy.
 6. **Fleet supply** (`unittyp == 17`) takes an entirely separate harbour-based
    path that was not followed.
-7. **`groupsupplystate[]` aggregation** — how a formation's supply is rolled up
-   from its subordinates.
+7. ~~**`groupsupplystate[]` aggregation**~~ — **resolved** in §2a:
+   `stock[k] / relevantStrength / groupsupplyreserve[k]`, clamped `[0, 1]`, on
+   top supply units only, so it reads *days carried as a fraction of the full
+   reserve* rather than a ratio against consumption.
 8. **What "2,000" is in miles.** `supplyspeeddistance2000` is keyed to a raw
-   campaign-map distance, and the map's unit-to-mile scale is still unknown
-   (`FilterMap.GetFieldRealWorldFieldSize()`, [18](18-economy.md) §11). Until
-   that is pinned, §3a's distance figures are relative, not absolute.
+   campaign-map distance, and the map's unit-to-mile scale is still unknown —
+   `FilterMap.GetFieldRealWorldFieldSize()` returns
+   `terrain.terrainData.size.x × mapfactor`, both **scene values**, so this
+   needs an asset dump rather than more reading. Until it is pinned, §3a's
+   distance figures are relative, not absolute. The battle map has a
+   calibration the campaign map lacks: `tooltips_battle.txt` quotes "roughly 30
+   yards" and "roughly 150 yards" against weapon ranges.
 9. **Why forced march cuts supply entirely** rather than capping it at the
    `maxsupplyratioretreat` = 0.25 the config ships. The early return is
    unambiguous; whether the cut-off or the unread pref is the intended
@@ -813,3 +1044,10 @@ this codebase, the config is being straight with the modder.
 10. **`fillratiotarget`** is a per-depot field driving the buy/sell sign in
     `UpdateEconomy`. Whether the player sets it, and its default, were not
     traced.
+11. **Whether a brigade acting as its own supply root can resupply at all.** A
+    detached brigade becomes `istopsupplyunit` (§2), and `ResupplyAllUnits`'s
+    distribution loop skips `componentsInChildren[m] == topUnit` — so the
+    brigade holds a pool it is never issued from. Whether `groupstrengthperunittyp`
+    gives a lone brigade a pool in the first place was not followed through;
+    the test is a detached brigade in a multi-day battle, watching whether its
+    ammunition recovers overnight.

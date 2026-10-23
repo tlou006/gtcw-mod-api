@@ -995,16 +995,60 @@ New defects and decodings:
   building** — which is why they carry the encamped wounded rates and the ×0.5
   sickness factor but the slower drill rate.
 
-**Next:** `supply-in-practice.md`, the fourth item on the planned index
-([14](code-findings/14-supply-and-logistics.md)) — and the natural follow-on,
-since this pass leaves **reinforcement and replacement flow** as the largest
-gap in the subsystem and `Camp` as a mechanic in its own right. The standing
-code-side backlog is unchanged: the ~137 unverified dead prefs from the
-[07](code-findings/07-config-data-model.md) sweep, a reachability audit of the
-remaining project effects, the four subsystems findings/26 §10 leaves open,
-whether Unity's `maximumDeltaTime` is overridden in `globalgamemanagers`, and
-whether any other frame-paced rolling sweep can miss its reset window at
-campaign speed 50.
+**Pass 10 — `mechanics-findings/supply-in-practice.md`** (fourth item off the
+planned index). [14](code-findings/14-supply-and-logistics.md) was already the
+best-documented subsystem in the folder, so this pass went after what it had
+left out: the battlefield half, and the end-of-day batch.
+
+- **Battlefield supply chains are rooted at corps.** `supplytoplevelbf` = 15,
+  and the pref's own label decodes the echelon ladder (13 Brigade, 14 Division,
+  15 Corps, 16 Army). **Distance barely matters** — `distance^0.1` weighted
+  0.15 gives 0.92 even at 2,000 — while **depth and the commander do**: a
+  brigade two echelons down under a mediocre administrator draws **72 %**,
+  under a poor one 62 %, and detached a further ×0.5.
+- **`overridesymbol` resolved** as an echelon override falling back to
+  `unittyp`, plus two inert code slips in the same method (a dead
+  `supplystate = -1f` store, and a `num`/`num2` copy-paste in the `flag` loop).
+- **The corps wagon train**, which no file had covered: `groupsupplyreserve` =
+  **1 / 1 / 2.5 / 2.5 man-days**, seeded at battle start and handed out each
+  night as `deficit × that brigade's own supply state`, pro-rated when the pool
+  is short. `EatProvisionsAndForage` takes **one full man-day per brigade per
+  night**, so **two and a half nights of food with no other source** — which is
+  what ends long battles rather than any explicit limit.
+- **Interdiction is binary and judged at nightfall.** The handout is scaled by
+  each brigade's own state, so a cut line means *no* resupply rather than slow
+  resupply — and `CalculateSupplyLine` is only called under
+  `eodcycle > 0 || supplyiconactive`, so **a line cut at midday and cleared by
+  dusk costs nothing**, and mid-battle supply figures are stale unless the
+  overlay is on. Routed and surrendering brigades are skipped entirely.
+- **The end-of-day batch quantified.** All three terms of
+  `CheckDesertionsAndMorale()` are flat per-night hits with no `elapsed`
+  scaling: a fifth-power **casualty shock** (−0.23 at 30 % losses for green
+  troops, **exactly zero** for a unit both elite and fully drilled, since both
+  terms carry `(1 − stat)`); a seventh-power **supply hit** (nothing above 50 %
+  average supply, −0.15 at 20 %, −0.70 at empty); and **desertion at
+  `drive² × 0.2 × strength`**, which drops the campaign formula's base rate,
+  its `supportFactor` *and* its `× elapsed`. A 3,000-man brigade at 50 % morale
+  loses **54 men in one battle night** against about 0.03 on the campaign map —
+  **roughly two thousand times the rate.**
+- **`groupsupplystate[]` resolved** (§2a): `stock / relevantStrength /
+  groupsupplyreserve`, so the formation figure is *days carried as a fraction
+  of the reserve*, not a ratio against consumption — and the four code paths
+  disagree about which unit types draw ammunition and forage, with allocation
+  and consumption including the light types while the fill ratio excludes them.
+- `eodcycle`'s state machine, open in findings/14 since the supply pass, is now
+  closed by pointing at [10](code-findings/10-simulation-tick.md) §8.
+
+**Next:** `the-manpower-tap.md`, the fifth item on the planned index
+([17](code-findings/17-politics-and-support.md),
+[23](code-findings/23-game-state.md)) — and the natural follow-on, since the
+last three passes have all ended by pointing at state support as the variable
+that caps battle morale, multiplies desertion and now gates readiness
+consumption. The standing code-side backlog is unchanged, with two additions
+from this pass: **reinforcement and replacement flow** is now the largest gap
+in the logistics subsystem, and **the campaign map's unit-to-mile scale** needs
+an asset dump (`FilterMap.GetFieldRealWorldFieldSize()` is two scene values),
+without which the foraging distance figures stay relative.
 
 **Exit criteria per file:** a reader who has never opened `code-findings/` can
 act on it, and every claim in it can be traced back to a section that supports

@@ -38,15 +38,35 @@ weather, forced march ──► sickness ──► strength
 low morale, low state support ──► desertion ──► strength
 ```
 
-## Five findings worth remembering
+## Seven findings worth remembering
 
 | | Finding | Why it matters |
 | --- | --- | --- |
 | 1 | **Campaign supply state is the minimum across the four types**, not the average. | An army full of ammunition is "out of supply" if forage is short. The binding constraint is invisible unless you check all four. (`GetAvgSupplyState()` exists separately for the places that want the mean — including, confusingly, the overnight morale hit.) |
-| 2 | **Battlefield supply is a multiplicative chain**, each link multiplying a distance-decay factor by its parent's state. | Penalties compound with **hierarchy depth**, not just distance. And an enemy unit physically on the line interrupts it — traced with a real geometric raycast. |
-| 3 | **Depots hold economy resources, and local price throttles throughput** (`max(0.1, 1 − price) ^ buysupplygoodspriceratio`). | A shortage that raises prices *further reduces* the rate supply moves forward. Economy and logistics are one system. |
-| 4 | **Shortage is a 5% cliff.** Condition only degrades once stock falls to `≤ 0.05` of (strength + sick). | At 20% provisions a unit is completely fine. There is no graduated penalty. The `0.05` is a **hardcoded literal**, not a pref. |
-| 5 | **Supply never damages units directly.** It works entirely through `condition`. | So `condition` is the hinge of the whole logistics model, and it reaches combat only via fatigue, accuracy, reload and drill. |
+| 2 | **Battlefield supply is a multiplicative chain rooted at corps** (`supplytoplevelbf` = 15, and its config label names the ladder). | Penalties compound with **hierarchy depth**, not distance: the decay is `distance^0.1` weighted 0.15, so even 2,000 away costs only 8 %. A brigade two echelons down under a mediocre commander draws **72 %**; under a poor one, 62 %; detached, half of that again. |
+| 3 | **An enemy on the line sets supply state to 0, and the chain is only recomputed at nightfall.** `CalculateSupplyLine` runs under `eodcycle > 0 \|\| supplyiconactive`. | **Interdiction is judged at dusk.** A line cut at midday and cleared by evening costs nothing; a line cut at dusk costs that brigade its whole night's resupply — and the overnight handout is scaled by each brigade's own state, so a cut line means *no* resupply rather than slow resupply. |
+| 4 | **A corps carries 1 / 1 / 2.5 / 2.5 man-days** and every brigade eats one man-day of provisions a night. | **Two and a half nights of food, with no other source on a battlefield.** The third night puts the army at the 5 % cliff — which is what ends long battles, rather than any explicit limit. |
+| 5 | **Depots hold economy resources, and local price throttles throughput** (`max(0.1, 1 − price) ^ buysupplygoodspriceratio`). | A shortage that raises prices *further reduces* the rate supply moves forward. Economy and logistics are one system. A level-3 depot is worth about **four adjacent economic nodes**, and twenty-seven distant ones. |
+| 6 | **Shortage is a 5% cliff.** Condition only degrades once stock falls to `≤ 0.05` of (strength + sick). | At 20% provisions a unit is completely fine. There is no graduated penalty. The `0.05` is a **hardcoded literal**, not a pref. |
+| 7 | **Supply never damages units directly.** It works entirely through `condition`. | So `condition` is the hinge of the whole logistics model, and it reaches combat only via fatigue, accuracy, reload and drill. |
+
+## The overnight batch is where a battle's real bill lands
+
+`CheckDesertionsAndMorale()` runs **once per night**, and all three of its
+terms are flat per-night hits with no `elapsed` scaling
+([14](14-supply-and-logistics.md) §5a):
+
+- **Casualty shock** on a fifth-power curve, worth −0.23 morale at 30 % losses
+  for a green brigade and **exactly zero** for one that is both elite and fully
+  drilled, since both terms carry `(1 − stat)`.
+- **The supply hit** on a seventh-power curve: nothing above 50 % average
+  supply, −0.15 at 20 % and −0.70 at empty. **Half-empty wagons cost nothing
+  and a tenth-full army collapses overnight.**
+- **Desertion** at `drive² × 0.2 × strength` men, which drops the campaign
+  formula's base rate, its `supportFactor` **and its `× elapsed`**. A 3,000-man
+  brigade at 50 % morale loses **54 men in one battle night** against about
+  0.03 on the campaign map — **roughly two thousand times the rate.** This is
+  why multi-day battles dissolve units rather than merely bleeding them.
 
 ## `EntryPoint` was more important than it looked
 
@@ -208,8 +228,17 @@ stance, ammunition, supply slots, and the partially-known `formation`,
 7. **What a hospital's range covers.** `GetMedicalTreatmentValue` is decoded,
    but `GetHospitalValueInRange()` and the filter map's painting radius are
    not.
+8. **What campaign-map distance means in miles.**
+   `FilterMap.GetFieldRealWorldFieldSize()` is
+   `terrain.terrainData.size.x × mapfactor` — both **scene values**, so this
+   needs an asset dump rather than more reading. Until it is pinned, the
+   foraging distance figures are relative, not absolute.
+9. **Whether a detached brigade acting as its own supply root can resupply at
+   all.** It becomes `istopsupplyunit`, and `ResupplyAllUnits` excludes the top
+   unit from its own handout ([14](14-supply-and-logistics.md) §11).
 
-`unittypesize[]`, `GetMedicalTreatmentValue`'s three modes and
-`Experience()`'s derivation are all now answered — see
-[15](15-attrition-and-condition.md) §2a and
-[13](13-morale-and-cohesion.md) §11.
+`unittypesize[]`, `GetMedicalTreatmentValue`'s three modes,
+`Experience()`'s derivation, `overridesymbol` and `groupsupplystate[]` are all
+now answered — see [15](15-attrition-and-condition.md) §2a,
+[13](13-morale-and-cohesion.md) §11 and
+[14](14-supply-and-logistics.md) §2, §2a.

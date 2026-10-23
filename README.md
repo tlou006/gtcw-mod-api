@@ -40,6 +40,7 @@ engine's. **Start with a summary:**
 | [Time and speed](mechanics-findings/time-and-speed.md) | What a game day costs in real minutes in each scene, what the speed buttons do, why fast-forwarding starves the AI without changing the war, what pausing stops, and how often every number is recalculated |
 | [Why units break](mechanics-findings/why-units-break.md) | Morale against cohesion, the two break thresholds and the casualty cliff that nothing recovers, what rallying can and cannot get back, and the campaign cap on battle morale |
 | [What kills your men](mechanics-findings/what-kills-your-men.md) | Where a brigade's men go in men per week — the wounded pool you control, disease as a steady state, desertion, condition, fatigue and drill |
+| [Supply in practice](mechanics-findings/supply-in-practice.md) | What a depot is for, why an army starves in friendly territory, what a shortage costs in morale and men, battlefield supply and readiness |
 
 [`code-findings/00-build-provenance.md`](code-findings/00-build-provenance.md) records
 which build everything was written against.
