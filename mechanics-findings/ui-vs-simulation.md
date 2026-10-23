@@ -155,7 +155,17 @@ Two smaller gaps in the same widget: the bar counts **prisoners** among the
 losses while the rout test that it is displaying excludes them, so a unit that
 has lost men captured reads closer to breaking than it is; and the
 perfect-unit reference leaves out the ×0.5 skirmisher penalty, so a skirmisher
-detachment's bar is drawn against a standard it can never reach.
+detachment's bar is drawn against a standard it can never reach. The
+perfect-unit reference also does **not** substitute perfect drill — it
+substitutes 1.0 for national military experience, unit experience and
+commander leadership but leaves `GetTraining()` as the unit's own, so the
+denominator moves as the unit trains.
+
+**On a formation the bar shows its toughest brigade.** For anything above
+brigade level the threshold is computed as the **maximum** over the attached
+brigades, not the mean or the weakest — so a corps whose leading brigade is
+elite reads as resilient while its green brigades are already at their own
+limit, and the corps comes apart well before the bar suggests.
 
 The underlying mechanic is sound and matches the manual — experience, drill and
 the commander's leadership all raise the threshold, from 20 % losses for a raw
@@ -295,6 +305,33 @@ afternoon.
 
 Source: [10](../code-findings/10-simulation-tick.md) §8, §11,
 [time-and-speed](time-and-speed.md) §2.
+### 1.11 The morale panel's own arithmetic is off by three to five
+
+The unit panel prints a full morale breakdown — *"Influences on morale per
+hour"*, every contributing factor by name, and *"Overall change per hour"* as
+the total. The factor list is honest: those are exactly the values the
+simulation uses, with the right signs and the right labels.
+
+The total is not. After the simulation has added up those same factors it takes
+the net change and, **if it is negative**, multiplies it by
+`5 − experience − leadership` before applying it — three times for an elite
+brigade under the best general, **five times for a green one under a poor
+general**. The panel never applies that step.
+
+So a panel reading *"Overall change per hour: −40 %"* on a green brigade is
+describing a unit actually losing **200 %** of its morale bar per game hour. On
+an elite brigade the same reading means 120 %. The error is one-directional:
+when a unit is gaining morale the panel is exact, because the amplifier only
+fires on losses.
+
+This is also why the morale bar sometimes seems to collapse out of nowhere.
+The two largest factors in the table are both charge-related, at −1.00/hr and
+−0.50/hr before amplification; a disordered brigade meeting a successful charge
+is shedding three to five morale points per game hour, which empties a full bar
+in twelve to twenty game minutes.
+
+Source: [13](../code-findings/13-morale-and-cohesion.md) §4,
+[why-units-break](why-units-break.md) §3.
 
 ## 2. Things the game tells you in words that are not true
 
@@ -489,6 +526,34 @@ squadron** until it is repaired or detached.
 
 Source: [26](../code-findings/26-naval-combat.md) §3, §5,
 [manual-vs-code](manual-vs-code.md) §37.
+### 2.11 Artillery's cover discount applies in the open, not under cover
+
+`unitprefs.txt` ships *"Morale effect reduction factor of incoming artillery
+fire when behind full cover"* at 0.75, and the simulation does subtract 75 % of
+the incoming-artillery morale penalty — but it multiplies that discount by
+`(1 − cover)` rather than by the cover value.
+
+`covervalue` rises with cover; it is the same field the panel's *"In cover"*
+morale row reads to **add** morale for being protected. So the artillery
+discount is **zero when the unit is in full cover and 75 % when it is standing
+in the open**:
+
+| Situation | Artillery morale penalty applied |
+| --- | --- |
+| Brigade behind a stone wall or in a fortification | **all of it** |
+| Same brigade standing in an open field | **a quarter of it** |
+
+The distance term in the same expression is correct — closer batteries
+demoralise harder, from about −0.16/hr per battery at 25 yards to −0.01/hr at
+400. Only the cover factor points the wrong way. Cover's protection against
+actual **casualties** is a separate mechanism and is unaffected; this is the
+morale row alone, printed in the panel as *"Under artillery fire"*.
+
+**Untested:** Derived from the expression and the pref label. The test is a
+brigade under sustained bombardment with and without cover, watching that row.
+
+Source: [13](../code-findings/13-morale-and-cohesion.md) §3,
+[why-units-break](why-units-break.md) §3.
 
 ## 3. Knobs that are exposed and do nothing
 
@@ -502,6 +567,7 @@ and reaches nothing.
 | `unitprefs.txt` | "Cohesion increase by enemy artillery fire" (0.01) | Parsed, never read. |
 | `unitprefs.txt` | "Cohesion increase by enemy cavalry shock" (0.15) | Parsed, never read. |
 | `battleprefs.txt` **and** `campaignprefs.txt` | "Maximum Gamespeed" (10) | **No consumer anywhere**, in either file. The real ceilings are hardcoded: ×20 in battle, ×50 in the campaign — and the +/− keys reach every integer below them ([10](../code-findings/10-simulation-tick.md) §11). |
+| `unitprefs.txt` | "Minimum support value that is taken into account for fighting spirit caps (before the leverage!)" (0.20) and "The leverage to the support value that caps the fighting spirit of the units" (2.0) | Parsed, never read — and the config is **honest**, marking both `-> inactive`. Their absence is why a unit's morale cap is a mild `1 − (1 − support) × 0.20` rather than the leveraged, floored curve the labels describe ([13](../code-findings/13-morale-and-cohesion.md) §9c). |
 | `aistrategies.dat` | night-retreat trigger (0.275) | Computed and discarded on the two paths that would use it. |
 | commander prefs | subordinate command limit | No consumer — and the config is honest about it, marking the pref `[deactivated]`. |
 | `battleprefs.txt` | "No micro ai charge if unit is outflanked or receiving flanking fire" — ships **true** | Parsed, never read. A unit under the Charge order will go in while outflanked. |
@@ -670,13 +736,18 @@ inches, which happens to line up from 2 upward; 0.5 is *Timber*, 1 is *Cotton
 Bales* and the Tinclad Gunboat's 1.5 is described as half an inch
 ([26](../code-findings/26-naval-combat.md) §2).
 
-**`battledaylengthinmins` is the same field under the same label in two files,
-with values 96× apart.** `battleprefs.txt` sets 120 and `campaignprefs.txt`
-sets 1.25, both labelled *"Day Length in Realtime Minutes (calculated out of a
-day of 6-18h)"*. The campaign loader runs second, so the campaign value wins in
-the campaign scene and the battle loader restores 120 on entering a battle. A
-tool that reports "the day length" has to say which scene it means
-([10](../code-findings/10-simulation-tick.md) §5).
+**Two `GamePrefs` fields are parsed from two different config files with
+incompatible units, and the last loader wins.** `battledaylengthinmins` is 120
+in `battleprefs.txt` and **1.25** in `campaignprefs.txt`, both labelled *"Day
+Length in Realtime Minutes (calculated out of a day of 6-18h)"*
+([10](../code-findings/10-simulation-tick.md) §5). `basemoraleincrease` is
+**0.3** in `unitprefs.txt` as *"Base rally value increase per hour"* and
+**0.02** in `campaignprefs.txt` as *"Base rally value increase per day
+campaign"*, and the campaign path multiplies by 365 to reconcile them
+([13](../code-findings/13-morale-and-cohesion.md) §2). Each scene ends up with
+the value meant for it, but a tool reporting "the day length" or "the rally
+value" has to say which scene it means — and a modder editing one file changes
+only one scene.
 
 ---
 

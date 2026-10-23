@@ -872,16 +872,81 @@ itself extended by five findings, and corrected two published claims:
   of them — added to `ui-vs-simulation.md` as §1.10, with the day-length
   collision as its eighth label trap.
 
-**Next:** `why-units-break.md`, the second item on the planned index
-([13](code-findings/13-morale-and-cohesion.md),
-[12](code-findings/12-melee.md)). The standing code-side backlog is unchanged:
-the ~137 unverified dead prefs from the
+**Pass 8 — `mechanics-findings/why-units-break.md`** (second item off the
+planned index). [13](code-findings/13-morale-and-cohesion.md) had the structure
+right and almost none of the numbers, so the pass filled in every shipped rate
+and corrected five published claims:
+
+- **Net morale losses are multiplied by `5 − experience − leadership`.** Both
+  influence prefs ship at 1.0, so every per-hour figure in the config
+  understates the real loss by **3× to 5×**. `UnitPanel` sums the same slot
+  values and prints *"Overall change per hour"* **without** the amplifier, so
+  the panel's own total is wrong by that factor whenever a unit is losing. The
+  earlier note described the mechanism but never collected the multiplier.
+- **The `fightingspirit` formula was wrong.** The raw
+  `support[alliance]` assignment quoted as the rule is a one-shot **seed**; the
+  live derivation is four steps — a lerp `1 − (1 − support) × 0.20` for
+  volunteers and `× 0.40` for drafts (so 0 % support caps at **0.80 / 0.60**,
+  not at 0), minus Bounties, then `min` against the **parent formation's mean**,
+  then three commander terms as **differentials against the side's own
+  average** with per-level weights (fame rising 0.05→0.20, leadership falling
+  0.20→0.05, experience 0.33 throughout), then −0.30 for enemy soil. Two prefs
+  that would sharpen the curve are marked `-> inactive` and unread.
+- **`startedwithlowmorale` is campaign-battle-only** (`currentoperation == 3`)
+  and caps at **0.30** — above the 0.25 rally line but **below the 0.50 melee
+  crack level**, so such a unit can rally yet can never hold contact. The
+  earlier "can never recover past the break point" was imprecise both ways.
+- **The two crack thresholds are 0.25 and 0.50**, so **contact doubles the
+  break threshold**, and `moralealertlevel` is also 0.50 — the blinking morale
+  icon means precisely "this unit breaks if anything reaches it".
+- **A melee rout rallies on distance, a fire rout on morale.** `routoutofmelee`
+  clears at 40 units of separation whatever the morale, setting it to 0.26;
+  a unit shelled out of position must climb from the **0** that `Rout()`
+  assigns, which at `0.30/hr × [1 − (1 − exp) × 0.66]` is 2 h 27 m green and
+  50 m veteran.
+
+New findings in the same pass:
+
+- **Artillery's cover discount is inverted.** Slot 8 subtracts
+  `0.75 × (1 − covervalue)`, and `covervalue` rises with cover — the same field
+  slot 5 uses to *add* morale for being in cover. A unit in full cover takes
+  the whole artillery morale penalty and one in the open keeps a quarter of it,
+  the opposite of the pref label. Live and panel-visible.
+- **`currentterrain` is decoded** from `battleprefs.txt`'s 14 named terrain
+  meshes, which prices every crossing: Grassland and Road free, Bridge and
+  Pontoon 0.90, Fences/Walls 0.60, Creek 0.55, Ford 0.40, and **River forces
+  cohesion to exactly 0** through a ceiling that bypasses the training term.
+- **`rallyvalue` resolved**: `basemoraleincrease`, latched at unit creation and
+  never raised — and parsed from **two files with two units** (0.3/hr in
+  `unitprefs.txt`, 0.02/day in `campaignprefs.txt`), the second instance of the
+  `battledaylengthinmins` collision. The commander's rally order is a separate
+  +0.20/hr channel that is cancelled by any move order and re-targets itself at
+  the worst-off non-moving unit in the command.
+- **`moraleincreaseeffects[3]` resolved** — it is the *"Commander rallying"*
+  row in the unit panel.
+- **`GetTraining()` writes to the field it reads**, adding a
+  `cumulativeeffectsonce` bonus on every call, so in a DLC scenario a player
+  unit's drill ratchets to its 1.0 clamp within a few frames. Base-game-safe.
+- **A formation's unbearable-losses trigger is the maximum over its brigades**,
+  so a corps's Loss Resilience bar shows its toughest brigade.
+- **`fightingspirit` is overwritten wholesale in standalone historical
+  battles** by `Mathf.Min(sideinformation[side].fightingspirit)` — a `Mathf.Min`
+  with one argument, so an assignment, not a cap.
+- **`Experience()` traced**: 0.0002 per enemy casualty the unit inflicts, so a
+  brigade must inflict **5,000 casualties** to go from green to elite.
+
+**Next:** `what-kills-your-men.md`, the third item on the planned index
+([11](code-findings/11-combat-resolution.md),
+[15](code-findings/15-attrition-and-condition.md)) — and the natural one,
+because this pass left **fatigue** and **where drill comes from** as its two
+open questions and both live in 15. The standing code-side backlog is
+unchanged: the ~137 unverified dead prefs from the
 [07](code-findings/07-config-data-model.md) sweep, a reachability audit of the
-remaining project effects, and the four subsystems findings/26 §10 leaves open
-(transport interception, ship escape, blockade efficiency, ship construction).
-Two new items joined it — whether Unity's `maximumDeltaTime` is overridden in
-`globalgamemanagers` (an asset dump), and whether any other frame-paced rolling
-sweep can miss its reset window at campaign speed 50.
+remaining project effects, the four subsystems findings/26 §10 leaves open
+(transport interception, ship escape, blockade efficiency, ship construction),
+whether Unity's `maximumDeltaTime` is overridden in `globalgamemanagers`, and
+whether any other frame-paced rolling sweep can miss its reset window at
+campaign speed 50.
 
 **Exit criteria per file:** a reader who has never opened `code-findings/` can
 act on it, and every claim in it can be traced back to a section that supports

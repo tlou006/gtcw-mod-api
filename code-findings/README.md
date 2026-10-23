@@ -99,7 +99,7 @@ the evidence than in a central list.
 
 | File | Contents |
 | --- | --- |
-| [13-morale-and-cohesion](13-morale-and-cohesion.md) | The 18 battle and 14 campaign morale slots, the rally/cap pipeline, `fightingspirit` as a politics→combat link, cohesion, and two unwired features |
+| [13-morale-and-cohesion](13-morale-and-cohesion.md) | The 18 battle and 14 campaign morale slots with their shipped rates, the rally/cap pipeline and the 3-to-5× loss amplifier, the four-step `fightingspirit` derivation as a politics→combat link, the two crack thresholds and the melee-vs-fire rally asymmetry, cohesion with the decoded terrain table, and four unwired or mis-wired features |
 
 ### Logistics — [summary](summary-logistics.md)
 
