@@ -332,6 +332,41 @@ in twelve to twenty game minutes.
 
 Source: [13](../code-findings/13-morale-and-cohesion.md) §4,
 [why-units-break](why-units-break.md) §3.
+### 1.12 "Disabled Soldiers" counts the dead, and its breakdown does not sum
+
+The campaign army panel's **Disabled Soldiers** figure is
+`losses[0] + losses[1] + losses[3] + sick` — **wounded + killed + prisoners +
+sick**. Men who were killed are not disabled, and they never leave the total,
+so the number a player reads as "men I could get back" permanently contains
+every soldier the unit has ever lost dead or captured.
+
+Its own tooltip then breaks the figure down into three lines — *currently
+wounded*, *currently sick*, *deserted/MIA* — which **omit killed and
+prisoners** (both in the total) and **add deserters** (not in the total). There
+is no reading of the breakdown that reconciles with the headline, in either
+direction.
+
+Two more problems in the same widget:
+
+| It says | What is true |
+| --- | --- |
+| *"Nearby hospitals reduce mortality of wounded by 300 %"* at a level-3 hospital | **75 %.** The coefficient (−3) is applied as a divisor — `mortality /= 1 − value × −3` — so a level-3 hospital divides mortality by 4. The tooltip prints the raw coefficient as a percentage, producing a figure that is not possible |
+| *"…and increases the chance of recovery by 150 %"* | correct — recovery really is multiplied by 2.5 |
+| the formation-level *deserted/MIA* line | it is desertions **above their own three-month trailing average**, a recent-rate measure rather than a count. The brigade-level line says so (*"(*trailing 3 months)"*); the formation line does not |
+
+And one gap behind the numbers rather than in them: **deserters are absent from
+the alliance attrition statistic**, because the line that adds to it reuses a
+temporary still holding the recovered-sick count — so recovered sick are
+counted into it twice and desertion not at all. The per-formation total-losses
+figure also drops deserters on the campaign map while including them in a
+battle.
+
+> Net effect: **men who desert leave your army without appearing in any loss
+> total you can read**, and men who are killed never stop appearing in a figure
+> labelled as recoverable.
+
+Source: [15](../code-findings/15-attrition-and-condition.md) §2a, §2c,
+[what-kills-your-men](what-kills-your-men.md) §10.
 
 ## 2. Things the game tells you in words that are not true
 
@@ -568,6 +603,7 @@ and reaches nothing.
 | `unitprefs.txt` | "Cohesion increase by enemy cavalry shock" (0.15) | Parsed, never read. |
 | `battleprefs.txt` **and** `campaignprefs.txt` | "Maximum Gamespeed" (10) | **No consumer anywhere**, in either file. The real ceilings are hardcoded: ×20 in battle, ×50 in the campaign — and the +/− keys reach every integer below them ([10](../code-findings/10-simulation-tick.md) §11). |
 | `unitprefs.txt` | "Minimum support value that is taken into account for fighting spirit caps (before the leverage!)" (0.20) and "The leverage to the support value that caps the fighting spirit of the units" (2.0) | Parsed, never read — and the config is **honest**, marking both `-> inactive`. Their absence is why a unit's morale cap is a mild `1 − (1 − support) × 0.20` rather than the leveraged, floored curve the labels describe ([13](../code-findings/13-morale-and-cohesion.md) §9c). |
+| `unitprefs.txt` | "Fatigue effect on reloading time for exhausted troops (linear interpolation)" (1.25) | Parsed into `fatigueforreloading`, which the **next pref in the same loader overwrites**. The field the reload penalty actually reads, `fatigueinfluenceonreloading`, is never parsed by any file and is permanently 0, so **exhausted troops do not reload more slowly** ([15](../code-findings/15-attrition-and-condition.md) §1a). |
 | `aistrategies.dat` | night-retreat trigger (0.275) | Computed and discarded on the two paths that would use it. |
 | commander prefs | subordinate command limit | No consumer — and the config is honest about it, marking the pref `[deactivated]`. |
 | `battleprefs.txt` | "No micro ai charge if unit is outflanked or receiving flanking fire" — ships **true** | Parsed, never read. A unit under the Charge order will go in while outflanked. |

@@ -16,7 +16,11 @@ ratio of the four types — Liebig's law of the minimum — fed by depots that h
 actual economy goods, so **local prices throttle resupply**. Shortage does not
 cause damage directly: it degrades `condition`, which raises fatigue, lowers
 accuracy and reload speed, and slows drill. And it bites on a **5% cliff**, not
-a gradient.
+a gradient. Attrition is the other half: disease is a target-seeking steady
+state costing a brigade 7 % of its strength a year in camp and up to 60 % on a
+forced march through a bad winter, and **the wounded pool is where most of the
+dying happens** — 57 % of your wounded die in the field, 25 % in camp and 3 %
+with a hospital in range.
 
 ## The chain, end to end
 
@@ -63,20 +67,43 @@ root.
 `BattleUnits.GetClosestDepotsAndTowns(...)` is what units use to find supply
 and what `AICampaign` uses to pick raid targets.
 
-## Attrition: three pools, three idioms
+## Attrition: three pools, three idioms, and the numbers
 
-- **Wounded** recover or die at rates set by encampment, hospitals (three
-  separate `GetMedicalTreatmentValue` modes) and perk 8. Rates scale with
-  `unittypesize[unittyp]` — the **establishment** size, not current strength —
-  so a half-strength brigade loses wounded as fast as a full one.
+- **Wounded** recover or die at two competing absolute rates against
+  `unittypesize[unittyp]` — the **establishment** size (infantry 3000, cavalry
+  2500, artillery 240, skirmishers 200, scouts 150), not current strength:
+
+  | State | Mortality/yr | Recovery/yr | **Share of wounded who die** |
+  | --- | --- | --- | --- |
+  | Not encamped | 0.66 | 0.50 | **57 %** |
+  | **Encamped** | 0.33 | 1.00 | **25 %** |
+  | Encamped, level-3 hospital | 0.08 | 2.50 | **3 %** |
+
+  > **Encamping converts one wounded man in three from a death into a returned
+  > soldier**, and a level-3 hospital converts almost all of them. Of 100 men
+  > hit by musket fire (13 killed, 72 wounded, 15 missing) **54 end up dead if
+  > the army keeps marching and 31 if it camps**. `hospitalinfluenceonmortality`
+  > ships at **−3** against a documented range of `[-1 to 0]`, which makes
+  > hospitals twice as strong as their own label allows.
+
 - **Sickness is target-seeking**, the same exponential-approach idiom as
-  cohesion: a unit converges on a sickness *level* set by weather, marching and
-  encampment, and drains when conditions improve. **Winter campaigning has a
-  steady-state cost, not a spiral.**
-- **Desertion is morale-driven and politically amplified.** Commander fame and
-  administration are subtracted straight from the drive, and low state support
-  multiplies the result — the same political variable that caps
-  `fightingspirit` also bleeds manpower.
+  cohesion: the target is **10 % of strength**, ×1.66 on forced march, ×1.80
+  below 50 °F, up to ×1.40 in bad weather, **×0.50 encamped**, capped at 50 %.
+  The pool turns over at 2.5/yr mortality against 5.0/yr recovery, so **one
+  sick man in three dies** and a case lasts about seven weeks. Solving the two
+  rates gives the standing bill for a 3,000-man brigade: **4 deaths a week in
+  camp in good weather, 8 in the field, and 35 on a forced march through a bad
+  winter** — 7 %, 14 % and 60 % of the brigade per year. **Winter campaigning
+  has a steady-state cost, not a spiral**, and a week in camp recovers most of
+  it.
+- **Desertion is morale-driven and politically amplified**:
+  `0.1 × drive² × strength × supportFactor` men/year, where
+  `drive = clamp(1 − morale − 0.2 × fame − 0.2 × admin, 0, 1)`. An average
+  commander subtracts 0.2 outright, so **a unit above 80 % morale under an
+  average general loses nobody at all**; at 20 % morale it loses 8 men a week.
+  `supportFactor` runs **×5.0 at zero state support to ×3.0 at full** — it
+  never reaches ×1, so full loyalty reduces desertion by 40 % rather than
+  ending it.
 
 ## Two questions from the morale pass, now closed
 
@@ -132,15 +159,31 @@ place.
 stance, ammunition, supply slots, and the partially-known `formation`,
 `movementmode`, `combatbehavior` and `currentterrain` sets.
 
-## Two suspected bugs
+## Four suspected bugs
 
 - **Drill buffers men and horses against forced-march wear, but not guns** —
   `conditioninfluencefastmarch[2]` is applied without the drill buffer that the
-  other two get.
+  other two get. The practical result is that **a fully drilled brigade's men
+  gain condition on a forced march (+5/yr) while its guns always lose it
+  (−3/yr)**.
+- **Exhausted troops do not reload more slowly.** The field the reload penalty
+  reads, `fatigueinfluenceonreloading`, is **never parsed from any config
+  file** and is permanently 0. The config line written for it is parsed into
+  `fatigueforreloading`, which the next pref in the same loader method
+  overwrites sixteen lines later
+  ([15](15-attrition-and-condition.md) §1a). The accuracy penalty for
+  exhaustion (−33 %) is live; the reload penalty is not.
 - **Desertions are mis-accounted in the attrition statistic.** The campaign
   block adds a stale `num9` (the recovered-sick count) to `attrition_tmp` after
-  the desertion calculation instead of the deserter count. Affects a reported
-  figure, not the simulation.
+  the desertion calculation instead of the deserter count, so recovered sick
+  are counted twice and desertion not at all. The campaign branch of
+  `grouplosses` drops deserters too, while the battle branch keeps them — so
+  **men who desert leave the army without appearing in any readable loss
+  total**.
+- **The hospital tooltip prints a 300 % mortality reduction** at a level-3
+  hospital, by printing the raw −3 coefficient as a percentage. The real
+  reduction is **75 %**, since the coefficient is applied as a divisor. The
+  recovery half of the same sentence is correct.
 
 ## Still open
 
@@ -151,12 +194,22 @@ stance, ammunition, supply slots, and the partially-known `formation`,
    covered at all.
 2. **`IIP`** — the economy/logistics junction. Only `id_harbor` is known.
    Belongs with the economy pass.
-3. **`encamped` / `entrenched` / `winterquarters`** derivation — `Camp` and
-   `Camp.GetModifier(...)` are the leads, and camps are a mechanic in their own
-   right.
-4. **`Experience()` derivation** — training is now understood, experience is
+3. **`Camp` as a mechanic.** The three flags are resolved — `encamped` and
+   `entrenched` are null tests on `campbuilding` and `entrenchment`, and
+   **winter quarters are a camp building**, which is why they also carry the
+   encamped wounded rates and the ×0.5 sickness factor. What *builds* a camp
+   and what the eight `Camp.GetModifier` ids do is still untraced.
+4. **Reinforcement and replacement flow** — the other half of attrition, and
+   now the largest gap in this subsystem.
+5. **Fleet supply** takes a separate harbour path that was not followed.
+6. **`eodcycle`'s full state machine** — ~~gates firing, melee, cohesion,
+   fatigue and the whole overnight batch~~ — **resolved** in
+   [10](10-simulation-tick.md) §8.
+7. **What a hospital's range covers.** `GetMedicalTreatmentValue` is decoded,
+   but `GetHospitalValueInRange()` and the filter map's painting radius are
    not.
-5. **Reinforcement and replacement flow** — the other half of attrition.
-6. **Fleet supply** takes a separate harbour path that was not followed.
-7. **`eodcycle`'s full state machine** — it gates firing, melee, cohesion,
-   fatigue and the whole overnight batch.
+
+`unittypesize[]`, `GetMedicalTreatmentValue`'s three modes and
+`Experience()`'s derivation are all now answered — see
+[15](15-attrition-and-condition.md) §2a and
+[13](13-morale-and-cohesion.md) §11.

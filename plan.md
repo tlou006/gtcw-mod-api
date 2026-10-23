@@ -935,15 +935,73 @@ New findings in the same pass:
 - **`Experience()` traced**: 0.0002 per enemy casualty the unit inflicts, so a
   brigade must inflict **5,000 casualties** to go from green to elite.
 
-**Next:** `what-kills-your-men.md`, the third item on the planned index
-([11](code-findings/11-combat-resolution.md),
-[15](code-findings/15-attrition-and-condition.md)) — and the natural one,
-because this pass left **fatigue** and **where drill comes from** as its two
-open questions and both live in 15. The standing code-side backlog is
-unchanged: the ~137 unverified dead prefs from the
+**Pass 9 — `mechanics-findings/what-kills-your-men.md`** (third item off the
+planned index). [15](code-findings/15-attrition-and-condition.md) had every
+formula and almost no values; this pass supplied them all and turned them into
+men per week.
+
+- **The wounded pool is where most of the dying happens**, and the player
+  controls it: mortality 0.66 against recovery 0.50 in the field (**57 % of
+  wounded die**) versus 0.33 against 1.00 encamped (**25 %**), and 3 % with a
+  level-3 hospital in range. Of 100 men hit by musket fire, **54 end up dead if
+  the army marches on and 31 if it camps**.
+- **The per-man casualty roll decoded**: wounded by default, then `deadratio`
+  by **ammunition type** (musket 0.15, shell 0.20, solid 0.50, **canister
+  0.60**), then a flat 0.15 missing that overwrites the killed result. Canister
+  kills four times the share musketry does.
+- **Disease solved to its steady state**: target 10 % of strength, ×1.66 forced
+  march, ×1.80 below 50 °F, ×1.40 bad weather, **×0.50 encamped**; pool
+  turnover 2.5 against 5.0, so one sick man in three dies. For a 3,000-man
+  brigade that is **4 deaths/week in camp, 8 in the field and 35 on a forced
+  march through a bad winter** — 7 %, 14 % and 60 % per year.
+- **Desertion quantified**: `0.1 × drive² × strength × supportFactor`/yr, zero
+  above 80 % morale under an average general, and **`supportFactor` never
+  reaches ×1** — it runs ×5.0 at zero state support to ×3.0 at full, against a
+  label implying the factor should vanish at full loyalty.
+- **Condition netted out**: a fully drilled brigade's men **gain** condition on
+  a forced march (+5/yr) while its guns always lose it (−3/yr), and the
+  recovery line labelled *"when not moving"* is applied unconditionally, so
+  ordinary marching costs nothing.
+- **Fatigue**: a normal-pace road march makes a unit **fresher** (0.50 accrual
+  against 0.60 recovery); melee exhausts it in **5 minutes** and recovery takes
+  1 h 40 m; the speed penalty is nearly flat (40 % speed at full exhaustion).
+- **Drill cannot be bought in the field** — 0.20/yr is five years to full. The
+  overriding if-chain means **entrenching a camp cuts drill from 0.60 to 0.40**
+  and **winter quarters are the worst camp to drill in** at 0.30.
+
+New defects and decodings:
+
+- **Exhausted troops do not reload more slowly.** `fatigueinfluenceonreloading`
+  is read by `Regiment` ~9998 and **never parsed by any config file**; the line
+  written for it lands in `fatigueforreloading`, which the next pref in the
+  same loader overwrites sixteen lines later.
+- **`hospitalinfluenceonmortality` ships at −3 against a documented `[-1 to 0]`
+  range**, making hospitals twice as strong as their label allows — and the
+  tooltip prints the raw coefficient, claiming a **300 % mortality reduction**
+  where the real figure is 75 %.
+- **"Disabled Soldiers" includes the killed and the captured**, and its own
+  three-line breakdown omits both while adding deserters, so it cannot
+  reconcile with its headline in either direction.
+- **Deserters are absent from every readable loss total** on the campaign map:
+  the `attrition_tmp` slip, and `grouplosses` summing only wounded + killed +
+  prisoners in the campaign branch while the battle branch includes them.
+- **`unittypesize[]` confirmed** as the config's *"Maximum Unit Size"*
+  (infantry 3000, cavalry 2500, artillery 240, skirmishers 200, scouts 150) —
+  the base the whole wounded model is keyed to.
+- **`GetMedicalTreatmentValue`'s three modes decoded**, including the own-side
+  colour test on the hospital filter map and the 0.4 / 0.65 / 1.0 level values.
+- **The three camp flags resolved**: `encamped` and `entrenched` are null tests
+  on `campbuilding` and `entrenchment`, and **winter quarters are a camp
+  building** — which is why they carry the encamped wounded rates and the ×0.5
+  sickness factor but the slower drill rate.
+
+**Next:** `supply-in-practice.md`, the fourth item on the planned index
+([14](code-findings/14-supply-and-logistics.md)) — and the natural follow-on,
+since this pass leaves **reinforcement and replacement flow** as the largest
+gap in the subsystem and `Camp` as a mechanic in its own right. The standing
+code-side backlog is unchanged: the ~137 unverified dead prefs from the
 [07](code-findings/07-config-data-model.md) sweep, a reachability audit of the
-remaining project effects, the four subsystems findings/26 §10 leaves open
-(transport interception, ship escape, blockade efficiency, ship construction),
+remaining project effects, the four subsystems findings/26 §10 leaves open,
 whether Unity's `maximumDeltaTime` is overridden in `globalgamemanagers`, and
 whether any other frame-paced rolling sweep can miss its reset window at
 campaign speed 50.

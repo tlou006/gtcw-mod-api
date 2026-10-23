@@ -25,7 +25,7 @@ engine's. **Start with a summary:**
 | [Simulation](code-findings/summary-simulation.md) | How the game is driven: the frame counter, the boot state machines, the four scheduling patterns |
 | [Combat](code-findings/summary-combat.md) | The three combat models, the weapon unit-system split, `firepower[3]`, accuracy, melee and casualty formulas |
 | [Morale](code-findings/summary-morale.md) | The morale slots and rally pipeline, the 3-to-5× loss amplifier, `fightingspirit` as a politics→combat cap, cohesion and the terrain table, four unwired or mis-wired features |
-| [Logistics](code-findings/summary-logistics.md) | The two supply models, depots as economy buildings, the 5% shortage cliff, attrition, fatigue, training, and the enumerations reference |
+| [Logistics](code-findings/summary-logistics.md) | The two supply models, depots as economy buildings, the 5% shortage cliff, attrition in men per week, fatigue, drill, and the enumerations reference |
 | [Politics](code-findings/summary-politics.md) | State support as the manpower tap, national morale and the loss condition, foreign intervention, and the broken support breakdown |
 | [Economy](code-findings/summary-economy.md) | `IIP` nodes as local markets, S-curve pricing, boolean production recipes, and the debt→rating→interest loop |
 
@@ -39,6 +39,7 @@ engine's. **Start with a summary:**
 | [The manual against the code](mechanics-findings/manual-vs-code.md) | The official manual cross-checked against the shipped data in full — economy, combat, supply, commanders, politics, naval — what it confirms, and where it misleads |
 | [Time and speed](mechanics-findings/time-and-speed.md) | What a game day costs in real minutes in each scene, what the speed buttons do, why fast-forwarding starves the AI without changing the war, what pausing stops, and how often every number is recalculated |
 | [Why units break](mechanics-findings/why-units-break.md) | Morale against cohesion, the two break thresholds and the casualty cliff that nothing recovers, what rallying can and cannot get back, and the campaign cap on battle morale |
+| [What kills your men](mechanics-findings/what-kills-your-men.md) | Where a brigade's men go in men per week — the wounded pool you control, disease as a steady state, desertion, condition, fatigue and drill |
 
 [`code-findings/00-build-provenance.md`](code-findings/00-build-provenance.md) records
 which build everything was written against.
