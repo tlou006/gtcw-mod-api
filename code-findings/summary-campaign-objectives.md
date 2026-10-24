@@ -42,17 +42,29 @@ clamped adder.
 ## Two elections, and one of them ends the game
 
 - **4 November 1862, objective 9.** `alliance[0].averagesupport` must reach
-  0.60. Failing it charges −0.01 Union national morale **per week for the rest
-  of the campaign**. Chapter 2 begins the next day.
+  0.60. Failing it charges −0.01 Union national morale per week — but the
+  objective's chapter list is `{1}` and chapter 2 begins on 6 November, so the
+  charge runs for **two days** and totals about **0.003**. As shipped the 1862
+  midterms have no mechanical consequence, against a config label describing an
+  open-ended rate.
 - **9 November 1864, objectives 26/27.** Union national morale must be ≥ 0.50.
-  Failing it costs −0.20 immediately and then, **when the date passes 4 March
-  1865 — inauguration day — ends the campaign in a Confederate victory.**
+  Both objectives are live in the same chapter and the sweep walks them in id
+  order in one loop, so failing it charges **−0.20 twice**. From below 0.50,
+  −0.40 puts the Union under `breakmoraletrigger = 0.25`, and objective 1
+  "Break Union Morale" is evaluated in the same sweep — which runs every ten
+  game minutes.
 
-> **This is the only loss condition in the game that is a date rather than a
-> threshold**, and it is not stated in the objective's own tooltip. The
-> four-month gap between the election and the inauguration is the player's last
-> chance to recover, because the end-of-campaign branch is re-tested every
-> update and fires only while the objective is still unaccomplished.
+> **The 1864 election is a pass/fail test at 50 points, not a −20 setback.**
+> Failing it ends the campaign that afternoon, not on inauguration day: the
+> 4 March 1865 branch is unreachable in both directions, because a held
+> election advances the chapter and deactivates both objectives, and a lost one
+> has already ended the campaign through objective 1. Neither tooltip, each of
+> which promises "−20", says any of this.
+>
+> **Corrects an earlier reading of this summary**, which had the 1862 penalty
+> running for the whole campaign and the 1864 loss arriving at the
+> inauguration. The two real loss conditions are national morale below 25 %,
+> and — for the Union only — the 50 % reading on one specific day.
 
 ## The other half of the intervention script
 
@@ -138,10 +150,11 @@ earlier, or fills more slots, silently disables the bonus.**
 
 ## What this leaves open
 
-Who *writes* the eleven statics — `unioncapturedforts`, `csacapturedtowns`,
+Who *writes* the remaining statics — `unioncapturedforts`,
 `consecutivevictories[4]` (four slots for two sides and two battle kinds),
-`unioncasualties` — almost certainly the battle-result export and the town
-capture paths. The `Frontline2` state-set cut-over dates are inspector data and
-need an asset dump. And the newspaper system itself — `Headlines[5]`,
-`PictureID`, `LaunchNewspaperMessage` — pairs naturally with findings/22's
-open `historicalevents.dat` question; they should be written up together.
+`unioncasualties`, `victoryagainstgb/fr` — almost certainly the battle-result
+export and the fort-capture path. **Two are now located:**
+`Town.UpdateOwnership` increments `csacapturedtowns` when a Union town in a
+Union-loyal state falls after chapter 0, and sets `confederacyinvaded` on the
+mirror case ([17](17-politics-and-support.md) §3a). The `Frontline2` state-set
+cut-over dates are inspector data and need an asset dump.

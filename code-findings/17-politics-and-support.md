@@ -321,6 +321,306 @@ national morale. Occupation wins that race by four to one.
 
 ---
 
+### 3a. Who writes codes 1, 2 and 3
+
+findings/24 mapped codes 4–14, the objective block, and findings/22 mapped
+5 and 20–31, the policy block. The three remaining live codes are the ones the
+player generates by playing: **1 Battles, 2 Naval engagements, 3 Town
+occupation.** None of them is written in this file's own subsystem.
+
+#### The shipped starting values
+
+`nationalmorale` is alliance record field 35, divided by 100 on read
+([23](23-game-state.md) §3.1), so it is authored per campaign start:
+
+| Start | Scenario name | Opening date | Union | CSA |
+| --- | --- | --- | --- | --- |
+| A | Spring 1861 | 23 Feb 1861 | **1.00** | **1.00** |
+| B | Summer 1861 | 8 Jul 1861 | 0.95 | 0.95 |
+| C | Spring 1862 | 21 Mar 1862 | 0.90 | 0.90 |
+| D | Spring 1863 | 10 May 1863 | **0.82** | **0.85** |
+| E | Spring 1864 | 1 May 1864 | 0.75 | 0.75 |
+| F | Tutorial | 8 Jul 1861 | 0.95 | 0.95 |
+
+Read from each `Campaigns/001/<letter>/nations.dat` at line
+`1010 + 42 × alliance + 34`, against the 19-line state / 42-line alliance
+record layout of [23](23-game-state.md) §3.1. D is the only asymmetric start.
+
+> **A Spring 1861 campaign begins at the clamp**, and `AdjustNationalMorale`
+> recomputes its delta *after* clamping, so every favourable term — the state
+> support convergence, private wealth, captured forts — records **zero** until
+> something has first pushed the number below 1.0.
+
+#### Codes 1 and 2: battles, via the battle-result file
+
+Neither side's morale is adjusted in the battle scene. Both sides' figures are
+computed there, written to the battle-result file as a two-float array, and
+applied when the campaign scene reads it back:
+
+```csharp
+// ImportExportUnitData ~3000, per side num26 ∈ {0,1}
+if (monumentlist[n].landorsea == 0)
+    alliance[monumentlist[n].alliance[num26]].AdjustNationalMorale(1, array8[num26]);
+else if (!flag | !flag2)
+    alliance[monumentlist[n].alliance[num26]].AdjustNationalMorale(2, array8[num26]);
+```
+
+**Both sides are charged, including the winner**, each for its own casualties.
+There is no victory bonus in the national-morale path at all — the only
+positive battle terms in the game are objectives 7, 8 and 18–23
+([24](24-campaign-objectives.md) §6.1).
+
+`flag` and `flag2` are set while reading the two unit lists if **any** fleet in
+the battle had `fleetorders == 3` (Raid) or `== 1` (Blockade) respectively, so
+`!flag | !flag2` suppresses the naval code whenever a raid met a blockade —
+the engagement [26](26-naval-combat.md) §7.1 already treats as a skirmish
+rather than a fleet action. The land code has no such exclusion.
+
+**There are two implementations of the land formula**, and they differ.
+
+```
+// Autocalc.GetLossInfluenceOnNationalMorale(side, battleendtype)  ~3430
+num  = (int)(totalstrength[side] + totallosses[side]);     // DEAD, debug log only
+num2 = totallosses[side] ^ influenceonnationalmoralelossratefactor
+       × influenceonnationalmoraleabsolutelossfactor
+if this side retreated  (endtype 7 player / 2 enemy)  num2 *= …retreat
+if this side was beaten (endtype 8 player / 0 enemy)  num2 *= …battlelost
+return −num2
+```
+
+```
+// BattleUnits.GetLossInfluenceOnNationalMorale(side)  ~6015
+num  = sideinformation[side].totallosses ^ lossratefactor × absolutelossfactor
+num2 = clamp(1 − usedcampaignbonusrunning × nationalmoralelossmodifierdifficulty,
+             0.1, 1)
+if VictoryBarBelowTrigger() == side:
+        if side is not the player's   num *= num2        // AI discount
+        num *= influenceonnationalmoralebattlelost
+        if ltgenpolicy && c-in-c commands this side  num *= ltgenlossmorale
+else if this side left the field:
+        if side is not the player's   num *= num2        // AI discount
+        num *= influenceonnationalmoraleretreat   (endtype 4/7 own, 2 enemy)
+        num *= influenceonnationalmoralesurrender (endtype 5 own, 6 enemy)
+return −num
+```
+
+| Pref | Value | Note |
+| --- | --- | --- |
+| `influenceonnationalmoralelossratefactor` | **0.3** | the exponent on absolute casualties |
+| `influenceonnationalmoraleabsolutelossfactor` | 0.0004 | |
+| `influenceonnationalmoralebattlelost` | 2.0 | driven from the field |
+| `influenceonnationalmoraleretreat` | 1.5 | voluntary withdrawal |
+| `influenceonnationalmoralesurrender` | **3.0** | **live version only** |
+| `ltgenlossmorale` | 1.2 | **live version only** |
+| `nationalmoralelossmodifierdifficulty` | 1.0 | **live version only**; × `usedcampaignbonusrunning` ∈ [0, 0.5] |
+| `moraleinfluencenavaldefeats` | −0.00035 | per point of firepower destroyed |
+
+Four findings follow.
+
+**The exponent 0.3 makes the charge almost flat in casualties.** 250 losses
+cost 0.21 points, 50,000 cost 1.03 — a 200× range in blood for 5× in morale.
+Nothing is relative to army size: the one expression that computes starting
+strength is consumed by the debug log.
+
+**The auto-calculator is missing three of the live version's four
+multipliers** — the surrender ×3, the Lieutenant General ×1.2 and the AI
+difficulty discount. So auto-resolving and fighting the same battle produce
+different political consequences, and in opposite directions depending on who
+is losing: auto-resolve charges the AI at full price and charges the player
+less for capitulating.
+
+**The AI discount is sizeable where it applies.** At the maximum bonus of 0.5
+the enemy's charge is halved, floored at ×0.1.
+
+**Military experience is priced in destroyed national morale.** The same array
+is reused immediately afterwards:
+`militaryexperience += max(0, SumUp(array8) × milexpratio{victor,loser} × aiBonus)`
+with `milexpratiovictor = −1.1` and `milexpratioloser = −0.7` — negative
+coefficients on a negative array, so both sides gain in proportion to the
+battle's **total** morale damage, the winner 1.57× the loser.
+
+#### Code 3: town occupation
+
+`Town.UpdateOwnership` (~287) is the only writer:
+
+```csharp
+if (((owner == playeralliance) | (Owner == playeralliance)) && owner != Owner) {
+  if (frame >= 50 && owner >= 0) {
+    if ((float)Owner != originalowner && originalowner >= 0f)
+        alliance[owner].AdjustNationalMorale(3,
+            influenceonnationalmoraletowns * GetImportance() / 10f);   // −0.125 × imp/10
+    if ((float)Owner == originalowner)
+        alliance[Owner].AdjustNationalMorale(3,
+            −influenceonnationalmoraletowns * GetImportance() / 10f);
+    if (originalowner < 0f) originalowner = Owner;
+  }
+}
+```
+
+```csharp
+public int GetImportance()
+  => clamp(ceil(privatewealth * representingpopulation
+                / max(0.01f, topincome) * 10f), 0, 10);
+```
+
+The same method is also where two of [24](24-campaign-objectives.md) §12's
+eleven unattributed war-progress statics are written, both guarded on
+`Policy.CurrentChapter > 0` and on the town's state being loyal to the losing
+side:
+
+```csharp
+if (owner == 0 && Owner == 1 && chapter > 0 && nation[state].alliance == 0)
+    CampaignObjective.csacapturedtowns++;          // objective 12, "Capture 3 Cities"
+if (owner == 1 && Owner == 0 && chapter > 0 && nation[state].alliance == 1)
+    CampaignObjective.confederacyinvaded = true;   // objective 6, "Invade the Confederacy"
+```
+
+So **neither counter advances for a town in a border or occupied state**, and
+neither is ever decremented on recapture — `csacapturedtowns` is a lifetime
+count, the same shape as the recruiting pools
+([23](23-game-state.md) §5.2).
+
+Five properties, in rough order of how much they change play.
+
+**Only the losing side is charged; conquest earns nothing.** The first branch
+bills the previous owner. The second refunds the *original* owner on recapture.
+A town that changes hands and comes back is morale-neutral for both sides over
+the round trip, and the attacker's own morale is never touched in either
+direction.
+
+**`originalowner` is the campaign's opening ownership**, set by
+`Town.UpdateInitialOwnerships` from `nation[state].alliance`, overwritten by
+`cities.dat` special ownerships, and re-set whenever
+`GameVars.SetNationToNewAlliance` hands a state over with `handovertowns`. So
+the refund tracks the 1861 map, not the current front line.
+
+**`topincome` is a high-water mark that never decays.** It is `topincometemp`,
+which only ever takes a larger value and is never cleared between sweeps, so
+importance is each town's income as a share of the richest town's *all-time
+peak*. As the war impoverishes the country every town's importance ratchets
+down, and `ceil` puts almost every town at 1 — a flat **−0.0125** — while only
+the largest city in the game ever reaches 10, at **−0.125**.
+
+**The whole block is gated on the player being party to the transfer.** A town
+passing between two alliances that are both not the player — an intervention
+force taking a Confederate port — moves no national morale at all. The gate
+exists to decide whether to write a journal entry and a capture message; the
+morale adjustment was placed inside it.
+
+**A town whose `originalowner` is still −1 charges nobody** and then adopts its
+*captor* as the original owner, so the defender's later recapture earns
+nothing and its own subsequent loss is charged. No shipped town reaches
+`UpdateOwnership` in that state, because initialization always sets the field;
+it is a hazard for a mod that instantiates towns at runtime.
+
+A second, unrelated defect sits ten lines below, in the DLC event hook:
+
+```csharp
+if (nation[state].slaveryallowed)      Events.CheckEvent(…EnemyStateSlavery);
+else if (nation[state].slaveryallowed) Events.CheckEvent(…EnemyStateNonSlavery);
+```
+
+The `else if` repeats the `if`'s condition instead of negating it, in both the
+capture and the recapture arm, so the two **non-slavery** capture events are
+unreachable ([25](25-newspaper-and-events.md) covers the event catalogue).
+
+#### What reads `nationalmorale`
+
+Nine consumers, which is the whole set:
+
+| Reader | Effect |
+| --- | --- |
+| `CampaignObjective` 0 / 1 | `< breakmoraletrigger` (**0.25**) → `SetEndOfCampaign`. Chapters 0–3, i.e. always live |
+| `CampaignObjective` 26 / 27 | the 1864 election, `lincolnmaintainmoraleabove` / `demoralizevotersunionmoralelevel` = 0.50 ([24](24-campaign-objectives.md) §3.2) |
+| `Regiment` ~13693 | routed units **evaluate surrender** — see below |
+| `Regiment` ~6636 | desertions when a campaign formation disintegrates, interpolated `{0.5, 0.8}` at morale 0 → `{0.3, 0.5}` at 1 |
+| `BattleUnits` ~3867 | → `averagesupport` convergence (code 33) and the reverse pull into each loyal state (support code 3) |
+| `AICampaign.GetNationalMoraleFactor` | own ÷ enemy, **divides** the AI's threat estimate ([20](20-ai-campaign.md) §4.2) |
+| `AICampaign` ~1911 | the AI only recruits in a state whose support ≥ **its own national morale** |
+| `CampaignStrategy` ~469, ~551 | the two side figures, and the war bar |
+| `CampaignTopPanel` ~1132 | the player's own figure, as an integer percentage |
+
+The surrender rule is the bluntest politics→combat link in the game:
+
+```csharp
+// Regiment.Rout(), battle scene only (!calledfromcampaign)
+if (nationalmorale <= minnationalmoralesurrender          // 0.4
+ && sideinformation[side].averagemorale <= minavgarmymoralesurrender) {   // 0.5
+    b = nationalmorale * sideinformation[side].averagemorale;
+    b = 1f / Mathf.Pow(Mathf.Max(0.0001f, b), probsurrenderlowmoraleexp)  // 1.5
+        * probsurrenderlowmoralelin;                                      // 0.01
+    if (Random.Range(0f, 1f) < b) { Surrender(); return; }
+}
+```
+
+So the probability is `0.01 / (nationalmorale × armymorale)^1.5`, evaluated once
+per rout: **11 % at the gate (0.40 × 0.50), 37 % at 0.30 × 0.30, and certain
+below a product of 0.046.** It is tested before the melee-outflanked and
+surrender-counter paths, so a nation under 40 % morale loses routed brigades
+outright rather than rallying them.
+
+The war bar is worth one line of its own:
+
+```csharp
+NationalMoraleSlider.value = min(1, max(0, csa − 0.25)
+                               / max(0.0001, (union − 0.25) + (csa − 0.25)));
+```
+
+— the Confederacy's distance above the loss threshold as a share of both
+sides' distances above it, **not** a ratio of the two percentages. It is an
+honest and more sensitive readout than the figures beside it.
+
+#### The difficulty one-shot is discarded in campaign play
+
+`GameVars.usedcampaignbonus` is the campaign-setup "bonus" slider, 0 to 0.5,
+and [20](20-ai-campaign.md) §9.1 described it as adding flat national morale at
+scenario load. **That is not where it is applied.** It is applied inside
+`BattleUnits.import_battledata`, in the `!IsCampaign` branch — i.e. in the
+battle scene:
+
+```csharp
+for (int j = 0; j < 2; j++) {
+    …
+    if (alliance[j] != GameVars.playeralliance) {
+        sideinformation[j].militaryexp    *= 1f + GameVars.usedbonusbattles;
+        sideinformation[j].fightingspirit *= 1f + GameVars.usedbonusbattles;
+        GameVars.usedbonusbattles = 0f;
+        GameVars.alliance[j].nationalmorale += GameVars.usedcampaignbonus;
+        GameVars.alliance[j].volunteersadj  *= 1f + GameVars.usedcampaignbonus
+                                                  / 100f * bonusvolunteersmodifier;
+        GameVars.usedcampaignbonus = 0f;
+    }
+```
+
+Three defects in six lines.
+
+1. **In a campaign battle it is immediately overwritten.** `import_battledata`
+   is called at `BattleUnits` ~1401, and ~1403 runs
+   `ImportExportUnitData.OverwriteNationsData(…)` for operations 3, 4 and 8,
+   which re-reads `nationalmorale`, `volunteersadj` **and
+   `usedcampaignbonus`** from the save. So both effects are applied and
+   discarded, every battle, for the whole campaign. The slider's live effects
+   are the `…running` copy and `casualtiesmodifier`.
+2. **The write is indexed by seat, not by alliance.** The guard reads
+   `alliance[j]` (the side-to-alliance map) and the write reads
+   `GameVars.alliance[j]` (the alliance array). `battledata.dat`'s side 0 is
+   `callingunit.alliance`, the side that *initiated* the battle, so in any
+   battle the AI started the bonus is written to the player's alliance.
+3. **The volunteers line is scaled for a 0–50 slider.** The config label reads
+   *"50 bonus and value of 0.5 here means 25% more volunteers"*, and
+   `bonusvolunteersmodifier` ships at 1.0 — so the intent is +50 % at the
+   maximum. With the shipped slider maximum of 0.5 the expression yields
+   **+0.5 %**. Conversely `nationalmorale += 0.5` is scaled for a [0, 1] field
+   and would be **+50 points**, unclamped, so the two uses of the same variable
+   disagree by two orders of magnitude.
+
+> The net effect is that the difficulty slider gives the AI no morale head
+> start at all — which is the reason the +50 has never been noticed. A mod that
+> moved the write into the campaign scene without rescaling it would pin one
+> side at the ceiling for the whole war.
+
+---
+
 ## 4. Foreign intervention
 
 `Alliance.interventionlevels[]` — one accumulator per alliance **per foreign
@@ -889,6 +1189,26 @@ Progress is tracked in static fields on the class itself:
 `militiaact1csabeforeunionnationalmorale`,
 `militiaact1unionaftercsanationalmorale`.
 
+**Battles, towns and surrender (§3a):** `influenceonnationalmoraletowns`
+(−0.125), `influenceonnationalmoralelossratefactor` (0.3),
+`influenceonnationalmoraleabsolutelossfactor` (0.0004),
+`influenceonnationalmoralebattlelost` (2.0),
+`influenceonnationalmoraleretreat` (1.5),
+`influenceonnationalmoralesurrender` (3.0, live path only),
+`ltgenlossmorale` (1.2, live path only),
+`nationalmoralelossmodifierdifficulty` (1.0, live path only),
+`moraleinfluencenavaldefeats` (−0.00035), `minavgarmymoralesurrender` (0.5),
+`probsurrenderlowmoralelin` (0.01), `probsurrenderlowmoraleexp` (1.5),
+`desertionsdisintegrationnatmorale0` {0.5, 0.8} /
+`desertionsdisintegrationnatmorale1` {0.3, 0.5}, `milexpratiovictor` (−1.1),
+`milexpratioloser` (−0.7), `bonusvolunteersmodifier` (1.0),
+`abolitionunionmorale` (+0.05) / `abolitioncsamorale` (**+0.10**),
+`newspaperminornatmoraleloss` (−1.0) / `newspapermediocrenatmoraleloss`
+(−2.0, both unreachable — see
+[ui-vs-simulation](../mechanics-findings/ui-vs-simulation.md) §2.2), and
+`industrialpolicynationalmorale`, shipped at **0** with no writer for
+national-morale code 32.
+
 **Intervention:** `higherinterventionlevels`, `interventionlevelincrease`,
 `winbattleinterventionlevelunion`, `winbattleinterventionlevelcsa`,
 `pullbackinterventionarmies`, `pullbackinterventionfleets`,
@@ -1011,3 +1331,22 @@ Progress is tracked in static fields on the class itself:
     the reenlistment ratio, and no unit gains strength
     ([23](23-game-state.md) §5.2). Either the sign is inverted or the strength
     half of the feature was never written.
+13. **Whether the two uses of `usedcampaignbonus` were written against
+    different scales, and whether the campaign-path overwrite is intentional**
+    (§3a). The volunteers line divides by 100 and the morale line does not; the
+    config label is written for a 0–50 slider and the shipped maximum is 0.5.
+    Either the slider range or both call sites are wrong, and as shipped both
+    effects are discarded in campaign play, which hides the question.
+14. **Whether taking a town should credit the captor** (§3a). Only the former
+    owner is charged, so national morale has no conquest term at all outside
+    the scripted objectives — defensible as design, but the config label
+    ("influence on national morale when enemy towns are occupied") reads as
+    though it should apply to the occupier.
+15. **Whether the auto-calculator's three missing multipliers are deliberate**
+    (§3a). Dropping the surrender ×3 and the Lieutenant General ×1.2 could be
+    simplification; dropping the AI's difficulty discount changes the balance
+    of a campaign depending on how the player resolves battles.
+16. **Why `Town.topincometemp` is never reset** (§3a). As a high-water mark it
+    makes every town's importance — and therefore the morale cost of losing
+    it — fall monotonically over a campaign. A per-sweep reset is a one-line
+    change and would make late-war cities matter as much as early-war ones.

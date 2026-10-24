@@ -113,7 +113,7 @@ the evidence than in a central list.
 
 | File | Contents |
 | --- | --- |
-| [17-politics-and-support](17-politics-and-support.md) | State support and its 42 reason codes, national morale and the loss condition, the three continuous couplings (including private wealth as a derivative), state loyalty decided once on the day the war starts, foreign intervention with its zero floor and per-scenario starting relations, the intervention script's sign and routing errors, recruitment with the Militia and Draft Act ladders, contracts and the reenlistment roll, and the support-breakdown NaN bug |
+| [17-politics-and-support](17-politics-and-support.md) | State support and its 42 reason codes, national morale and the loss condition, the three continuous couplings (including private wealth as a derivative), state loyalty decided once on the day the war starts, foreign intervention with its zero floor and per-scenario starting relations, the intervention script's sign and routing errors, recruitment with the Militia and Draft Act ladders, contracts and the reenlistment roll, **the battle, naval and town-occupation writers with every shipped magnitude**, the nine consumers of national morale including the battle surrender roll, the difficulty one-shot that is discarded in campaign play, and the support-breakdown NaN bug |
 
 ### Economy — [summary](summary-economy.md)
 
@@ -131,7 +131,7 @@ the evidence than in a central list.
 
 | File | Contents |
 | --- | --- |
-| [20-ai-campaign](20-ai-campaign.md) | The 36-step job scheduler; the texture-derived zone map, the value map and the heatmaps; offensive and defensive operations; recruiting; AI personalities; the difficulty sliders and the ten hardcoded cheats; intervention as a script; two determinism problems |
+| [20-ai-campaign](20-ai-campaign.md) | The 36-step job scheduler; the texture-derived zone map, the value map and the heatmaps; offensive and defensive operations; recruiting; AI personalities; the difficulty sliders and the ten hardcoded cheats, one of whose one-shots never takes effect in a campaign; intervention as a script; two determinism problems |
 
 ### Battle AI — [summary](summary-ai-battle.md)
 
@@ -155,7 +155,7 @@ the evidence than in a central list.
 
 | File | Contents |
 | --- | --- |
-| [24-campaign-objectives](24-campaign-objectives.md) | All 38 objectives by id with chapters, dates, prerequisites and prestige; the 1862 election's two-day window and the 1864 election's doubled penalty, which makes it an immediate loss; the other half of the intervention trigger; national-morale codes 4–12/14 and support codes 7/8/41 mapped to their writing objectives; how objectives choose the map state set |
+| [24-campaign-objectives](24-campaign-objectives.md) | All 38 objectives by id with chapters, dates, prerequisites and prestige; the 1862 election's two-day window and the 1864 election's doubled penalty, which makes it an immediate loss; the other half of the intervention trigger; national-morale codes 4–12/14 and support codes 7/8/41 mapped to their writing objectives; how objectives choose the map state set; and the two war-progress statics written by the town-capture path |
 
 ### Newspaper and events — [summary](summary-newspaper.md)
 

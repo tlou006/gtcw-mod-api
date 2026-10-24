@@ -177,6 +177,13 @@ pre-war policy or a 101st project** — the slots must be filled in place.
 > [11-combat-resolution](11-combat-resolution.md): it is the bonus slider ×
 > `casualtiesmodifierbonus`, set once in `MainMenu`.
 
+> **The non-running copy of the bonus does nothing in a campaign.** Its
+> one-shot — flat national morale and a volunteers multiplier for the AI — is
+> applied in the battle scene's `battledata` import and overwritten by
+> `OverwriteNationsData` in the very next statement, every battle, for the
+> whole campaign. It is also indexed by battle seat rather than alliance id
+> ([17](17-politics-and-support.md) §3a).
+
 The ten cheats are **literal constants on `GameVars`, not config**, and all are
 disabled in AI-vs-AI. The live ones: zero order delay for AI units in contact,
 no morale loss while regrouping, retreat morale loss at **0.35×** (two

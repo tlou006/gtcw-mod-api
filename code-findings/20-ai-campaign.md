@@ -714,8 +714,23 @@ GameVars.casualtiesmodifier        = bonus * GamePrefs.casualtiesmodifierbonus;
 > which answers the provenance question left open in
 > [11-combat-resolution](11-combat-resolution.md).
 
-`usedcampaignbonus` is a **one-shot**: at scenario load it adds flat national
-morale and multiplies `volunteersadj`, then **zeroes itself**.
+`usedcampaignbonus` is a **one-shot that never takes effect in a campaign.**
+It is applied in `BattleUnits.import_battledata`'s `!IsCampaign` branch — the
+battle scene — where it adds itself to the AI's `nationalmorale`, multiplies
+`volunteersadj`, and zeroes itself. In a campaign battle the statement
+immediately after `import_battledata` is
+`ImportExportUnitData.OverwriteNationsData(…)`, which re-reads all three
+values from the save, so the bonus is applied and discarded at every battle
+for the whole campaign. The write is also indexed by **battle seat** rather
+than alliance id, and the volunteers line is scaled for a 0–50 slider against
+a shipped maximum of 0.5. Full account in
+[17](17-politics-and-support.md) §3a.
+
+> **Corrects an earlier reading of this file**, which had the one-shot applying
+> at scenario load. The practical consequence is that the difficulty slider's
+> only lasting effects are `usedcampaignbonusrunning` and
+> `casualtiesmodifier`.
+
 `usedcampaignbonusrunning` is the persistent one and feeds subsidies
 (`influenceaibonusonsubsidies`), national-morale loss resistance, finances
 (`influenceaibonusonfinances`), weapons production

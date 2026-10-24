@@ -395,6 +395,40 @@ Source: [17](../code-findings/17-politics-and-support.md) §5b, §2,
 [14](../code-findings/14-supply-and-logistics.md) §3b,
 [the-manpower-tap](the-manpower-tap.md) §8.
 
+### 1.14 The 1864 election tooltips promise −20 and deliver the campaign
+
+Two campaign objectives key off 9 November 1864, "Maintain Morale Above 50" for
+the Union and "Union Morale below 50" for the Confederacy. **Each tooltip reads
+*"Union national morale −20"*.**
+
+Both are live in the same chapter, both are in their unmet branch when Union
+national morale is below 50 % that day, and the objective sweep walks them in
+id order inside one loop — so the Union is charged **−20 twice**. The charge
+only happens from below 50 to begin with, so −40 lands the Union under the
+25 % loss threshold, and "Break Union Morale" is evaluated in the same sweep,
+which runs every ten game minutes.
+
+| The tooltip implies | What happens |
+| --- | --- |
+| a −20 setback to recover from | −40, and the campaign ends that afternoon |
+| the loss arrives at the March 1865 inauguration | that branch is unreachable in both directions |
+| nothing about a threshold | it is a pass/fail test at exactly 50 points |
+
+> **What to do with this:** for a Union player, 9 November 1864 is the single
+> most important date in the campaign and the tooltip does not say so. Plan
+> 1863–64 around being at 50 or better that week. Clearing it removes the cliff
+> permanently — holding the line is exactly the condition that advances the
+> chapter and switches both objectives off.
+
+Two breakdown lines in the same panel cannot be read back to a cause either:
+*"Battles (Objectives)"* collects invading the North, five consecutive land
+victories, five consecutive naval victories and beating a European
+intervention; *"Elections (Objectives)"* covers both this charge and the inert
+1862 midterm rate.
+
+Source: [24](../code-findings/24-campaign-objectives.md) §3.2, §6.1,
+[how-you-lose](how-you-lose.md) §7.
+
 ## 2. Things the game tells you in words that are not true
 
 ### 2.1 The perk tooltip describes a system that does not exist
@@ -754,7 +788,7 @@ Sources: [11](../code-findings/11-combat-resolution.md) §2,
 
 ---
 
-## 5. For modders: eleven label traps
+## 5. For modders: thirteen label traps
 
 None is player-facing, but each will bite a tool that reports game state.
 
@@ -831,6 +865,20 @@ campaign"*, and the campaign path multiplies by 365 to reconcile them
 the value meant for it, but a tool reporting "the day length" or "the rally
 value" has to say which scene it means — and a modder editing one file changes
 only one scene.
+
+**`influenceonnationalmoraletowns` is charged to the loser, not the
+occupier.** The label reads *"influence on national morale when enemy towns are
+occupied (multiplier to town importance)"*, which describes the occupier's
+gain; the code bills the former owner and credits only the *original* owner on
+recapture, so there is no occupier term at all
+([17](../code-findings/17-politics-and-support.md) §3a).
+
+**`bonusvolunteersmodifier`'s label is written for a slider the game does not
+have.** *"50 bonus and value of 0.5 here means 25 % more volunteers"* implies a
+0–50 difficulty bonus; the shipped slider maximum is **0.5**, and the
+expression divides by 100, so the effect is a hundredth of the labelled one —
+in the dead code path of §3a besides
+([17](../code-findings/17-politics-and-support.md) §3a).
 
 ---
 

@@ -140,6 +140,41 @@ of the simulation/UI entanglement flagged in
 `GetBalanceDescription()` also leaves **`0.8333 ≤ balance < 0.9167`
 uncovered**, returning an empty string for that band.
 
+## The loss condition, in numbers
+
+National morale below `breakmoraletrigger = 0.25` ends the campaign, tested by
+campaign objectives 0 and 1 in every chapter. **Nothing else ends a campaign**
+— there is no fourth chapter and no terminal date — except the Union's 1864
+election cliff ([24](24-campaign-objectives.md) §2.1, §3.2). Starting values
+are authored per scenario: 1.00 in Spring 1861, falling to 0.75 by Spring 1864
+([17](17-politics-and-support.md) §3a).
+
+Codes 1, 2 and 3 — battles, naval engagements and town occupation, the three
+the player generates by playing — were the last unmapped writers, and they
+turn out to be the *smallest* terms in the model:
+
+| Mover | Shipped magnitude |
+| --- | --- |
+| State support convergence (code 33) | **0.5/yr × the gap** — a 2-year time constant |
+| Private wealth growth (code 34) | **10.0/yr on the month-over-month change** |
+| Losing a capital (code 4) | −0.20 |
+| The 1864 election (code 8) | **−0.40**, charged twice from two objectives |
+| A town (code 3) | `−0.125 × importance/10` → −0.0125 for almost every town |
+| A battle (code 1) | `losses^0.3 × 0.0004`, ×2 lost / ×1.5 retreat / ×3 surrender |
+
+> **The exponent 0.3 is why battles do not decide campaigns.** 250 casualties
+> cost 0.21 points and 50,000 cost 1.03 — a 200× range in blood for 5× in
+> morale, with no reference to army size at all. Both sides are charged their
+> own casualties, the winner included, and **there is no victory bonus** in the
+> national-morale path outside the scripted objectives.
+
+Politics decides it instead. National morale converges on `averagesupport` at
+half the gap per year, so **over a four-year campaign it ends up wherever your
+state support is** — and if support stays above 0.25 the convergence alone can
+never lose you the war. Towns matter mostly through the other end: an occupied
+town bleeds its state's support at −1.00/yr × the share occupied, the heaviest
+support term in the file, which then feeds back into morale.
+
 ## The manpower tap, in numbers
 
 Every state holds one recruiting pool per side, and both are **lifetime
@@ -188,6 +223,33 @@ shipped and never read.
 
 ## Smaller findings
 
+- **Low national morale makes routed units surrender.** Below 0.40 national
+  morale *and* 0.50 army morale, every rout rolls
+  `0.01 / (natmorale × armymorale)^1.5` — 11 % at the gate, certain below a
+  product of 0.046 ([17](17-politics-and-support.md) §3a). A surrendered army
+  then triples that battle's own morale charge, which lowers national morale,
+  which raises the next probability.
+- **The difficulty slider gives the AI no morale head start.**
+  `usedcampaignbonus` is applied in the battle scene's `battledata` import and
+  overwritten by `OverwriteNationsData` two statements later, so in a campaign
+  it is applied and discarded at every battle. It is also indexed by battle
+  *seat* rather than alliance, and its volunteers line is scaled for a 0–50
+  slider against a shipped maximum of 0.5 — +0.5 % instead of +50 %. Corrects
+  [20](20-ai-campaign.md) §9.1 ([17](17-politics-and-support.md) §3a).
+- **Taking a town earns the captor nothing**; only the former owner is charged,
+  and only the *original* owner is refunded on recapture. And because
+  `Town.topincometemp` is a high-water mark that never resets, every town's
+  importance — and so the morale cost of losing it — ratchets down as the war
+  impoverishes the country.
+- **The auto-calculator prices battles differently from the battle scene**,
+  omitting the surrender ×3, the Lieutenant General ×1.2 and the AI's own
+  morale-loss discount.
+- **The Union's Abolition act gives the Confederacy +0.10 national morale and
+  the Union +0.05.** USCT and Emancipation work the same way and are labelled
+  as such; the 2:1 ratio on Abolition is the one that looks like a slip.
+- **Two town-capture DLC events are unreachable**: an `else if` repeats its
+  `if`'s `slaveryallowed` condition instead of negating it, in both the capture
+  and the recapture arm.
 - **`recruitable` is written in exactly one place** — the Union's Militia Act I,
   which unlocks ten border states for *both* sides. Seven states (California,
   Oregon, Nevada, Utah, Dakota, Nebraska, Unorganized) ship unrecruitable and

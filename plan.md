@@ -1087,19 +1087,91 @@ largest named gap in the logistics subsystem.
   replacements, consumed by `Economy` as per-goods national demand — so
   recruiting bids up its own equipment prices.
 
-**Next:** `how-you-lose.md`, the sixth item on the planned index
-([17](code-findings/17-politics-and-support.md),
-[24](code-findings/24-campaign-objectives.md)) — the natural follow-on, because
-the manpower pass ends on national morale from both directions at once: it is
-what pulls every loyal state's support back up, what the elections turn on, and
-what makes units surrender outright. The standing code-side backlog loses
-**reinforcement and replacement flow** (closed by this pass) and gains three
-items: the **recruiting panel's own arithmetic** against the pool formulas, the
-**eight `Camp.GetModifier` ids**, and **whether `GetReinforcementspeedWinter`
-is dead code or a call site that was lost** — the only published rule found so
-far with two disagreeing implementations and no live one matching the label.
-The campaign map's unit-to-mile scale still needs an asset dump, and now bounds
-the replacement-distance figures as well as the foraging ones.
+**Pass 12 — `mechanics-findings/how-you-lose.md`** (sixth item off the planned
+index). Translating [17](code-findings/17-politics-and-support.md) and
+[24](code-findings/24-campaign-objectives.md), and in the process closing the
+last three unmapped national-morale reason codes — the three the player
+generates by playing.
+
+- **There is exactly one loss condition and no time limit.** Campaign
+  objectives 0 and 1 are live in every chapter and test nothing but the other
+  side's `nationalmorale` against `breakmoraletrigger = 0.25`. The chapter
+  machine has three transitions and no fourth chapter, and the only
+  date-driven end-of-campaign call in the assembly is unreachable. **A war
+  neither side is losing runs indefinitely.**
+- **Codes 1, 2 and 3 — battles, naval engagements, town occupation — are the
+  smallest terms in the model.** Now [17](code-findings/17-politics-and-support.md)
+  §3a with every shipped magnitude.
+- **The exponent 0.3 is why battles do not decide campaigns.** The charge is
+  `losses^0.3 × 0.0004`: **250 casualties cost 0.21 points and 50,000 cost
+  1.03**, a 200× range in blood for 5× in morale, with no reference to army
+  size — the one expression that computes starting strength feeds only a debug
+  line. **Both sides are charged, the winner included**, and there is no
+  victory bonus in the national-morale path at all.
+- **There are two implementations of that formula** and the auto-calculator's
+  is missing three of the live version's four multipliers: the surrender ×3,
+  the Lieutenant General ×1.2 and the AI's difficulty discount. So
+  auto-resolving charges the AI at full price and charges the player less for
+  capitulating.
+- **Towns charge the loser, never the captor**, at `−0.125 × importance/10` —
+  and because `ceil` puts almost every town at importance 1, that is a flat
+  **−1.25 points**, with only the single largest city in the game reaching
+  −12.5. The expensive half is the state's support bleeding at **−1.00 per
+  annum × the share of its towns occupied**.
+- **`Town.topincometemp` is a high-water mark that never resets**, so every
+  town's importance — and the morale cost of losing it — ratchets down as the
+  war impoverishes the country.
+
+- **The two continuous taps decide the war.** National morale converges on
+  `averagesupport` at half the gap per year — a two-year time constant, so
+  **over four years it ends up wherever your state support is** — and if
+  support holds above 25 % the convergence alone can never lose you the
+  campaign. The private-wealth term pays on month-over-month *growth* at
+  10.0/yr, about **±0.4 points per point of growth in a month**.
+- **The 1864 election is a pass/fail test at 50 points**, charged −20 twice
+  from two objectives in one loop, which puts the Union under the floor
+  immediately. Both tooltips promise "−20". New
+  [ui-vs-simulation](mechanics-findings/ui-vs-simulation.md) §1.14, and
+  [summary-campaign-objectives](code-findings/summary-campaign-objectives.md)
+  corrected, which still carried the superseded "ends at the inauguration"
+  reading.
+- **Below 40 % national morale routed units surrender instead of rallying**,
+  at `0.01 / (natmorale × armymorale)^1.5` per rout — 11 % at the gate and
+  certain below a product of 0.046 — and a surrendered army triples that
+  battle's own morale charge, which raises the next probability.
+- **The difficulty slider gives the AI no morale head start.**
+  `usedcampaignbonus`'s one-shot is applied in the battle scene's
+  `battledata` import and overwritten by `OverwriteNationsData` in the next
+  statement, every battle, for the whole campaign. It is also indexed by
+  **battle seat** rather than alliance id — in a battle the AI initiated it
+  would land on the player — and its volunteers line, scaled for a 0–50
+  slider against a shipped maximum of 0.5, is worth +0.5 % rather than +50 %.
+  Corrects [20](code-findings/20-ai-campaign.md) §9.1 and
+  [summary-ai-campaign](code-findings/summary-ai-campaign.md).
+- **Two of findings/24's eleven unattributed war-progress statics are
+  located**: `Town.UpdateOwnership` writes `csacapturedtowns` and
+  `confederacyinvaded`, each guarded on the town's state being loyal to the
+  side losing it, so neither advances in a border state and neither is undone
+  on recapture.
+- Smaller: **the Union's Abolition act gives the Confederacy +10 national
+  morale and the Union +5**; the war bar is normalised to the 25 % floor
+  rather than being a ratio of the two percentages, which makes it the one
+  readout here that is *more* informative than it looks; and two DLC
+  town-capture events are unreachable because an `else if` repeats its `if`'s
+  condition instead of negating it.
+
+**Next:** `policy-order.md`, the seventh item on the planned index
+([22](code-findings/22-policy-and-project-catalogue.md),
+[9](code-findings/09-policy-and-project-effects.md)) — the natural follow-on,
+because this pass ends by showing that **policies are the only lever that
+moves national morale in single-digit points**, and the two files behind it
+already hold the catalogue, the research rate and the per-id effects. The
+standing code-side backlog loses nothing and gains four items: whether the
+difficulty one-shot's two uses were written against different scales, whether
+the auto-calculator's three missing multipliers are deliberate, why
+`topincometemp` is never reset, and the remaining nine war-progress statics,
+which should fall out of reading `ExportBattleResultData` and the fort-capture
+path.
 
 **Exit criteria per file:** a reader who has never opened `code-findings/` can
 act on it, and every claim in it can be traced back to a section that supports

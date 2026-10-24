@@ -140,6 +140,18 @@ Objectives 2 and 3 are the **Confederate capital move modelled as a policy
 switch**: policy 170 ("The Old Dominion", the one findings/22 found gated on
 Virginia still being Union) flips which city the Union must take.
 
+**Objectives 0 and 1 are the game's only loss condition.** Their chapter list
+is 0–3, so they are live from the first day of a campaign to the last, and each
+tests nothing but the other alliance's `nationalmorale` against
+`breakmoraletrigger = 0.25` before calling `SetEndOfCampaign`. Nothing
+anywhere ends a campaign on a calendar date: the chapter machine has three
+transitions and no fourth chapter (findings/22 §4), and the one date-driven
+end-of-campaign call in the file — objective 27's 4 March 1865 branch — is
+unreachable (§3.2). **A war that neither side is losing runs indefinitely.**
+Both objectives hold the end of the campaign until the newspaper queue drains,
+which is the only consumer of `Newspaper.IsNewspaperOpened()`
+([25](25-newspaper-and-events.md)).
+
 ### 2.2 Scenario `002` — ids 29–37
 
 A different shape entirely: **town/IIP lists, no id-specific logic (except
@@ -394,7 +406,10 @@ It is the same no-dispatch shape as findings/09's `default`-less switch in
 
 ## 6. Reason codes written here
 
-This closes the last gaps in findings/17's and findings/22's tables.
+This closes the last gaps in findings/17's and findings/22's tables. The three
+codes this file does *not* write — **1 Battles, 2 Naval engagements, 3 Town
+occupation**, the ones the player generates by playing — are in
+[17](17-politics-and-support.md) §3a.
 
 ### 6.1 National morale (`AdjustNationalMorale(code, value)`)
 
@@ -559,13 +574,18 @@ and therefore correct — but it is the reason the §1.2 hazard matters.
 
 ## 12. Open questions
 
-- **Who writes the eleven statics.** `unioncapturedforts`, `csacapturedtowns`,
+- **Who writes the eleven statics.** `unioncapturedforts`,
   `consecutivevictories[4]`, `winmajorbattleintervention`, `unioncasualties`,
-  `confederacyinvaded`, `csavictoryenemysoil`, `victoryagainstgb/fr` are all
-  read here and set elsewhere — almost certainly
-  `ImportExportUnitData.ExportBattleResultData` and the town/fort capture
-  paths. The `consecutivevictories` array has **four** slots for two sides and
-  two battle kinds; which index is which is unconfirmed.
+  `csavictoryenemysoil`, `victoryagainstgb/fr` are all read here and set
+  elsewhere — almost certainly
+  `ImportExportUnitData.ExportBattleResultData` and the fort capture path. The
+  `consecutivevictories` array has **four** slots for two sides and two battle
+  kinds; which index is which is unconfirmed. **Two are now located:**
+  `Town.UpdateOwnership` increments `csacapturedtowns` and sets
+  `confederacyinvaded`, each guarded on `CurrentChapter > 0` and on the town's
+  state being loyal to the side losing it — so neither advances for a town in
+  a border or already-occupied state, and neither is undone on recapture
+  ([17](17-politics-and-support.md) §3a).
 - **`Frontline2.FrontlineTextureDateToBeUsedFrom`** — the state-set cut-over
   dates are inspector data; an asset dump would close §8 completely.
 - ~~**`Newspaper` and `historicalevents.dat`.** `LaunchNewspaperMessage` and the
