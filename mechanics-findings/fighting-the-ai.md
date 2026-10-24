@@ -30,8 +30,8 @@ Sources: [20-ai-campaign](../code-findings/20-ai-campaign.md) and
   passes, so at 16× it does a quarter of the work per game-day; in battle the
   unit-level AI is frame-gated, so speeding up starves it while leaving the
   high-level decisions untouched.
-- **The AI launches no offensive operations at all in chapter 0**, and almost
-  none in winter — the probability modifier is **×0.05**.
+- **The AI launches no offensive operations at all in chapter 0**, and one
+  fifth as many in winter — the probability modifier is **×0.2**.
 - **The Confederate AI attacks at half the Union AI's rate**, by a shipped
   per-side constant.
 - **An aggressive general makes the AI attack at a numerical disadvantage**,
@@ -182,6 +182,46 @@ it is admitted **whether or not it is concealed**.
 > they simply have no effect on what the enemy's units notice. Do not plan a
 > flank march on the assumption that it is unobserved.
 
+### 4.4 Your intelligence rating does not buy you better tracking
+
+The one thing that does work in your favour on the campaign map is the
+**last-seen mark** — the ghost marker a hidden enemy formation leaves behind.
+The config says how often you should get one, and it says it depends on your
+intelligence in that place: *"Time factor for enemy spottings, based on
+intelligence"*, **0.1 game years** at intelligence 0 falling to **0.003** at
+intelligence 1. Those are about **33 days** and **1 day** between marks.
+
+Neither number is read. The formula builds its interval from a different array
+in a different file — the per-unit-type **concealment** factors, which ship as
+**−50** and **−60** — and because the result is negative it trips a floor of
+0.001, inflating the chance of a mark by roughly a thousand times.
+
+| | What the config describes | What the game does |
+| --- | --- | --- |
+| Intelligence 0 | a mark about every **33 days** | a mark as soon as it can |
+| Intelligence 1 | a mark about every **day** | a mark as soon as it can |
+| Time to the 90 % ceiling | 33 days / 1 day | **about 8 game hours** |
+
+> **Intelligence does not make you track enemy formations more often.** Nor do
+> the two perks built to shift it — Field Telegraph and the Bureau of Military
+> Information push the same number in opposite directions
+> ([commanders worth having](commanders-worth-having.md) §10), and at a
+> thousand times its intended size the ceiling swallows both.
+>
+> What *is* live is distance: a formation has to have moved **40 units** from
+> its last mark before a new one can appear. And intelligence still decides
+> what the mark *says* — showing the unit's type needs intelligence of 0.6 or
+> better.
+>
+> So the practical reading is the generous one: **you get a trail on anything
+> that moves, almost regardless of your intelligence investment.** Recruit
+> Agents, cavalry screens and the intelligence perks are worth having for
+> readiness and for the enemy figures you are shown
+> ([ui-vs-simulation](ui-vs-simulation.md) §1.7) — not for the frequency of
+> last-seen marks.
+>
+> Source: [29](../code-findings/29-dead-prefs-audit.md) §4.1.
+
 ---
 
 ## 5. Fast-forwarding starves the AI
@@ -269,7 +309,7 @@ threshold = aggressiveness[chapter] × elapsed × 10
 | --- | --- |
 | Union | **1.0** |
 | Confederacy | **0.5** |
-| Winter | **×0.05** |
+| Winter | **×0.2** |
 
 Four readings, all actionable.
 
@@ -281,9 +321,13 @@ Act I passes can provoke an attack.
 against the Confederate AI is a materially quieter campaign than the reverse,
 at identical slider settings.
 
-**Winter is a twenty-fold reduction.** Offensive operations are multiplied by
-0.05 between the winter-quarters months; defensive ones by 0.2. **Winter is
-when you reposition.**
+**Winter is a five-fold reduction, not a twenty-fold one.** Offensive and
+defensive operations are **both** multiplied by **0.2** between the
+winter-quarters months, because the offensive path reads the defensive
+constant. The game ships a dedicated ×0.05 offensive winter modifier and
+**never reads it**
+([29](../code-findings/29-dead-prefs-audit.md) §4.2). **Winter is still when
+you reposition** — just not as safely as the config implies.
 
 **And the cubic term is the anti-stall mechanism.** A force that has not moved
 accumulates `t³` on its threshold, reaching certainty after about a year.
@@ -563,9 +607,10 @@ callers and two guards are inverted.
 5. **Keep your national morale up for operational reasons.** The AI's threat
    estimate is divided by the ratio of the two national morales, so your
    decline invites attacks.
-6. **Use winter.** Offensive operations are multiplied by **0.05** and
-   defensive ones by 0.2 between the winter-quarters months. It is the only
-   period you can reposition freely.
+6. **Use winter, but do not trust it completely.** Both offensive and
+   defensive operations are multiplied by **0.2** between the winter-quarters
+   months — one in five of the attacks you would otherwise face, not one in
+   twenty. It is still the best window to reposition in.
 7. **Expect nothing before Militia Act I** and expect Manassas after early
    July 1861 as the Confederacy.
 8. **Force a stalled AI army to move**, or it will attack you within a year.

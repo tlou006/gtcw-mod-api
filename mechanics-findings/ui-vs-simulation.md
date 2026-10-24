@@ -565,6 +565,34 @@ states the test.
 
 Source: [28](../code-findings/28-project-effect-reachability.md) §4.2a.
 
+### 1.20 The power-balance readout has thresholds for two of its five tiers
+
+`battleprefs.txt` ships a five-tier band for the in-battle power-balance
+indicator — minor victory at a victory-point relation of 0.7 or better, major
+victory at 0.8, minor defeat at 0.3 or worse, major defeat at 0.2, and
+critical losses above a 0.4 loss ratio. **Three of the five are parsed and
+never read.**
+
+| Tier | Shipped | Read? |
+| --- | --- | --- |
+| Minor victory | 0.7 | **no** |
+| Major victory | 0.8 | **no** |
+| Minor defeat | 0.3 | **no** |
+| Major defeat | 0.2 | yes |
+| Critical losses | 0.4 | yes |
+
+Nor are the two survivors used as tiers. The major-defeat value gates one
+branch of the recorded victory type, and the critical-loss value adds a single
+sentence to the Major Defeat panel — *"Surrendering, to prevent further
+bloodshed, could be lesser of two evils…"* — once you have lost 40 % or more.
+
+The tier you are actually shown comes from the victory-point comparison and the
+`losstriggersown` / `losstriggersenemy` casualty test, which the Major Defeat
+text quotes at you directly. So the five numbers in the config are not the
+ladder the panel uses, and editing them changes almost nothing.
+
+Source: [29](../code-findings/29-dead-prefs-audit.md) §6.2.
+
 ---
 
 ## 2. Things the game tells you in words that are not true

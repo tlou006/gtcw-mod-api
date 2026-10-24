@@ -566,7 +566,7 @@ project could not find prefs for.
 
 | Perk | Effect at I / II / III |
 | --- | --- |
-| **Field Telegraph** | **order delays ×0.9 / 0.8 / 0.7**; information delay ×1.0 / 0.75 / **0.5** |
+| **Field Telegraph** | **order delays ×0.9 / 0.8 / 0.7**; information delay ×1.0 / 0.75 / **0.5** — but that half reaches nothing (§10.3) |
 | **Siege Train** | siege weapon strength **×1.25 / 1.50 / 2.00** |
 | **Engineers & Mechanics** | construction speed **×1.25 / 1.50 / 2.00** |
 | **Sappers and Miners** | siege assault efficiency **×1.25 / 1.50 / 2.00** |
@@ -623,6 +623,28 @@ absolute factors.
 > gain and the enemy's loss, which is the strongest support lever any unit has
 > ([the manpower tap](the-manpower-tap.md) §6) — and do not expect the casualty
 > half to improve.
+
+### 10.3 The two information-delay perks act on a saturated number
+
+Field Telegraph and the **Bureau of Military Information** both act on the same
+figure — the chance that an enemy formation leaves your side a *last-seen
+mark* — and they push it in opposite directions, the telegraph concealing its
+own formation and the Bureau exposing it. Neither does anything in the shipped
+build.
+
+The figure they multiply is about **a thousand times** larger than intended,
+because the formula that builds it reads a per-unit-type concealment array
+(shipping −50 and −60) where it wants two spotting-interval values (0.1 and
+0.003 game years), and the negative result trips a floor. It therefore sits at
+its 90 % ceiling after roughly **eight game hours** whichever way a perk pushes
+it.
+
+> **So Field Telegraph is an order-delay perk and nothing else**, and the
+> Bureau of Military Information's headline effect is inert. Take Field
+> Telegraph for the ×0.7 on order delays, which is real and large
+> ([fighting the AI](fighting-the-ai.md) §4.4 for the full arithmetic).
+>
+> Source: [29](../code-findings/29-dead-prefs-audit.md) §4.1.
 
 ---
 

@@ -226,10 +226,13 @@ class is larger.
 > modifier. These two look like an abandoned first implementation of the same
 > idea, left in the config file where a modder will find them.
 
-The remaining ~137 are **Untested** as a group: the sweep says they have no
-qualified reference, but each needs the same by-hand check before being called
-dead, and a handful are plainly engine-side (camera, cloud and heatmap
-parameters) where nothing is at stake for gameplay.
+**That sweep is now completed** as
+[29-dead-prefs-audit](29-dead-prefs-audit.md): **144** prefs are loaded and
+never read and **4** are declared without even a loader line, every one checked
+by hand. 90 of the 144 are gameplay-facing; the rest are presentation,
+scheduling and DLC plumbing. Chasing why each was dead also turned up five live
+defects, two of which correct numbers published elsewhere in this repo — the
+spotted-enemy mark interval and the AI's winter offensive modifier.
 
 ## Schema observations
 

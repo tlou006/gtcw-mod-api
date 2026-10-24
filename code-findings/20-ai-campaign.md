@@ -446,7 +446,7 @@ attack if Random(0,1) <= threshold
 | Pref | Value |
 | --- | --- |
 | `aiagressiveness[0..4]` | **0.00**, 0.75, 1.50, 2.00, 2.50 |
-| `winteroffensiveoperationsmodifier` | **0.05**, applied when `month <= winterquartersmonthuntil` or `>= winterquartersmonthfrom` (the defensive sibling is **0.2**) |
+| winter modifier | **0.2**, applied when `month <= winterquartersmonthuntil` or `>= winterquartersmonthfrom`. **`CheckOffensiveMovements` ~4965 reads `winterdefensiveoperationsmodifier`**; the dedicated `winteroffensiveoperationsmodifier` (0.05) has no consumer anywhere ([29](29-dead-prefs-audit.md) §4.2) |
 | `aiagressivenessoffensiveoperationfaction[0..1]` | **Union 1.0, Confederacy 0.5** — the Confederate AI evaluates offensive operations at half the Union AI's rate |
 
 > **`aiagressiveness[0] = 0` means the AI launches no offensive operations at

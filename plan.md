@@ -1581,24 +1581,134 @@ outstanding, run over all **69 real projects** of the 125 ids — 56 are
   promise an open channel and deliver a metered one — and a nineteenth label
   trap.
 
-**Next:** the **~137 unverified dead prefs** from the
-[07-config-data-model](code-findings/07-config-data-model.md) sweep, which is
-now the largest single unknown left on the code side and the natural follow-on
-from pass 17 — the method is the same four-pass sweep, and the project audit
-established the base rate to expect (4 of 33 dead, 2 impaired). The prize is
-the same: every dead pref is a knob a modder would otherwise waste time
-turning, and every impaired one is a defect with a one-line fix.
+**Pass 18 — `code-findings/29-dead-prefs-audit.md`** (503 lines, a new findings
+file). The `~137 unverified dead prefs` from
+[07](code-findings/07-config-data-model.md), finished. Of `GamePrefs`' **2,215**
+distinct fields, **144 are parsed from a config file and never read** and **4**
+are declared without even a loader line; 90 of the 144 are gameplay-facing.
+Method: declarations minus qualified external references, then every candidate's
+internal references classified as declaration / loader / read by hand — which
+removed two false positives (`debugsloaded`, an internal latch, and
+`coverobjects`, which sizes four arrays).
 
-After it, in order: the four subsystems
-[26](code-findings/26-naval-combat.md) §10 leaves open; and a single **asset
-dump** pass, now the binding constraint on seven separate questions — the perk
-availability lists, the `Frontline2` state-set cut-over dates, the
-`levelgraphics` project-level cap, the campaign map's unit-to-mile scale, the
-`UI/Newspaper` sprite set, the message-symbol atlas, and whether `MessageLog`
-sits on the panel object its retention depends on. Longer-standing: the
-**`DLC_WL` layer** (7,932 lines — which pass 17 has now shown owns Army Groups,
-garrison deployment and the whole `002` project set, so it is a larger share of
-the game than the file count suggests) and the Phase 0 leftovers (dnSpy;
+- **Spotted-enemy marks ignore your intelligence entirely, and so do both
+  intelligence perks.** `campaignprefs.txt:656` ships
+  `timefactorspottings` = 0.1 / 0.003 game years — *"Time factor for enemy
+  spottings, based on intelligence"* — and **nothing reads it**. What
+  `SpottedEnemy.UpdateMarks` ~245 builds its interval from is
+  `spottingfactor[1]` and `[0]`, the per-unit-type **concealment** array from
+  `unitprefs.txt`, shipping **−50** and **−60**. The product is always
+  negative, `Mathf.Max(0.001f, num3)` clamps the denominator, and the
+  mark-creation probability runs about **1,000×** intended — reaching its
+  `maximumcreationprobability` ceiling of 0.9 after about **eight game hours**
+  instead of 33 days at intelligence 0 or one day at intelligence 1. Field
+  Telegraph's `*=` and the Bureau of Military Information's `/=`
+  ([19](code-findings/19-commanders-and-perks.md) §1.7) are both swallowed by
+  the same ceiling. The live gate on a new mark is distance:
+  `minimumdistanceforspotmark` = 40. One-identifier fix.
+- **Winter costs the AI ×0.2, not ×0.05.** `winteroffensiveoperationsmodifier`
+  has no consumer anywhere; `CheckOffensiveMovements` ~4965 reads
+  **`winterdefensiveoperationsmodifier`** into the aggression roll. Corrects
+  [20](code-findings/20-ai-campaign.md) and `fighting-the-ai.md`, which have
+  been publishing the twenty-fold figure since pass 15.
+- **`[deactivated]` does not lie anywhere — the one apparent exception was a
+  twin pref.** [19](code-findings/19-commanders-and-perks.md) had concluded
+  that `factorcommanderexpattr`'s `[deactivated]` tag was wrong. The tag
+  belongs to **`experienceinfluenceoncommanderattributes`**, a separate field
+  read from `unitprefs.txt:1583` that also ships **0.5** and has exactly two
+  references in the assembly. `factorcommanderexpattr` has its own untagged
+  label at `campaignprefs.txt:427`, confirmed by its loader neighbours
+  `strengthtriggertodisband` (0.05) and `expgaincommanderservice` (0.2). The
+  mechanic — a green commander at half his printed attributes — is unchanged;
+  what changes is that **the publisher's markers are now a reliable signal with
+  no known exceptions**, which was worth more than the number.
+- **Four twin-pref pairs** sit across two config files with one live and one
+  dead member, two of them sharing an identical shipped value:
+  `experienceinfluenceoncommanderattributes` / `factorcommanderexpattr`,
+  `intelligenceinfluenceonreadiness` / `influenceofintelligenceonreadiness`,
+  `draftresetcontractlength` / `draftresetcontractlengthcsa`, and
+  `timefactorspottings` / `spottingfactor[]`. **Finding a field by its label is
+  unsafe**; a tool must walk the loader in order.
+- **Twenty-three dead prefs are one cut.** Beside the ten dead policy-ladder
+  arrays and two Act add-ons [22](code-findings/22-policy-and-project-catalogue.md)
+  §10/§10.1 already had, this pass found the other half: **eleven
+  subsidy-category effect prefs** in one contiguous block of
+  `campaignprefs.txt` (2654–2681). Their labels name **transportation**,
+  **trade war**, **civil order** and a **funding policy** — none of which is
+  among the shipped six categories — and `basicsubsidiescost` still carries
+  **two trailing slots marked `n/a`**. So the subsidy system was designed with
+  roughly ten categories and shipped with six, and the numbers describing what
+  the cut four did are still in the file. The largest single trap in
+  `campaignprefs.txt`.
+- **A fort's level does not make it harder to take.** `forthitpoints` — a
+  six-entry per-level table rising 0 → 500 → 1000 → 1300 → 2500 → **3000** — is
+  unread. Fort damage goes through `CBuilding.Damage(float)` into `Condition`,
+  the generic 0-to-1 building condition every building shares, and neither
+  caller carries a level term: `Autocalc` ~3166 (siege assault,
+  `fortdamageattackersize` 0.8–1.7 × timediff × attacker strength) and
+  `Regiment` ~4636 (raiding, `raiddamage` 0.075). `fortcapacity` **is** live and
+  does scale — 5,000 men at level 0 to **25,000** at level 5 — as does
+  `setuptimesiege`. So upgrading a fort buys garrison and delay, not durability.
+- **Three of the five `powerbalanceinfo*` tiers are unread** (minor victory
+  0.7, major victory 0.8, minor defeat 0.3). The two survivors are not a tier
+  ladder either: `…majordefeat` (0.2) gates one branch of
+  `victorytypeforplayer` and `…criticalloss` (0.4) adds one sentence to the
+  Major Defeat panel.
+- **A defamed commander's experience cap is never lowered.**
+  `increaseexpcapcommanderifveteran` (0.25) is live at `GameVars` ~2042;
+  `decreaseexpcapcommanderifdefamed` (0.2), from the adjacent config line, is
+  dead.
+- **About 38 labels carry the publisher's own marker** — in four spellings
+  (`[deactivated]`, `(deactivated)`, `-> deactivated`, `-> inactive`), so a
+  sweep for the bracketed form alone misses eleven. That leaves roughly **110
+  dead prefs with no marker at all**, which is where the traps are.
+- Also newly confirmed dead and individually notable:
+  `timetowithdrawgroupsifallunitsrouted` (0.75 game hr — a rally window before
+  a wholly routed formation leaves the field, with no substitute mechanism),
+  `influencenationalmoraleonoffensives` (1.0),
+  `minimumsupportlevelfightingspirit` / `leveragefightingspiritsupportcap`
+  (0.20 / 2.0, both tagged `-> inactive`, a richer two-stage morale ceiling
+  than the one that ships), `weaponstandardizationexp` / `…lin` (5.0 / 8.0),
+  and `biggersizeobjectivesonpapermap` (**2.5**) — the only orphan carrying a
+  value.
+- Cross-file updates: `summary-data-layer.md` extended;
+  [07](code-findings/07-config-data-model.md)'s sweep conclusion replaced;
+  [19](code-findings/19-commanders-and-perks.md)'s `[deactivated]` note
+  corrected and its §1.7 perk analysis extended;
+  [20](code-findings/20-ai-campaign.md)'s winter row corrected.
+  Player-facing: `fighting-the-ai.md` **§4.4** (new) plus the winter
+  corrections in four places, `commanders-worth-having.md` **§10.3** (new),
+  `ui-vs-simulation.md` **§1.20** (new).
+
+**Next:** the four subsystems [26](code-findings/26-naval-combat.md) §10 leaves
+open — the smallest remaining code-side item, and the last one that does not
+need either an asset dump or the DLC. After it, two things are left and both
+are large:
+
+- **A single asset dump pass.** Now the binding constraint on eight separate
+  questions: the perk availability lists
+  ([19](code-findings/19-commanders-and-perks.md)), the `Frontline2` state-set
+  cut-over dates ([24](code-findings/24-campaign-objectives.md) §12), the
+  `levelgraphics` project-level cap
+  ([28](code-findings/28-project-effect-reachability.md) §10), the campaign
+  map's unit-to-mile scale, the `UI/Newspaper` sprite set
+  ([25](code-findings/25-newspaper-and-events.md) §9), the message-symbol atlas
+  and whether `MessageLog` sits on the panel object its retention depends on
+  ([27](code-findings/27-dispatches-and-the-message-log.md) §13), and the
+  policy panel hierarchy
+  ([22](code-findings/22-policy-and-project-catalogue.md) §16).
+- **The `DLC_WL` layer**, 7,932 lines. Three passes have now shown it owns more
+  than its line count suggests: Army Groups, garrison deployment, the whole
+  scenario-`002` project set
+  ([28](code-findings/28-project-effect-reachability.md) §3), the `Diary`
+  channel and `messageidstoignore`
+  ([27](code-findings/27-dispatches-and-the-message-log.md) §13), and the
+  prestige economy every other file defers to.
+
+One tool is worth building before either: **a label-to-field map for all 2,215
+prefs**, by simulating each loader in order rather than matching line by line
+([29](code-findings/29-dead-prefs-audit.md) §10). Pass 18 needed that map four
+times and reconstructed it by hand four times. Phase 0 leftovers remain (dnSpy;
 `xl/vbaProject.bin` from the ModdingTool workbook).
 
 **Exit criteria per file:** a reader who has never opened `code-findings/` can

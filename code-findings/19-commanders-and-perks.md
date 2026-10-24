@@ -283,6 +283,19 @@ operators**, so one of them is inverted:
 > Neither effect is about what the holder sees, which is what both config
 > labels ("Information delay for …") imply.
 
+> **And in the shipped build neither effect reaches the player**, because
+> `num2` is about a thousand times larger than intended before the perks touch
+> it. The term they multiply is
+> `(now − lastmarktime) / Mathf.Max(0.001f, num3)`, and `num3` is built from
+> **`spottingfactor[1]` and `[0]`** — the per-unit-type *concealment* array
+> from `unitprefs.txt`, which ships **−50** and **−60** — where it wants
+> `timefactorspottings[0..1]` from `campaignprefs.txt` (0.1 and 0.003 game
+> years). A negative `num3` means the clamp always wins, so `num2` reaches its
+> `maximumcreationprobability` ceiling of **0.9** after about **eight game
+> hours** whatever the perks or the viewer's intelligence do to it. The live
+> gate on a new mark is `minimumdistanceforspotmark` = **40**.
+> See [29-dead-prefs-audit](29-dead-prefs-audit.md) §4.1.
+
 #### Fleet perk magnitudes
 
 | Fleet perk | Pref | I / II / III |
@@ -588,19 +601,25 @@ reads the raw attribute fields. Three exceptions:
   of that same comparison is getter-against-getter. Both halves are internally
   consistent; they are just computed two different ways.
 
-**`factorcommanderexpattr` is live, and the config says it is not.**
-`unitprefs.txt` labels it *"Adjustment factor for experience to influence
-commander attributes (admin, initiative, cunning, leadership) … **
-[deactivated]**"* = 0.5. It is read, by
-`GetCommanderExperience(usedforstatsmultiplying: true)` (`GameVars.cs:2437`),
-which every attribute getter calls. The `[deactivated]` tag is wrong: the
-experience multiplier really does span `[0.5, 1.0]` as §2.1 says.
+**`factorcommanderexpattr` is live, and its label is in `campaignprefs.txt`.**
+It is read by `GetCommanderExperience` with `usedforstatsmultiplying: true`
+(`GameVars.cs:2437`), which every attribute getter calls, so the experience
+multiplier really does span `[0.5, 1.0]` as §2.1 says. Its label is
+`campaignprefs.txt:427` — *"Weighting factor of commander starting attributes
+due to lower exp (due to cap of mil exp in earlier scenarios) [0-1]…"* = 0.5,
+with **no** marker; the loader order confirms it, since the next two values it
+reads are `strengthtriggertodisband` (0.05) and `expgaincommanderservice` (0.2),
+matching lines 429 and 431.
 
-> This is the **only** `[deactivated]` label found so far that lies in that
-> direction. The six others checked — three readiness targets, the
-> intelligence-based readiness factor, the subordinate command limit and the
-> depot price transfer — are all genuinely dead
-> ([14](14-supply-and-logistics.md) §10d, [07](07-config-data-model.md)).
+> **Corrected.** An earlier version of this note read the `[deactivated]` label
+> at `unitprefs.txt:1583` as belonging to this pref and concluded it was the
+> one tag in the config files that lies. It is not. That label feeds
+> **`experienceinfluenceoncommanderattributes`**, a separate field that also
+> ships 0.5 and has exactly two references in the assembly — its declaration
+> and its loader line. The tag is honest and the two prefs are a twin pair
+> across two files
+> ([29-dead-prefs-audit](29-dead-prefs-audit.md) §3.1). No `[deactivated]`
+> label in the config is now known to lie.
 
 **No commander attribute reaches any order delay.** The battle order-processing
 delay is `GamePrefs.processingtimegroupstandard` (0.0001 campaign years, about

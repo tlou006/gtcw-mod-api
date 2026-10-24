@@ -74,6 +74,7 @@ the evidence than in a central list.
 | [05-config-paths-and-overrides](05-config-paths-and-overrides.md) | Where config lives; whole-file override resolution |
 | [06-config-file-format](06-config-file-format.md) | The exact format, the `Tools` helpers, `projects.dat` schema |
 | [07-config-data-model](07-config-data-model.md) | The `Config/` data model, from the official ModdingTool and Quick Guide |
+| [29-dead-prefs-audit](29-dead-prefs-audit.md) | Which of `GamePrefs`' 2,215 fields are real: **144 parsed from a config file and never read**, 4 declared and never loaded, 90 of the 144 gameplay-facing; the abandoned subsidy system that accounts for 23 of them and names four categories the game does not have; four twin-pref pairs across two config files, one of which had produced a wrong reading; and the five live defects the sweep exposed — spotted-enemy marks that ignore intelligence entirely because the formula reads a concealment array, the AI's winter offensive modifier reading the defensive pref, fort level that buys capacity but not durability, a defamed commander's experience cap that is never lowered, and three of five power-balance tiers unread |
 | [08-save-load-surface](08-save-load-surface.md) | `ImportExportUnitData`; the serialization contract |
 
 ### Effects — [summary](summary-effects.md)

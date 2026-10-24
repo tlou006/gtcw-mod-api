@@ -3,7 +3,8 @@
 **Covers:** [05-config-paths-and-overrides](05-config-paths-and-overrides.md),
 [06-config-file-format](06-config-file-format.md),
 [07-config-data-model](07-config-data-model.md),
-[08-save-load-surface](08-save-load-surface.md)
+[08-save-load-surface](08-save-load-surface.md),
+[29-dead-prefs-audit](29-dead-prefs-audit.md)
 **Build:** see [00-build-provenance](00-build-provenance.md)
 
 ## In one paragraph
@@ -73,8 +74,53 @@ Entries that do not fill `partlen` exactly are also silently dropped.
   on `SceneManagement.SaveAll`. A save then stays loadable with the mod
   uninstalled.
 
+## And a lot of it is not read at all
+
+[29-dead-prefs-audit](29-dead-prefs-audit.md) finishes the sweep
+[07](07-config-data-model.md) started. Of `GamePrefs`' 2,215 distinct fields,
+**144 are parsed from a config file and never read**, and **4** are declared
+without even a loader line. Ninety of the 144 are gameplay-facing rather than
+presentation or scheduling plumbing.
+
+> **So about one labelled number in fifteen does nothing**, and only about a
+> quarter of those carry the publisher's own `[deactivated]` or `-> inactive`
+> marker. The other hundred-odd look exactly like live settings.
+
+Twenty-three of them are one cut: an abandoned subsidy system whose labels name
+**transportation**, **trade war**, **civil order** and **funding** categories
+that the shipped six do not include, with
+`basicsubsidiescost` still carrying two trailing slots marked `n/a`.
+
+Chasing the rest turned up what a mechanical sweep cannot — five places where
+something *else* reads the wrong field:
+
+- **`SpottedEnemy` builds its mark-creation probability from
+  `spottingfactor[0..1]`** — a per-unit-type *concealment* array shipping −50
+  and −60 — instead of `timefactorspottings` (0.1 / 0.003 game years). The
+  negative product trips a `Mathf.Max(0.001f, …)` clamp, inflating the
+  probability about a thousandfold, so **your intelligence rating and both
+  intelligence perks have no effect on how often an enemy formation leaves you
+  a last-seen mark**.
+- **`CheckOffensiveMovements` reads `winterdefensiveoperationsmodifier`**, so
+  winter costs the AI ×0.2 rather than the ×0.05 its own dedicated — and
+  unread — constant specifies.
+- **`forthitpoints` is unread**, so a fort's level buys garrison capacity and
+  siege setup time but **not durability**.
+- **`decreaseexpcapcommanderifdefamed` is unread** while its veteran sibling is
+  live.
+- **Three of the five `powerbalanceinfo*` tiers are unread.**
+
+One earlier reading is withdrawn: the `[deactivated]` tag does not lie
+anywhere. The apparent exception was a **twin pref** — the same label text
+attached to two fields of the same shipped value in two different files, one
+live and one dead. Four such pairs exist, which makes "find the field by its
+label" an unsafe move.
+
 ## Still open
 
+- **A label-to-field map for all 2,215 prefs.** Needs the loaders simulated in
+  order rather than matched line by line; it would make every future pref
+  question a lookup ([29](29-dead-prefs-audit.md) §10).
 - **A full sweep of `GetStringPartitions`/`GetIntPartitions` call sites** would
   settle every list field in every config file at once. Cheap, high value, not
   done.
