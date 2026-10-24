@@ -1160,18 +1160,81 @@ generates by playing.
   town-capture events are unreachable because an `else if` repeats its `if`'s
   condition instead of negating it.
 
-**Next:** `policy-order.md`, the seventh item on the planned index
-([22](code-findings/22-policy-and-project-catalogue.md),
-[9](code-findings/09-policy-and-project-effects.md)) — the natural follow-on,
-because this pass ends by showing that **policies are the only lever that
-moves national morale in single-digit points**, and the two files behind it
-already hold the catalogue, the research rate and the per-id effects. The
-standing code-side backlog loses nothing and gains four items: whether the
-difficulty one-shot's two uses were written against different scales, whether
-the auto-calculator's three missing multipliers are deliberate, why
-`topincometemp` is never reset, and the remaining nine war-progress statics,
-which should fall out of reading `ExportBattleResultData` and the fort-capture
-path.
+**Pass 13 — `mechanics-findings/policy-order.md`** (seventh item off the
+planned index). Translating
+[22](code-findings/22-policy-and-project-catalogue.md) and
+[09](code-findings/09-policy-and-project-effects.md), and closing the subsidy
+half of findings/22's open question 4 along the way.
+
+- **The policy-slot counter is a lifetime budget, not a queue width.**
+  `CanBeActivated` counts non-acts in `activatedpolicies` *regardless of
+  progress*, and only acts are retired on completion — a finished ladder level
+  has to stay, because that is where the replay architecture reads its effect
+  from. With **20 non-act policies per side** and a cap of
+  `7 + round(5 × the politics slider)`, a nation can hold at most 12 of 20:
+  **the top of three of the five branches, never five.**
+- **Lowering the politics subsidy deletes finished policies.**
+  `UpdateSubsidyEffect` enforces the cap every alliance pass; in-research
+  policies always score higher on `duration + (1 − progress)` and go first,
+  but once everything is complete it cancels completed ladder levels — and
+  `RemoveResearch` zeroes the **entire transitive closure** above whatever it
+  removes. Completed acts are spared; completed ladder levels are not.
+- **The subsidy factor is also the project-funding accrual rate**, which
+  closes open question 4: `subsidyfunding[type]` accrues at
+  `slider × basicsubsidiescost × ladder factor` per annum, exactly what the
+  treasury pays, with `AppointProject` the only debit. So **politics is the
+  only category funded at full rate in 1861** — no Politics ladder means its
+  factor stays 1.0 at $10 M/yr while the other five sit at 0.1 and accrue
+  $5 M/yr even at a maximum slider. Now [22](code-findings/22-policy-and-project-catalogue.md) §3.2b.
+- **Completing a ladder level raises the bill, not just the ceiling.**
+  `AdjustSubsidyFactor`'s slider-rescaling parameter defaults to off, so
+  Military III at a 60 % slider takes military spending from $15 M to $30 M a
+  year with no player action.
+- **The policy panel prints two different day counts for the same policy.**
+  `UpdateAllTooltips` divides by average support, by `1/N^1.1` and by the
+  Administration Reform factor, and itemises all three in prose;
+  `UpdateActivations`, which writes the policy's own `DurationText`, applies
+  **none** of them. At 75 % support with three in research the number on the
+  policy is **4.5× too optimistic**. Corrects
+  [22](code-findings/22-policy-and-project-catalogue.md) §3.1, which took the
+  tooltip's correctness to cover the panel; new
+  [ui-vs-simulation](mechanics-findings/ui-vs-simulation.md) §1.15.
+- **A project's `datefrom` gates nothing.** Neither `IsAppointable` nor the
+  panel's list filter reads it. Its only consumer,
+  `Projects.CheckProjectUnlocks`, runs **once at frame 32 of a new campaign**
+  and *grants* every dated project whose date has passed — checking the
+  category balance and **never debiting it**. So a 1861 campaign can buy
+  Military Railroad in March 1861, and a Spring 1864 campaign is handed most
+  of the dated list for free, because its `subsidies.dat` opens at
+  6 / 8 / 3 / 16 / 12 / 4.8 $M against Spring 1861's all-zeros. Now §9.3.
+- **The three pre-war keys, counted.** Five grand policies gate the upper half
+  of a wartime ladder — Union 74/75/76, Confederate 175/176 — and you pick
+  three. So **the Union must spend all three picks on ladder keys** to keep
+  every branch reachable where the Confederacy needs two; Confederate
+  Diplomacy IV has no pre-war requirement where the Union's does. The
+  tooltips do say so, in capitals, which makes this arithmetic rather than
+  disclosure.
+- **Policy 73's effect was documented with the wrong sign.**
+  `abolitionismcsasupport` ships at **−0.10**, so Support Abolitionism *lowers*
+  Confederate support in Union states by ten points rather than raising it.
+- Also priced for the player: every project's first-level cost from
+  `projects.dat` against the `√level` curve, the six structural reforms worth
+  about $8 M together, **Security Measures sinking half the Confederate navy
+  and halving its weapon stocks**, and Indian Wars handing the enemy the same
+  military-experience grant it gives you.
+
+**Next:** `commanders-worth-having.md`, the eighth item on the planned index
+([19](code-findings/19-commanders-and-perks.md)) — the natural follow-on,
+because this pass keeps running into commanders from the policy side: the
+Lieutenant General Act writes a rank directly and multiplies the national
+morale cost of the defeats its holder presides over, military schools are the
+only source of three commander attributes, and the two reform projects call
+`CheckCommanderPromotions` as a side effect. The standing code-side backlog
+loses the subsidy-funding question (closed) and gains two: the length of
+`levelgraphics`, which caps every repeating project's level and needs an asset
+dump, and whether the subsidy sliders have detents — if the UI steps in tenths
+rather than continuously, two of the slot-cap plateaus are unreachable rather
+than merely wasteful.
 
 **Exit criteria per file:** a reader who has never opened `code-findings/` can
 act on it, and every claim in it can be traced back to a section that supports

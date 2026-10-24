@@ -145,8 +145,10 @@ averagesupport / N^1.1 × (1 + 0.05 × projectLevel(95)) / ResearchDuration
 
 where N is the count in research. Total throughput across N is
 `N × N^-1.1 = N^-0.1`, which **decreases** with N: at the cap of 12 you get
-0.79× the aggregate rate of researching one at a time. The slot cap itself
-(7 to 12) is the *only* thing the politics subsidy does.
+0.79× the aggregate rate of researching one at a time.
+The politics subsidy buys the slot cap (7 to 12) and funds the politics
+project category, which is the only category not throttled to a tenth of its
+rate at the start of a campaign — see below.
 
 `Policies.CheckAIPolicyChange` walks the personality's authored policy queue in
 order and researches the **first eligible** entry, and returns immediately if
@@ -164,6 +166,60 @@ in their policy and project id lists and in slot 5's name
 (Agricultural / King Cotton).
 
 ---
+
+## The slot cap is a lifetime budget
+
+`maxpolicies = 7 + round(5 × the politics subsidy slider)`, the politics factor
+being the one `subsidiesfactor` slot no policy ever writes. But what the cap
+counts is the point: `CanBeActivated` calls `GetActivatedPolicies()` with all
+parameters defaulted, which counts **every non-act in `activatedpolicies`
+regardless of progress**, and `ResearchPolicy` retires only *acts* on
+completion — a finished ladder level has to stay in the list, because that is
+where §"reset, then replay" reads its effect from every tick.
+
+> **So the 7–12 counter is not the research queue width; it is the number of
+> ladder levels a nation may ever hold.** There are **20 non-act policies per
+> side**, and a ladder top needs every level below it (3 Government Funding,
+> 4 each Agriculture / Industrialization / Military, **5 Diplomacy**). Twelve
+> slots buy the top of **three** branches; seven buy two.
+
+And the cap is enforced retroactively every alliance pass. In-research
+policies are always cancelled first — their `1 − progress` term reaches 1.0
+against a maximum `ResearchDuration` of 0.205 — but once everything is
+complete it starts removing **finished** ladder levels, and `RemoveResearch`
+zeroes the entire transitive closure above whatever it removes. Completed acts
+are spared; completed ladder levels are not.
+
+> **Lowering the politics subsidy destroys policies.** Pulling the slider from
+> 1.0 to 0.6 deletes two ladder levels and everything downstream of them.
+> Cancelling Government Funding I zeroes II and III and every incomplete act
+> in the economic branch.
+
+## The subsidy factor is also the funding tap
+
+`Alliance.GetSubsidyCost(id)` returns the category's annual expense as a
+negative, and the alliance pass adds its negation to `subsidyfunding[id]`. So
+
+```
+project budget accrued per annum = slider × basicsubsidiescost × ladder factor
+treasury expense per annum       = exactly the same figure
+```
+
+which closes findings/22's open question on how funding accrues. Two things
+follow that change how a campaign opens.
+
+**Politics is the only category funded at full rate in 1861.** It has no
+ladder, so its factor stays 1.0 and it accrues up to **$10 M/yr from day one**,
+while the other five sit at factor 0.1 — $5 M/yr even at a maximum slider —
+until their first ladder level lands. That makes the first level of any branch
+worth 2.5× its own throughput, and makes **Administration Reform** ($1 M,
+politics, +5 % research speed per level) the one project a 1861 campaign can
+actually afford.
+
+**Completing a ladder level raises the bill, not just the ceiling.**
+`AdjustSubsidyFactor` is an assignment whose slider-rescaling parameter
+defaults to off, so Military III at a 60 % slider takes military spending from
+$15 M to $30 M a year with no player action.
 
 ## Projects: three mechanisms, and the data file does not say which
 
@@ -275,6 +331,25 @@ maximum level of every repeating project**. Subsidy cost is
 `level^0.5 × firstLevelCost`, a flattening curve. `GetNextProject`, the
 deterministic sibling of the AI's project lottery, has no callers. And
 `ImportPolicyData` contains a discarded `_ = 179;`.
+
+Two more that change how the game is played rather than how it is modded.
+
+**A project's `datefrom` gates nothing.** Neither `IsAppointable` nor the
+panel's own list filter reads it; its only consumer is
+`Projects.CheckProjectUnlocks`, called once at frame 32 of a **new** campaign,
+which **grants** every dated project whose date has passed — checking the
+category balance and never debiting it. So a 1861 campaign can buy Military
+Railroad in March 1861, and a Spring 1864 campaign is handed most of the dated
+project list for free, because its `subsidies.dat` opens with 6 / 8 / 3 / 16 /
+12 / 4.8 $M against Spring 1861's all-zeros.
+
+**The policy panel prints two different day counts for the same policy.**
+`UpdateAllTooltips` divides by support, by `1/N^1.1` and by the
+Administration Reform factor and itemises all three in prose;
+`UpdateActivations`, which writes the policy's own `DurationText`, applies
+**none** of them. At 75 % support with three in research the figure on the
+policy is 4.5× too optimistic. This corrects an earlier reading, which took
+the tooltip's correctness to cover the panel.
 
 ---
 

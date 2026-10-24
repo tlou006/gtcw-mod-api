@@ -256,9 +256,31 @@ rate = averagesupport / N^policyspeedfactor
 
 `policyspeedfactor = 1.1`; the config comment spells out the intent
 ("1 means speed is halved, 1.1 means speed for policy #2 is at 47%").
-`UpdateAllTooltips` computes the displayed day count from the same
-expression, so **the tooltip and the simulation agree** — unusual enough in
-this codebase to be worth stating.
+
+**The panel shows two different day counts for the same policy, and only one
+is right.** `UpdateAllTooltips` (~301) computes
+
+```csharp
+policy.ResearchDuration * (1f - policy.researchprogress) * 365.25f
+    / num2 / num3 / num        // support, 1/N^1.1, admin-reform factor
+```
+
+— correct, and it even itemises the three penalties in prose ("−25 % research
+speed due to lower state support", "… as multiple policies are being
+researched"). But `UpdateActivations` (~131), which writes the policy's own
+`DurationText`, computes
+
+```csharp
+(policy.ResearchDuration * 365.25f * (1f - policy.researchprogress)) + " days"
+```
+
+with **no divisors at all**. So the figure printed on a policy is its nominal
+duration and the figure in its tooltip is the real one; at 75 % average
+support with three policies in research the printed number is **4.5× too
+optimistic**.
+
+> **Corrects an earlier reading of this file**, which took the tooltip's
+> agreement with the simulation to cover the panel as a whole.
 
 > **Parallel research is a net loss.** Total throughput across N policies is
 > `N × N^-1.1 = N^-0.1`, which *decreases* with N: at the cap of 12 the
@@ -277,25 +299,60 @@ prefab/`policies.dat` `Tooltip` field, and the **mechanical** effect exists
 only in `LaunchPolicyEffect`. The project-side rosetta stone
 (`Projects.GetProjectEffect`) *is* real — see §9.
 
-### 3.2 The slot cap
+### 3.2 The slot cap — a lifetime budget, not a queue width
 
 ```
-maxpolicies = minimumpolicies + (maximumpolicies − minimumpolicies)
-            × GetSubsidyFactor(subsidy_politics)
+maxpolicies = minimumpolicies + Mathf.RoundToInt(
+                  (maximumpolicies − minimumpolicies)
+                  × GetSubsidyFactor(subsidy_politics))
 ```
 
-`minimumpolicies = 7`, `maximumpolicies = 12`. So the **politics subsidy
-slot's entire function is to widen the research queue from 7 to 12** — no
-policy or project writes to it, and nothing else reads it.
+`minimumpolicies = 7`, `maximumpolicies = 12`, and
+`GetSubsidyFactor(politics) = subsidies[0] × subsidiesfactor[0]` where the
+politics factor is **never written** (there is no Politics ladder) and stays
+`1f`. So the cap is `7 + round(5 × the politics slider)` — and because
+`RoundToInt` is half-to-even, sliders of 0.4 and 0.5 both give 9, and 0.8 and
+0.9 both give 11.
+
+**What the cap counts is the thing that matters.** `CanBeActivated` calls
+`GetActivatedPolicies()` with **all three parameters defaulted**, which counts
+every entry of `activatedpolicies` that is not an act and not a grand policy —
+*regardless of progress*. And `ResearchPolicy` retires only **acts** to
+`activatedacts` on completion; a finished non-act stays in `activatedpolicies`
+forever, because §6's reset-then-replay architecture replays its effect from
+that list every tick.
+
+> **So the 7–12 counter is not the research queue width; it is the number of
+> ladder levels a nation may ever hold.** There are **20 non-act policies per
+> side** (ids 0–19 and 100–119, verified against `policies.dat`), and a ladder
+> top needs every level beneath it — 3 for Government Funding, 4 each for
+> Agriculture, Industrialization and Military, **5 for Diplomacy**. Twelve
+> slots therefore buy the top of **three branches**; seven buy two.
 
 `CanBeActivated` refuses a non-act when the queue is full; **acts bypass the
 cap entirely**. But acts in research still count toward N in the rate divisor,
 so queueing acts past the cap slows everything down without being blocked.
 
-`UpdateSubsidyEffect` enforces the cap retroactively: while over it, it
-repeatedly cancels the **non-act with the greatest `ResearchDuration +
+`UpdateSubsidyEffect` — called once per alliance pass from
+`BattleUnits.UpdateAllianceData` — enforces the cap retroactively: while over
+it, it repeatedly cancels the **non-act with the greatest `ResearchDuration +
 (1 − progress)`** — i.e. the one with most work left — up to 50 removals per
-call.
+call. Two consequences the formula hides:
+
+- **In-research policies always go first.** Their `1 − progress` term reaches
+  1.0 while the largest `ResearchDuration` in the file is 0.205, so nothing
+  completed is touched until everything in research is gone.
+- **Then it starts cancelling completed ladder levels**, and
+  `RemoveResearch(alliance, policy)` zeroes not only that policy's
+  `researchprogress` but **every policy whose transitive prerequisite closure
+  contains it** — `GetListOfPrePolicies` is a fixpoint walk, so the whole
+  subtree above the cancelled policy is wiped. Completed **acts** are spared by
+  the `(!IsAct | researchprogress < 1f)` guard; completed non-acts are not.
+
+> **Lowering the politics subsidy therefore destroys policies.** Dropping the
+> slider from 1.0 to 0.6 removes two ladder levels and everything downstream of
+> them: cancelling Government Funding I, for instance, zeroes II and III and
+> every incomplete act in the economic branch. There is no warning and no undo.
 
 ### 3.2a What a policy ladder actually buys: the subsidy cap
 
@@ -336,6 +393,57 @@ Three things to note.
 consumer, the `maxpolicies` line above, where the factor is always 1 — so the
 fact that it can return up to 3 for diplomacy never leaks into anything that
 expects a [0, 1] fraction.
+
+#### 3.2b The factor is also the project-funding accrual rate
+
+`Alliance.GetSubsidyCost(id)` returns `−(min(1, subsidies[id]) ×
+basicsubsidiescost[id] × subsidiesfactor[id])` — negative, because it is an
+expense line. `BattleUnits.UpdateAllianceData` (~3812) then runs, once per
+alliance pass, for every one of the eight slots:
+
+```csharp
+AdjustSubsidyFunding(type, timediff * (0f - GetSubsidyCost(type)) * aiBonus);
+// aiBonus = 1 + usedcampaignbonusrunning × influenceaibonusonsubsidies, AI only
+```
+
+The double negation makes it **positive**, so:
+
+```
+project budget accrued per annum  = slider × basicsubsidiescost × ladder factor
+treasury expense per annum        = exactly the same figure
+```
+
+This **closes the accrual half of §16's open question 4**: `subsidies[]` is the
+player's slider, `subsidiesfactor[]` the ladder multiplier,
+`subsidyfunding[]` the accrued per-category budget, and money moves from the
+treasury into that budget 1:1 at the category's annual rate.
+`AdjustSubsidyFunding` floors the balance at 0 and never overdraws;
+`AppointProject` is the only debit.
+
+| Category | Base | Factor with no policy | Accrual at a full slider |
+| --- | --- | --- | --- |
+| Politics | $10 M | **1.0, always** | **$10 M/yr from day one** |
+| Economy | $50 M | 0.1 | $5 M → $50 M at Funding III |
+| Agriculture / Industry / Military | $50 M | 0.1 | $5 M → $100 M at level IV |
+| Diplomacy | $50 M | 0.1 | $5 M → **$150 M** at Diplomacy V |
+
+Two consequences.
+
+**Politics is the only category that is fully funded in 1861**, because it is
+the only one with no ladder to multiply it. Everything else accrues at a tenth
+of its headline rate until the first ladder level lands — which makes the first
+level of a branch worth 2.5× its own throughput, and makes **Administration
+Reform ($1 M, politics, +5 % research speed per level) the one project a 1861
+campaign can actually afford.**
+
+**`AdjustSubsidyFactor(id, tovalue)` is an assignment**, and its
+`skipadjustmentoldvalue` parameter — which would rescale the slider to hold
+absolute spend constant — defaults to `true`, so the policy path never uses it.
+Completing a ladder level therefore **raises the category's bill immediately**
+at an unchanged slider position: Military III at a 60 % slider takes military
+spending from $15 M to $30 M a year with no player action. Since the
+prerequisite chain forces levels to complete in order, the last write always
+carries the highest level, so no ordering bug follows from the assignment.
 
 ### 3.3 `ResearchPolicy` and the three lists
 
@@ -577,7 +685,7 @@ empty body**, the scar where the agricultural support bonus used to be (§10).
 | 70 Underground Railroad | once: **both** alliances' `maxslaveryfactor += undergroundrailroadslavery`; CSA `volunteerspolicyadj += undergroundrailroadrecadj`. **Rate**: both alliances' `maxslaveryfactor` grows per year |
 | 71 Kansas a Free State | once: Kansas (13) Union support (reason 16); every non-slave state a smaller amount |
 | 72 Go West! | once: **California (3) and Oregon (30)** gain support (17), become `recruitable`, and have `population *= gowestpopulation`. Guarded by `GameVars.nation.Length > 50` |
-| 73 Support Abolitionism | once: every Union state gains **CSA** support (reason 18) |
+| 73 Support Abolitionism | once: every Union state's **CSA** support is adjusted by `abolitionismcsasupport` (reason 18), which ships at **−0.10** — so it *lowers* Confederate support in Union states by 10 points rather than raising it |
 | 74 Enforce Neutrality Act | once: `AdjustInterventionLevel(neutralityactintervention)` |
 | 75 Bread Basket | once: every **neutral** state gains support (19); `AdjustInterventionLevel`; **every owned farm gains a level** |
 | 76 Industrialization | once: every owned factory/foundry/manufactory gains a level; `northernindustrializationrailroadids` are **constructed immediately**; every Union state's `population *=`; national morale 27 |
@@ -734,6 +842,51 @@ the id to `alliance.projects`, and calls `UpdateOneTimeProjectsEffects` and
 `GetProjectLevel(int id)` **counts occurrences of the id in `projects`** —
 level *is* multiplicity, which is how repeating projects stack.
 
+### 9.3 `datefrom` gates nothing — it grants
+
+Each record carries `datefrom[2]`, a per-alliance availability date, and 34 of
+the 125 records fill at least one of them — 24 for the Union and 21 for the
+Confederacy (Military Railroad 1 Jan 1864, Sharps Rifles 1 Jan 1863,
+Supply Reform 1 Jan 1862 Union / 1 Jan 1863 Confederate, and so on).
+**Nothing in the availability path reads it.**
+`IsAppointable` checks the sprite-array cap, repeatability, `HasPolicy`,
+scenario, DLC and funding; `Projects.UpdateProjects`, which builds the panel's
+list, checks `alliances`, `applicablescenarios`, `FulfillsDLC` and the category
+filters. Neither looks at the date.
+
+Its **only** reader in the assembly is `Projects.CheckProjectUnlocks(alliance)`
+(~1025), and that method does the opposite of gating:
+
+```csharp
+if (datefrom[alliance] != null && applicablescenarios.Contains(leveltoload)
+    && FulfillsDLC() && datefrom[alliance].yearfraction <= now
+    && !alliance.projects.Contains(id) && IsAppointable(project, alliance)) {
+    alliance.projects.Add(id);
+    UpdateOneTimeProjectsEffects(id, alliance);
+}
+```
+
+It has **exactly one call site**: `CampaignController` ~422, inside
+`if (GameVars.frame == 32 && newcampaign)`, for every alliance. So it is a
+one-shot backfill at the start of a **new** campaign, and:
+
+- **no funding is debited.** `IsAppointable`'s balance check is made against a
+  balance that `CheckProjectUnlocks` never touches, so every qualifying project
+  is granted free and the comparison is re-made against the same untouched
+  figure for the next one;
+- **the one-time effects fire**, so Hall's Carbines' weapon stock, the two
+  reform projects' `overridesymbol` rewrites and the four support steps all
+  apply;
+- **the dates are otherwise cosmetic.** A 1861 campaign can buy Military
+  Railroad in March 1861.
+
+Opening funding comes from each scenario's `subsidies.dat`
+(`GameVars.ImportSubsidies`, which writes `subsidyfunding[alliance][type]`
+directly). Spring 1861 ships **all zeros**; Spring 1864 ships 6 / 8 / 3 / 16 /
+12 / 4.8 $M for the Union and 5 / 6 / 10 / 4 / 11 / 12 for the Confederacy. So
+**a late-starting scenario is handed most of the dated project list for
+nothing, and Spring 1861 is handed none of it** — a scenario-balance
+difference that no description mentions.
 ---
 
 ## 10. The ten dead policy pref arrays
@@ -1182,6 +1335,28 @@ A deterministic sibling, `AIPersonality.GetNextProject`, scores by
     bounds the maximum level of every repeating project (§9.2).
 16. **Acts bypass the policy-slot cap but still divide the research rate**
     (§3.2) — queueing acts is a way to slow your own research past the cap.
+17. **The policy-slot counter is a lifetime budget presented as a queue
+    width** (§3.2). `CanBeActivated` counts completed non-acts, and only acts
+    are retired from `activatedpolicies`, so a nation may hold at most 12 of
+    its 20 ladder levels — the top of three of five branches — and 7 if the
+    politics subsidy is unfunded.
+18. **Lowering the politics subsidy cancels completed policies and zeroes
+    their whole prerequisite subtree** (§3.2). `RemoveResearch` walks the
+    transitive closure from `GetListOfPrePolicies`; completed acts are spared,
+    completed ladder levels are not. No warning, no undo.
+19. **A policy's own `DurationText` omits every divisor its tooltip applies**
+    (§3.1) — support, the `N^1.1` parallelism penalty and Administration
+    Reform — so the panel shows two different day counts for the same policy
+    and the larger, correct one is only on hover.
+20. **`datefrom` gates nothing** (§9.3). Its only reader grants dated projects
+    **free** at frame 32 of a new campaign, checking the category balance
+    without debiting it, so a late-starting scenario is handed most of the
+    dated project list and a 1861 scenario can buy anything it can afford
+    whenever it likes.
+21. **Completing a ladder level silently raises that category's spending**
+    (§3.2b): `AdjustSubsidyFactor` defaults to not rescaling the slider, so the
+    treasury bill scales with the new factor at an unchanged slider position.
+    Defensible as design, invisible in the moment.
 
 ---
 
@@ -1248,10 +1423,16 @@ A deterministic sibling, `AIPersonality.GetNextProject`, scores by
    `tax_corporate`, `tax_landsales` are named; the fifth is not, and the
    shipped defaults are `{0.3, 0.05, 0, 0, 0.2}`. Belongs with the taxation
    question still open in [18-economy](18-economy.md).
-4. `subsidyfunding[]` vs `subsidies[]` vs `subsidiesfactor[]` — three parallel
-   8-element arrays. `GetSubsidyFactor` multiplies the latter two;
-   `subsidyfunding` is the accrued budget. How funding accrues per category,
-   and what `AdjustSubsidyFunding` does on overdraft, were not traced.
+4. ~~`subsidyfunding[]` vs `subsidies[]` vs `subsidiesfactor[]` — how funding
+   accrues per category, and what `AdjustSubsidyFunding` does on overdraft.~~
+   **Done** — §3.2b. `subsidies[]` is the player's slider, `subsidiesfactor[]`
+   the ladder multiplier, and `subsidyfunding[]` accrues at
+   `slider × basicsubsidiescost × factor` per annum from the alliance pass,
+   which is also exactly what the treasury pays. `AdjustSubsidyFunding` floors
+   at zero rather than overdrawing, and `AppointProject` is the only debit —
+   `CheckProjectUnlocks` is the one path that adds a project without one
+   (§9.3). What is still untraced is the **length of `levelgraphics`**, which
+   caps every repeating project's level (§9.2) and is inspector data.
 5. `Alliance.ratingmodifier` is reset to `0` as an `int` but the credit-rating
    consumers in [18-economy](18-economy.md) treat notches as floats in places.
    Worth checking for truncation.

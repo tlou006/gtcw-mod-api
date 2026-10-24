@@ -143,7 +143,7 @@ the evidence than in a central list.
 
 | File | Contents |
 | --- | --- |
-| [22-policy-and-project-catalogue](22-policy-and-project-catalogue.md) | All 117 policies and 125 projects by id, with chapters, prerequisites and effects; the reset-and-replay effect contract; the five ladders with their subsidy-cap tables, the ten dead pref arrays and the three Acts whose trade-war clause died with them; Militia Act I's before/after asymmetry; support and national-morale reason codes mapped to their writers; the state-index table; the AI's policy queues and project lotteries |
+| [22-policy-and-project-catalogue](22-policy-and-project-catalogue.md) | All 117 policies and 125 projects by id, with chapters, prerequisites and effects; the reset-and-replay effect contract; the five ladders with their subsidy tables, **the slot cap as a lifetime budget of twelve of twenty ladder levels and the cancellation cascade that enforces it**, **the subsidy factor as the project-funding accrual rate**, the ten dead pref arrays and the three Acts whose trade-war clause died with them; Militia Act I's before/after asymmetry; support and national-morale reason codes mapped to their writers; the state-index table; **project availability dates that gate nothing and grant free projects at a new campaign's frame 32**; and the AI's policy queues and project lotteries |
 
 ### Game state — [summary](summary-game-state.md)
 

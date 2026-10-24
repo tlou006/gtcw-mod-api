@@ -429,6 +429,48 @@ intervention; *"Elections (Objectives)"* covers both this charge and the inert
 Source: [24](../code-findings/24-campaign-objectives.md) §3.2, §6.1,
 [how-you-lose](how-you-lose.md) §7.
 
+### 1.15 The policy panel's two day counts, and its counter
+
+The policy panel prints a remaining-days figure **on** each policy in research
+and a different one **in** that policy's tooltip.
+
+| Where | What it computes |
+| --- | --- |
+| On the policy | the nominal duration × days remaining — **no divisors at all** |
+| In the tooltip | the same, divided by average state support, by the `N^1.1` parallelism penalty and by the Administration Reform bonus |
+
+The tooltip is the honest one, and it even itemises the three penalties in
+words. The figure printed on the policy is what the research would take at
+100 % support with nothing else in the queue — a condition that essentially
+never holds. **At 75 % average support with three policies in research the
+printed number is 4.5× too optimistic**: a Military IV reading "75 days" is a
+335-day project.
+
+The same panel's `n / 12` counter is also not what it looks like. It reads as
+a queue width — "you may research nine things at once" — and what it actually
+counts is **every ladder policy you have ever completed**, because only *acts*
+retire from the list when they finish.
+
+| It looks like | What it is |
+| --- | --- |
+| how many policies you may research simultaneously | how many of your **20 ladder levels** your nation may ever hold, for the rest of the campaign |
+| a limit you can raise later | a limit whose **reduction deletes finished policies** and everything downstream of them in the prerequisite graph |
+
+> **What to do with this:** hover before you commit, research one policy at a
+> time, and treat the counter as a permanent allowance — twelve slots buy the
+> top of three of the five branches and no more. Never lower the politics
+> subsidy slider once you are at the cap.
+
+One more omission in the same area: the **projects** panel's "active effects"
+summary is built for only 24 of the 37 reform projects. The eleven it never
+lists include every structural reform — Cavalry Reform, Artillery Reform,
+Organization Reform, Command Reform, Supply Reform, Horse Artillery, 6-gun
+Batteries, Improvised Shipyards and Military Education — while it does list
+Market Reform, which has no effect at all.
+
+Source: [22](../code-findings/22-policy-and-project-catalogue.md) §3.1, §3.2,
+§12.5, [policy-order](policy-order.md) §2.3 and §3.
+
 ## 2. Things the game tells you in words that are not true
 
 ### 2.1 The perk tooltip describes a system that does not exist
@@ -788,7 +830,7 @@ Sources: [11](../code-findings/11-combat-resolution.md) §2,
 
 ---
 
-## 5. For modders: thirteen label traps
+## 5. For modders: fifteen label traps
 
 None is player-facing, but each will bite a tool that reports game state.
 
@@ -879,6 +921,18 @@ have.** *"50 bonus and value of 0.5 here means 25 % more volunteers"* implies a
 expression divides by 100, so the effect is a hundredth of the labelled one —
 in the dead code path of §3a besides
 ([17](../code-findings/17-politics-and-support.md) §3a).
+
+**`datefrom` on a project is not an availability date.** Nothing in the
+appointment or listing path reads it; its only consumer *grants* dated projects
+free at the start of a new campaign. A project labelled "from 1 January 1864"
+can be bought in March 1861
+([22](../code-findings/22-policy-and-project-catalogue.md) §9.3).
+
+**The policy-slot counter counts completed policies.** `maxpolicies` looks
+like a research queue width and bounds the number of ladder levels a nation may
+ever hold; a tool reporting "policies in research" must filter on
+`researchprogress < 1f` itself
+([22](../code-findings/22-policy-and-project-catalogue.md) §3.2).
 
 ---
 
