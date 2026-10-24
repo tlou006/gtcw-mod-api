@@ -1,6 +1,7 @@
 # Summary — Policy and project effects
 
 **Covers:** [09-policy-and-project-effects](09-policy-and-project-effects.md)
+and [28-project-effect-reachability](28-project-effect-reachability.md)
 **Build:** see [00-build-provenance](00-build-provenance.md)
 
 ## In one paragraph
@@ -93,18 +94,52 @@ after all. It is done:
 [22-policy-and-project-catalogue](22-policy-and-project-catalogue.md), with the
 correction recorded in its §3.1.
 
-## A useful nuance
+## Almost every magnitude is already data-tunable
 
-**Some magnitudes are already data-tunable even though the effect is
-hardcoded.** Several project arms read their value from `GamePrefs` (e.g.
-`machinegunprojectstock`, `project_propagandainfl`) rather than from a literal.
-Mapping `GamePrefs`-backed versus literal effects defines how much actually
-needs patching — the former are already balanceable through config alone.
+**33 `project_*` prefs carry every project magnitude in the game**, with one
+exception: project 5 Hall's Carbines adds `weaponstock[36] += 3000f` and
+`[86] += 2500f` as literals. So rebalancing projects is config work, not code
+work — which answers the question this summary used to leave open.
+
+## And the effects do not all arrive
+
+A full reachability audit of all 69 real projects
+([28](28-project-effect-reachability.md)) found that the open-at-the-top-end
+architecture above has a quieter problem: the arms that *do* exist do not all
+land.
+
+- **Four projects cannot be appointed at all** in a base-game install — 88
+  (DLC-gated), and 89, 123, 124 (scenario `002`, which ships with the DLC).
+  Each has a scenario-`001` twin, so the content is a parallel reform set
+  rather than duplication.
+- **Army Groups are a DLC feature.** `AllowsArmyGroups()` tests projects 88 or
+  89 — not 90 — and `GameVars.allowarmygroups`, which `DLC_WL` assigns `false`
+  without the DLC. Both gates are shut in the base game.
+- **Twelve projects have an effect that misses**, in six classes: two
+  discarded statements (98, 107's raid half), two conditions comparing a loop
+  counter against a resource id (113's crops half, 114), one gate read from the
+  **opponent's** alliance and inverted (122 Military Education), one guard too
+  narrow (104, which omits the manufactory), two depending on a flag that never
+  resets (93, 94 via `nation[].occupiedby`), and one accumulator carried across
+  sides (107's casualties half).
+- **The ship-import market inverts itself.** Projects 38–41 grant
+  `Random.Range(1, 5)` — 1 to 4 — instantly-completed hulls paid from the
+  treasury, and the restock roll is passed the **absolute campaign date**
+  instead of the cycle length, making it certain rather than rare. But it is
+  gated on stock already existing, so spending the last hull closes the type
+  permanently.
+
+Only the first class is findable by text search; everything else needed a human
+reading a condition. **4 of the 33 project prefs are dead and 2 impaired**,
+which is the best available prior for the `~137` unverified prefs from the
+[07-config-data-model](07-config-data-model.md) sweep.
 
 ## Still open
 
 - The prefab question (above) — gating.
-- The id → effect catalogue.
+- ~~The id → effect catalogue.~~ Done:
+  [22-policy-and-project-catalogue](22-policy-and-project-catalogue.md), with
+  reachability in [28](28-project-effect-reachability.md).
 - `GameVars.alliance[]` / `GameVars.nation[]` field maps: the state every
   effect writes to. `AdjustSubsidyFactor` and `AdjustSupport` are the two
   mutators seen; `AdjustSupport`'s third argument looks like a reason code.

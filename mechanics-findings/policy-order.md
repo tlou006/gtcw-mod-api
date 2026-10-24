@@ -47,6 +47,13 @@ recruitment side in [the manpower tap](the-manpower-tap.md) §4.
   begins, and you get three picks. The tooltips say so, in capitals — but the
   arithmetic means a **Union player must spend all three picks on ladder keys**
   to reach the top of all five branches, where the Confederacy needs only two.
+- **Never buy the last imported hull.** The four ship-import projects put a
+  random 1-to-4 stock of instantly-completed ironclads on the European market
+  and then restock it roughly **every three-quarters of a game day** — but only
+  while at least one hull is still on offer. Take the last one and that ship
+  type is closed to you for good (§8.4).
+- **Four projects cannot be bought at all without the DLC**, and one of them is
+  the only unlock for **Army Groups** (§8.1).
 
 ---
 
@@ -548,11 +555,11 @@ These are not modifiers — without them, your units are structurally worse.
 | Project | Cat. | Price | What you lose without it |
 | --- | --- | --- | --- |
 | **Cavalry Reform** (110) | military | **$0.85 M** | Every cavalry brigade's maximum size is multiplied by **0.2**, and cavalry sits a rung lower in the command hierarchy |
-| **Artillery Reform** (112) *or* **6-gun Batteries** (124) | military | **$0.85 M** | Artillery maximum size × **0.375** and a lower echelon. Either project alone suffices |
+| **Artillery Reform** (112) | military | **$0.85 M** | Artillery maximum size × **0.375** and a lower echelon. 6-gun Batteries (124) does the same job but exists only in the DLC campaign |
 | **Organization Reform** (90) | military | $2 M | The campaign-rank clamp stays at 15, and supply consumption stays 11 % higher. **Project 90 is the live one**; 89 is the same reform authored for a configuration this build does not use |
-| **Command Reform** (88) *or* Organization Reform | military | $1.5 M | **Army Groups**. Either unlocks them, given the alliance flag |
+| **Command Reform** (88) | military | $1.5 M | **Army Groups — and only with the DLC installed.** See the note below |
 | **Supply Reform** (115) | military | $1.5 M | Supply **depots** — the only thing that resupplies four times faster than an economic node ([supply in practice](supply-in-practice.md) §1) |
-| **Cavalry Reform II** (111) | military | $1 M | Horse artillery (project 123 instead, in scenario 002) |
+| **Cavalry Reform II** (111) | military | $1 M | Horse artillery. Project 123 is the DLC campaign's equivalent |
 
 > **Buy all six early.** Together they are about $8 M of military funding and
 > they are the difference between full-size brigades with depots and a
@@ -561,6 +568,26 @@ These are not modifiers — without them, your units are structurally worse.
 > for taking **Military I** as one of your first policies, since it alone takes
 > military accrual from $5 M to $12.5 M a year.
 
+> **Army Groups cannot be unlocked at all without the DLC.** The check wants
+> project **88** or **89** — not 90, despite both being called Organization
+> Reform — and it also wants an engine flag that the DLC check sets to `true`
+> when the DLC is present and **`false` when it is not**. Project 88 requires
+> the DLC and 89 belongs to the DLC campaign, so in a base-game install every
+> route is shut. If you have the DLC, 88 is the base campaign's unlock and 89
+> the DLC campaign's, and either works.
+>
+> **Buy Organization Reform (90) anyway** — it is the rank clamp and the 11 %
+> supply saving, which are its real value, and it was never the Army Group
+> unlock.
+>
+> Source: [28](../code-findings/28-project-effect-reachability.md) §3.1.
+
+Three of §8.1's alternatives are **scenario-locked**, which is why the project
+list differs between the base campaign and the DLC's. The base campaign gets
+110, 111, 112 and 90; the DLC campaign gets 124, 123 and 89 instead. You never
+see both sets, and there is no scenario in which a reform is missing with no
+substitute.
+
 ### 8.2 The repeating modifiers worth stacking
 
 | Project | Cat. | Price | Per level |
@@ -568,12 +595,12 @@ These are not modifiers — without them, your units are structurally worse.
 | **Administration Reform** (95) | politics | $1 M | **+5 % policy research speed** |
 | **Logistics Reforms** (100) | military | $3.5 M | **−5 % supply consumption and transport upkeep** |
 | Training Manuals (118) | military | $1.5 M | +5 % training speed |
-| Recruitment Offices (109) | military | $1 M | +5 % recruitment |
+| Recruitment Offices (109) | military | $1 M | +5 % recruitment, but it **ramps in over about 73 days** rather than applying at once |
 | Recruit Agents (108) | military | $1 M | +5 % intelligence gathering |
-| Civil Order (107) | military | $1 M | **−5 % support loss from casualties** — its raid half is inert (§8.3) |
+| Civil Order (107) | military | $1 M | **−5 % support loss from casualties** — its raid half is inert, and it also shields the enemy (§8.3) |
 | Trade Warfare (106) | military | $1 M | +5 % blockade and blockade-running efficiency |
 | Infrastructure Reform (99) | industry | $2.5 M | +5 % node transport capacity |
-| Subsidize Industry (104) | industry | $2.5 M | +5 % building productivity |
+| Subsidize Industry (104) | industry | $2.5 M | +5 % productivity at **Iron Works and Foundries only** — not the Manufactories that make Provisions and Uniforms (§8.3) |
 | Subsidize Agriculture (105) | agri | $2.5 M | +5 % building productivity |
 | Weapon Production (102) | industry | $2.5 M | +5 % weapon production |
 | Railroad Construction (119) | politics | $1.5 M | +5 % construction speed |
@@ -581,18 +608,19 @@ These are not modifiers — without them, your units are structurally worse.
 | Subsidize Banks (96) | economy | $5 M | +5 % funding improvement; needs a Bank Act |
 | Trade Deals (121) | diplomacy | $1.25 M | +5 % trade volume |
 | Send Envoys (103) | diplomacy | $2.5 M | **+0.05 European intervention per appointment** |
-| Military Education (122) | military | $3 M | A **count**, not a factor: it gates how many military schools you may hold |
+| Military Education (122) | military | $3 M | A **count**, not a factor: level N lets you hold N military schools — and buying it has a strange effect on the enemy (§8.3) |
 | Cotton is King (116) / Corn is King (117) | agri | $1.25 M | +0.025 intervention per appointment |
 | Propaganda (91) | politics | $5 M | +1 point of support in your own states, per appointment |
 | Counter-propaganda (92) | politics | $2.5 M | −1 point of enemy support, per appointment |
-| Occupation Administration (93) | politics | $1.5 M | +1 your support in states you occupy |
-| Suppress Population (94) | politics | $1 M | −1 enemy support in states you occupy |
+| Occupation Administration (93) | politics | $1.5 M | +1 your support in states you occupy **completely** (§8.3) |
+| Suppress Population (94) | politics | $1 M | −1 enemy support in states you occupy **completely** (§8.3) |
 
 Note that the four support projects (91–94) are **repeating and fire once per
 appointment**, so each level is a one-off step of ±1 point of support, not a
 rate. At $5 M a level Propaganda is the most expensive point of support in the
 game; Suppress Population at $1 M is the cheapest, and it only works where you
-are already occupying enemy territory.
+are already occupying enemy territory — and "occupying" means holding **every
+town** in the state, not some of them.
 
 ### 8.3 The ones that do nothing, or are mis-described
 
@@ -600,13 +628,65 @@ are already occupying enemy territory.
 | --- | --- |
 | **Market Reform** (98) | **Inert.** The one place that reads its level discards both the level and its pref in bare expressions. The Market *building* works; the project that claims to improve it does not |
 | **Plantation Mechanization** (114) | Inert — its effect sits inside a condition that cannot be true ([the war economy](the-war-economy.md)) |
-| **Civil Order** (107) | **Half inert.** Its casualty term works; its raid term is computed in two places and the result thrown away both times, so raiding costs you the full support hit however many levels you hold |
+| **Civil Order** (107) | **Half inert, and the working half is leaky.** Its casualty term works; its raid term is computed in two places and thrown away both times, so raiding costs you the full support hit however many levels you hold. And when your side is the one listed first on a battle, **your Civil Order level is applied to the enemy's support loss as well as your own** |
 | **Farm Mechanization** (113) | Its crop-production half is inert; its **recruitment** half works |
+| **Subsidize Industry** (104) | Works, but reaches **Iron Works and Foundries only**. The guard omits the Manufactory — the building that makes Provisions and Uniforms — while three other places in the code that group industrial buildings include it |
+| **Military Education** (122) | Works for you. For the AI the same gate reads **the enemy's** school count against **the enemy's** project level, and in the wrong direction — so the AI is unconstrained by its own project, and **buying the project and then not building a school stops the AI building one at all** |
+| **Occupation Administration** (93), **Suppress Population** (94) | Both need a state **totally** occupied — every town. And the occupied flag **never clears**, so a state you overran and later lost still counts for you, while a state you liberated still counts for the enemy forever |
 | Improve Credit Rating (97) | Works, but the effect summary formats a rating-notch count as "+100 %" per level |
 | 88, 89, 90, 110, 111, 112, 115, 120, 122, 123, 124 | **Eleven real projects that never appear in the active-effects panel at all** — including every structural reform in §8.1 |
 
 > So the panel that lists what your projects are doing omits every project in
 > §8.1 and includes one that does nothing. Treat it as a partial list.
+
+### 8.4 The four import projects, and the hull you must never spend
+
+The twenty weapon projects and twelve ship projects are not modifiers — they
+add something to the list you can order from. Most just unlock a type for
+domestic production or for foreign purchase, permanently and without limit.
+
+**Four are different**, and they are the single largest value in the project
+system if you handle them correctly:
+
+| Project | Cat. | Price | Unlocks |
+| --- | --- | --- | --- |
+| **British Warships** (38) | diplomacy | $9 M | Ironclad Turret Ship |
+| **French Warships** (39) | diplomacy | $7 M | Ocean Ironclad Ram |
+| **Gloire Class** (40) | diplomacy | $10 M | Ironclad Ship-of-the-Line |
+| **Warrior Class** (41) | diplomacy | $20 M | Warrior Class |
+
+Buying one of these does not unlock construction. It puts a **stock of
+purchasable hulls** on the European market — a random **1 to 4**, rolled at the
+moment you buy — and each hull you take is a different transaction from
+building a ship: paid straight out of the treasury, consuming **no goods from
+your economy**, and **finished instantly** rather than occupying a shipyard.
+
+Then the market restocks. Nominally it is a slow trickle weighted by tonnage —
+roughly one new hull a year for a Warrior Class. In the shipped build the
+restock roll is handed the **calendar date** instead of the length of the
+check interval, which inflates its probability by about a million, so **the
+roll always succeeds** and a new hull appears roughly every **three-quarters of
+a day**.
+
+And the restock only runs while you still have at least one hull on offer.
+
+> **Never take your last hull.** Keep one unbought and you receive a free,
+> instantly-completed ironclad about every three-quarters of a game day, for
+> the rest of the campaign — paid for out of the treasury, with no shipyard
+> time and no drain on iron or engines. Buy that last one and the type is
+> closed to you **permanently**: the market never restocks it again.
+>
+> At $7 M, French Warships is the cheapest entry to this and the Ocean
+> Ironclad Ram restocks fastest of the four, being the lightest.
+>
+> **Untested.** This follows from the code without ambiguity but has not been
+> watched in play. If you try it, the thing to check is whether the offer
+> replenishes while one hull is left standing.
+>
+> Source: [28](../code-findings/28-project-effect-reachability.md) §4.2a.
+
+The weapon import projects (0–4) work differently and have no such stock: once
+bought, the weapon is importable without limit. Only ships are metered.
 
 ---
 
@@ -643,7 +723,7 @@ its current research outright.
 
 ---
 
-## 10. Eleven things to do differently
+## 10. Thirteen things to do differently
 
 1. **Research one policy at a time.** Two is 7 % of your output, twelve is
    21 %, and every item in the queue arrives later than if you had done them
@@ -664,10 +744,11 @@ its current research outright.
 6. **Take Military I early even if Military is not one of your three tops.**
    One level takes military accrual from $5 M to $12.5 M a year, and the
    military category pays for the six structural reforms.
-7. **Buy Cavalry Reform, Artillery Reform (or 6-gun Batteries), Organization
-   Reform, Command Reform and Supply Reform before anything repeating.** About
-   $8 M for full-size cavalry and artillery, Army Groups, a lower supply bill
-   and the ability to build depots.
+7. **Buy Cavalry Reform, Artillery Reform, Organization Reform, Cavalry Reform
+   II and Supply Reform before anything repeating.** About $6.8 M for
+   full-size cavalry and artillery, horse artillery, a lower supply bill and
+   the ability to build depots. Command Reform is on the list too, if you have
+   the DLC; without it, Army Groups are unreachable whatever you buy.
 8. **Union: do not rush Militia Act I.** Going first costs 2.7× what waiting
    does, and going first *before 14 April 1861* can hand the Confederacy a
    border state for the whole campaign.
@@ -678,6 +759,13 @@ its current research outright.
     finishing Military III doubles your military spending without a click.
 11. **Ignore the availability dates on projects.** They gate nothing; buy on
     affordability alone.
+12. **If you buy a ship-import project, leave one hull on the market.** The
+    stock restocks itself about once a game day while any of it remains and
+    never again once it is empty, so the discipline of not buying the last one
+    is worth more than the hulls you would have bought (§8.4).
+13. **Do not buy Market Reform or Plantation Mechanization**, and treat Civil
+    Order as half price for half an effect. Expect Subsidize Industry to reach
+    your Iron Works and Foundries but not your Manufactories (§8.3).
 
 ---
 

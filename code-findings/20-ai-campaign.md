@@ -828,6 +828,13 @@ cross-side contamination of two different alliances' project levels, and it
 compounds with the finding that **project 107's raid half is inert entirely**
 ([22](22-policy-and-project-catalogue.md) §12.3).
 
+Stated the other way round, which is how it matters at the table: **when the
+player is the side stored first, the player's own Civil Order project also
+shields the enemy's support from its casualties.**
+[28-project-effect-reachability](28-project-effect-reachability.md) §6.6 works
+the three cases through, and notes that of the two factors touching `num67` the
+Civil Order half is the larger at any project level above zero.
+
 ---
 
 ## 10. Foreign intervention is a hardcoded script

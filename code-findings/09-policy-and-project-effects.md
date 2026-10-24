@@ -178,8 +178,13 @@ itself. See [22](22-policy-and-project-catalogue.md) §3.1 and §12.3.
    **Done** — [22-policy-and-project-catalogue](22-policy-and-project-catalogue.md).
    Note the harvest route in this file was half wrong: `GetProjectEffect` is a
    real rosetta stone, `UpdateAllTooltips` is not.
-3. **Which effects are `GamePrefs`-backed vs. literal.** Defines the patching
-   workload.
+3. ~~**Which effects are `GamePrefs`-backed vs. literal.**~~ **Answered** for
+   projects in [28-project-effect-reachability](28-project-effect-reachability.md)
+   §7: **33** `project_*` prefs carry every project magnitude except project
+   5's two `weaponstock` literals, so rebalancing projects is almost entirely
+   config work. That file also audits reachability — four projects are
+   unappointable in a base-game install and twelve have an effect that misses
+   its target.
 4. **`GameVars.alliance[]` and `GameVars.nation[]` field maps** — the state
    every effect writes to, and therefore the ModApi's core data surface.
    `AdjustSubsidyFactor(int type, float value)` and

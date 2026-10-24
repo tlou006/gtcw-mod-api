@@ -1159,9 +1159,13 @@ Shipped one-time pref values: `project_propagandainfl` 0.01,
 >
 > The other inert effects found so far — **114** entirely and **113**'s
 > production half ([18](18-economy.md) §3) — fail differently, inside a
-> condition that cannot be true, which no mechanical sweep catches. A
-> reachability audit of the remaining ~120 project effects is still
-> outstanding.
+> condition that cannot be true, which no mechanical sweep catches.
+>
+> **That audit is now done**, as
+> [28-project-effect-reachability](28-project-effect-reachability.md): of the
+> 69 real projects, **four cannot be appointed at all** in a base-game install
+> and **twelve have an effect that misses its target**, in six distinct ways.
+> These two are the only discarded-statement cases among all 33 project prefs.
 
 ### 12.4 Pull — boolean, via `projects.Contains(id)`
 
@@ -1185,10 +1189,14 @@ clamp from 15 to 16 (`BattleUnits` ~6425) and applies
 `project_organisationreformlowerconsumption` (**0.9**) to supply consumption —
 so the "post-reform" caps in findings/19 and findings/20 are **project 90**.
 
-**Army Groups are project-gated**, which closes the
-[19](19-commanders-and-perks.md) open question about `allowarmygroups`: the
-pref is necessary but not sufficient; Command Reform or Organization Reform
-must also be held.
+**Army Groups are gated twice, and in the base game neither gate opens.**
+`AllowsArmyGroups()` requires `projects.Contains(89) | projects.Contains(88)` —
+not 90 — and `GameVars.allowarmygroups`, which `DLC_WL` ~3457/~3464 **assigns**
+`true` with the DLC and `false` without. Project 88 is DLC-gated and 89 is
+scenario-`002`-only, so without the DLC the project test cannot pass either.
+See [28](28-project-effect-reachability.md) §3.1, which corrects this
+paragraph's earlier reading of `allowarmygroups` as a pref and closes the
+[19](19-commanders-and-perks.md) open question.
 
 ### 12.5 Projects absent from the player's effect summary
 

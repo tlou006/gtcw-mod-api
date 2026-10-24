@@ -1474,26 +1474,132 @@ earlier pass had deferred.
 - **The planned mechanics index is now empty.** All ten translations are
   written.
 
-**Next:** the mechanics layer is complete, so the next pass is the first of the
-code-side backlog: the **reachability audit of the remaining project effects**.
-It is the most urgent item because three consecutive sweeps have each turned up
-a discarded pref the previous one missed — `project_civilorderraids` in pass 14
-and the three `AddTradeWarfare`-style orphans in findings/25 §7 — which means
-the `_ = pref;` and bare-`Mathf.Max(...)`-as-a-statement patterns are not
-isolated and have never been enumerated exhaustively. The audit's output is a
-complete reachability table for every project effect in
-[22](code-findings/22-policy-and-project-catalogue.md), which is also what
-[09](code-findings/09-policy-and-project-effects.md) needs to be finished.
+**Pass 17 — `code-findings/28-project-effect-reachability.md`** (835 lines, a
+new findings file; the first item of the code-side backlog). The reachability
+audit [22](code-findings/22-policy-and-project-catalogue.md) §12.3 left
+outstanding, run over all **69 real projects** of the 125 ids — 56 are
+`PLACEHOLDER`.
 
-After it, in order: the **~137 unverified dead prefs** from the findings/07
-sweep; the four subsystems [26](code-findings/26-naval-combat.md) §10 leaves
-open; and a single **asset dump** pass, which is now the binding constraint on
-six separate questions — the perk availability lists, the `Frontline2`
-state-set cut-over dates, the `levelgraphics` project-level cap, the campaign
-map's unit-to-mile scale, the `UI/Newspaper` sprite set, and the message-symbol
-atlas. Longer-standing: the **`DLC_WL` layer** (7,932 lines, which now also
-owns `DLC_WL.messageidstoignore` and the `Diary` channel) and the Phase 0
-leftovers (dnSpy; `xl/vbaProject.bin` from the ModdingTool workbook).
+- **Four projects cannot be appointed at all** in a base-game install.
+  `IsAppointable` and the `datefrom` grant path both test
+  `applicablescenarios` and `FulfillsDLC()`, and **`Campaigns/002` is the DLC
+  campaign** (`DLC_WL` requires its directory among seventeen conditions
+  before setting `dlc_active`; `MainMenu` ~1053 hides any `mapid == "002"`
+  campaign without it). So **88** is DLC-gated and **89**, **123**, **124** are
+  scenario-`002`-only. Each has a scenario-`001` twin — 90, 111, 112 — so the
+  content is a parallel reform set per campaign rather than duplication.
+- **Army Groups are a DLC feature, and the base game cannot unlock them.**
+  `AllowsArmyGroups()` tests `projects.Contains(89) | projects.Contains(88)` —
+  **not 90**, despite both 89 and 90 being named Organization Reform — and
+  `GameVars.allowarmygroups`, whose field initialiser is `true` but which
+  `DLC_WL` ~3457/~3464 **assigns** `true` with the DLC and **`false`** without,
+  alongside `allowgarrisondeployment`. Both gates are shut without the DLC;
+  with it, 88 is the base campaign's unlock and 89 the DLC campaign's. Closes
+  the `allowarmygroups` open question in
+  [19](code-findings/19-commanders-and-perks.md) and corrects
+  [22](code-findings/22-policy-and-project-catalogue.md) §12.4, which read the
+  flag as a per-alliance pref.
+- **The ship-import market inverts itself, and it is the largest exploitable
+  thing found so far.** Projects **38–41** are the only callers of
+  `ShipType.SetAsImported`, which grants `Random.Range(1, 5)` — **1 to 4** —
+  entries in `importonmarketforalliance`, a *stock of purchasable hulls*. Each
+  hull spent at `BattleUnits` ~4853 is **paid from the treasury, consumes no
+  goods and sets `constructiontimer = 0f`** — an instantly-completed ship.
+  Then two defects compound in `ShipType.UpdateMarket`:
+  - the restock probability is
+    `1f / probabilityofshiponeuropeanmarkets * timer / tonnage * 2000f` with
+    **`timer` the absolute campaign date** (`GetCampaignFloatingDate()` ≈
+    1862) rather than the elapsed cycle, which inflates it by about 10⁶ — from
+    an intended 0.0017–0.0119 per cycle to **1,600–11,000**, so the roll always
+    succeeds, every `shiptypeupdatecycle` = 0.002 yr ≈ **0.73 days**;
+  - the restock is gated on `HasImport(i)`, which requires
+    `importonmarketforalliance.Contains(i)` — **stock must already exist** — so
+    the `else` branch fires once the last hull is spent and the restock branch
+    is never reachable again.
+  Net effect: **keep one hull unbought and you receive a free, instantly-built
+  ironclad roughly every three-quarters of a game day forever; buy the last one
+  and that ship type is closed permanently.** The slots round-trip through the
+  save one line each, so an unspent stock inflates every save. Untested in
+  play; the test is stated in the file.
+- **The AI's Military Education gate reads the wrong alliance, in the wrong
+  direction.** The player's gate (`BuildingList` ~111) is correct — schools
+  allowed = `GetProjectLevel(122)`. The AI's (`AICampaign` ~5785) is
+  `alliance[num9].militaryschools >= alliance[num9].GetProjectLevel(122)` where
+  `num9` is **the opponent**, set deliberately for the military-experience
+  comparison two lines above. So the AI is **unconstrained by its own project**
+  (0 >= 0 at campaign start), and **a player who buys Military Education and
+  builds no school locks the AI out of military schools entirely**, since the
+  test becomes "has the player built one".
+- **`nation[].occupiedby` is a latch.** `GameVars.UpdateNationsData` ~7947
+  assigns it only when **every** town in the state is held by one other
+  alliance, and **never clears it** — the `num < 0` path `continue`s and
+  `!flag` does nothing. So projects **93** and **94** need a state *totally*
+  occupied, keep applying to states their owner has since lost, and never
+  apply to states it has liberated. The same latch reaches
+  `Regiment.IsOnEnemySoil` ~27160, so a liberated state permanently stops
+  counting as enemy soil for whoever once overran it.
+- **Project 107's casualties half leaks onto the enemy.** The `num67` reset at
+  `ImportExportUnitData` ~3647 happens only in the ternary's *false* branch —
+  when side 1 **is** the player. So when the player is the side stored first,
+  **the player's own Civil Order level multiplies the enemy's casualty-driven
+  support loss as well.** Sharpens
+  [20](code-findings/20-ai-campaign.md) §9.2, which had the handicap half of
+  the same leak: both factors touching `num67` carry across, and Civil Order
+  is the larger at any level above zero.
+- Confirmed and bounded, rather than new: **project 104 Subsidize Industry
+  omits `id_manufactory`** and so reaches Iron Works and Foundries only, while
+  the three other sites that group industrial buildings all include it; and
+  **98 Market Reform and 107's raid half are the only two discarded-statement
+  failures among all 33 project prefs** — the mechanical sweep is now
+  exhaustive, which is what the previous three passes could not say.
+- **All 33 `project_*` prefs tabulated** with shipped values and standing:
+  **4 dead, 2 impaired** — 12 % and 6 %, the best available prior for the
+  `~137` unverified candidates from the findings/07 sweep. Project **97** is
+  the only one that is not a multiplier (−1 **rating notch**), and project
+  **5** holds the only literal magnitudes in the system
+  (`weaponstock[36] += 3000f`, `[86] += 2500f`) — so rebalancing projects is
+  config work, not code work, which closes
+  [09](code-findings/09-policy-and-project-effects.md) open question 3.
+- Smaller findings from the same sweep: **`additionalrecruitssubsidies`**
+  (labelled *"additional volunteers at full recruitment subsidies"*, shipped
+  **2**) is used only as the numerator of a convergence rate, and nothing but
+  project 109 writes `recruitmentprojectfactortarget` — so the doubling the
+  label promises is applied nowhere, and 109's +5 %/level **ramps in over about
+  73 days** at 1.0/yr; **project 115's gate is in the button, not the
+  simulation** (`CBuildingIcon.Upgrade` has no project test, and the AI's
+  construction path never reaches a supply depot, so it holds in practice);
+  **`Weapon.GetAvailability(int alliance)` ignores its argument** and reads the
+  player's availability, with `Weapon.AbleToOrder` gating the order button by
+  **string equality** against two of its five return strings; and
+  **project 101's `1 + level × (−0.5)` form is safe only because the project is
+  non-repeating.**
+- Translated for the player in `mechanics-findings/policy-order.md`: a new
+  **§8.4** on the four import projects and the hull never to buy, the Army
+  Groups DLC note in §8.1, four corrected rows in §8.2, four new rows in §8.3,
+  two new short-version bullets and two new entries in §10 ("Eleven things" →
+  "Thirteen"). Plus `ui-vs-simulation.md` **§1.19** — the import projects
+  promise an open channel and deliver a metered one — and a nineteenth label
+  trap.
+
+**Next:** the **~137 unverified dead prefs** from the
+[07-config-data-model](code-findings/07-config-data-model.md) sweep, which is
+now the largest single unknown left on the code side and the natural follow-on
+from pass 17 — the method is the same four-pass sweep, and the project audit
+established the base rate to expect (4 of 33 dead, 2 impaired). The prize is
+the same: every dead pref is a knob a modder would otherwise waste time
+turning, and every impaired one is a defect with a one-line fix.
+
+After it, in order: the four subsystems
+[26](code-findings/26-naval-combat.md) §10 leaves open; and a single **asset
+dump** pass, now the binding constraint on seven separate questions — the perk
+availability lists, the `Frontline2` state-set cut-over dates, the
+`levelgraphics` project-level cap, the campaign map's unit-to-mile scale, the
+`UI/Newspaper` sprite set, the message-symbol atlas, and whether `MessageLog`
+sits on the panel object its retention depends on. Longer-standing: the
+**`DLC_WL` layer** (7,932 lines — which pass 17 has now shown owns Army Groups,
+garrison deployment and the whole `002` project set, so it is a larger share of
+the game than the file count suggests) and the Phase 0 leftovers (dnSpy;
+`xl/vbaProject.bin` from the ModdingTool workbook).
 
 **Exit criteria per file:** a reader who has never opened `code-findings/` can
 act on it, and every claim in it can be traced back to a section that supports

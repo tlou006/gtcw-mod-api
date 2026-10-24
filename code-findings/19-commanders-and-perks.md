@@ -1388,12 +1388,16 @@ superior-influence factor.
    that static reading cannot settle.
 5. **`armygroupcols.dat` / `ArmyGroup` / `CheckArmyGroupPromotion`** — Army
    Groups bypass `GetSuitableCommander` and have their own promotion path. The
-   **gate is now known**: `Alliance.AllowsArmyGroups()` needs the alliance's
-   `allowarmygroups` flag **and** project 88 (Command Reform) or 89
-   (Organization Reform) — see
-   [22-policy-and-project-catalogue](22-policy-and-project-catalogue.md) §12.4.
-   The promotion path itself and `minimumexpcommanderarmygroup` were still not
-   followed.
+   **gate is now fully known, and it is closed in the base game**:
+   `Alliance.AllowsArmyGroups()` needs `GameVars.allowarmygroups` **and**
+   project 88 (Command Reform) or 89 (Organization Reform) — not 90. The flag
+   is a static with an initialiser of `true` that `DLC_WL` ~3457/~3464
+   **assigns** `true` with the DLC and `false` without, and both projects are
+   unappointable without it, so **Army Groups are a DLC feature**. See
+   [28-project-effect-reachability](28-project-effect-reachability.md) §3.1;
+   this replaces the earlier reading of `allowarmygroups` as a per-alliance
+   pref. The promotion path itself and `minimumexpcommanderarmygroup` were
+   still not followed.
 6. **`Config/avatar.dat` and `Config/CommanderDummies/`** — the dummy name
    pools and the avatar/portrait system (`AvatarManagement`, 1,792 lines) were
    only skimmed. `AvatarManagement` also contains a commander *editor* writing

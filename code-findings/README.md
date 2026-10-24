@@ -81,6 +81,7 @@ the evidence than in a central list.
 | File | Contents |
 | --- | --- |
 | [09-policy-and-project-effects](09-policy-and-project-effects.md) | The effect dispatch sites; why new ids can be injected |
+| [28-project-effect-reachability](28-project-effect-reachability.md) | Whether each of the 69 real projects actually does what it claims: the four that cannot be appointed at all in a base-game install and why Army Groups are a DLC feature; the five dispatch mechanisms and what each reaches; the ship-import market, which grants 1–4 instantly-built hulls, restocks every three-quarters of a day because the probability is passed the absolute campaign date, and closes permanently once the last hull is spent; the twelve projects whose effect misses, in six classes — two discarded statements, two conditions comparing a loop counter against a resource id, a gate read from the opponent's alliance and inverted, a guard that omits the manufactory, a flag that never resets, and an accumulator carried across sides; and all 33 `project_*` prefs with their shipped values and standing |
 
 ### Simulation — [summary](summary-simulation.md)
 

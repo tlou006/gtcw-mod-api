@@ -534,6 +534,39 @@ ammunition-and-forage alarm and read the four supply bars yourself.
 
 Source: [27](../code-findings/27-dispatches-and-the-message-log.md) §5.1.
 
+### 1.19 The ship-import projects promise an open channel, not a metered one
+
+The four ship-import projects are described as trade agreements. British
+Warships reads *"Make a deal with the British to import their modern Ironclad
+Turret Ships. As the ships are constructed in Great Britain, any issues with
+lack of domestic shipyard capacity can be avoided"*; the effect line is
+*"Ironclad Turret Ship import deal."* Nothing in either says the deal is
+finite.
+
+It is. Buying the project rolls a **random 1 to 4** and puts that many hulls on
+the market. Each one you take is paid out of the treasury, consumes no goods
+and is finished immediately — which is the shipyard bypass the prose promises —
+but when the stock is gone the type is **permanently closed**, because the
+restock check requires a hull to already be on offer.
+
+The same restock check is passed the calendar date where it wants the length of
+the check interval, so while any stock remains it succeeds every time and a new
+hull appears about **every three-quarters of a game day**. So the project is
+either an unlimited free shipyard or a one-off batch of up to four, depending
+entirely on whether the player happens to leave one hull unbought — and nothing
+in the interface hints that the distinction exists.
+
+These four projects are also among the eleven that never appear in the
+active-effects panel (§1.15), so the only text a player ever sees about them is
+the two lines above.
+
+**Untested**: derived from the code, not observed. §4.2a of the source file
+states the test.
+
+Source: [28](../code-findings/28-project-effect-reachability.md) §4.2a.
+
+---
+
 ## 2. Things the game tells you in words that are not true
 
 ### 2.1 The perk tooltip describes a system that does not exist
@@ -893,7 +926,7 @@ Sources: [11](../code-findings/11-combat-resolution.md) §2,
 
 ---
 
-## 5. For modders: eighteen label traps
+## 5. For modders: nineteen label traps
 
 None is player-facing, but each will bite a tool that reports game state.
 
@@ -1016,6 +1049,15 @@ for campaign ones, so battle type 0 and campaign type 50 share slot 5. Reading
 is a desertion scale and the Quartermaster's report prints it after the words
 *"morale in the army is"* — so the string and the quantity disagree even before
 the field being read turns out to be unwritten (§1.16).
+
+**`Weapon.GetAvailability(int alliance)` ignores its argument.** All three tests
+inside it read the *player's* alliance, so asking whether a weapon is available
+to the other side returns the player's answer. Every shipped call site passes
+`playeralliance`, so nothing is wrong today — but the method also returns one
+of five display strings, and `Weapon.AbleToOrder`, the real gate on the order
+button, decides by **string equality** against two of them. A localisation that
+changes *"Not produced"* makes every weapon orderable
+([28](../code-findings/28-project-effect-reachability.md) §4.1).
 
 ---
 
