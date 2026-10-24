@@ -1342,16 +1342,158 @@ the first time.
   will **not** march to the sound of the guns — that flag ships `false` for
   your units only, while the enemy AI always runs it.
 
-**Next:** `events-and-the-press.md`, the tenth and last item on the planned
-index ([25](code-findings/25-newspaper-and-events.md)) — which completes the
-mechanics layer. After it the planned index is empty, and the natural next
-phase is the code-side backlog: the **reachability audit of the remaining
-project effects** (now the most urgent item, since two sweeps have each turned
-up a discarded pref the previous one missed), the **~137 unverified dead prefs**
-from the findings/07 sweep, the four subsystems findings/26 §10 leaves open,
-and the asset dump that would close the perk availability lists, the state-set
-cut-over dates, the `levelgraphics` cap and the campaign map's unit-to-mile
-scale in one pass.
+**Pass 16 — `mechanics-findings/events-and-the-press.md`** (tenth and last
+item off the planned index, which completes the mechanics layer) **and
+`code-findings/27-dispatches-and-the-message-log.md`** (763 lines, a new
+findings file). Translating
+[25](code-findings/25-newspaper-and-events.md), and closing its open question 2
+by writing up `Messages`, `MessageLog` and `Dispatch` — the channel every
+earlier pass had deferred.
+
+- **The one fog-gated dispatch never waits for the sighting.**
+  `useunitspotted` has exactly one caller in the whole assembly —
+  `msg_enemyreinforcementsarrive` — and it passes `timedelay: 0f`, so
+  `CheckDelayedMessages`' elapsed-time clause (`time + 0 <= Hour`, with `time`
+  stamped as the current hour) is satisfied on the very next frame and the fog
+  clause is never consulted. **Enemy reinforcements are announced by the
+  commander's name, with formation type and approximate strength, through fog
+  of war, in every battle.** The figures still pass the `approximationvalues`
+  filter, so fog blurs the numbers and leaves the arrival public. One-argument
+  fix. The same site also burns two issue numbers per dispatch, leaving a
+  visible gap in the letterhead numbering.
+- **The battle de-duplication window compares hour-of-day, not elapsed time.**
+  `uniStormSystem.Hour − message.time <= checktimeoflatestmessage` (**0.5**
+  game hours) goes negative once a battle crosses midnight, and a negative
+  difference satisfies the test — so a dispatch raised at 18:00 on day one is
+  treated as half an hour old until 18:30 on day two. Since the three
+  ammunition warnings have **no hysteresis at all** (they re-arm at exactly the
+  firing threshold, unlike the morale warning's 1.2×), this window is the only
+  thing stopping them spamming — and after midnight it stops them entirely.
+  The campaign branch uses `currenttimefromstart` and is correct.
+- **The Quartermaster's Morning Report always says morale is "intact."** Its
+  first sentence indexes `GameVars.desertiontextinfo` — a *desertion* scale —
+  with `desertionslastnight × 10` on the player's **top formation**. That field
+  is written in exactly one place, `CheckDesertionsAndMorale` ~8140, inside a
+  `unittyp <= 13` guard, so on an Army or Army Group it is never written, stays
+  0, and clamps to band 0. Four of the five strings are unreachable. The
+  dispatch channel's exact counterpart to the newspaper's constant morale
+  paragraph — and unlike that one, **not** a config fix.
+- **The campaign supply warning tests two of the four supplies.**
+  `msg_outofsupply` additionally requires
+  `groupsupplystate[0] < 0.25 || groupsupplystate[3] < 0.25` — rifle ammunition
+  or forage. Artillery ammunition and **provisions** are absent, although the
+  dispatch body reports all four by name, so an army can starve of food with no
+  warning raised.
+- **The monthly intelligence report is near-perfect information, free.**
+  Enumerated for the first time: every policy the enemy finished and every one
+  it is still debating by name, its recruitment or credit crisis stated
+  outright, every project completed, every Corps and Army raised **with the
+  state it is meant to operate in**, every fleet raised, its armies' **exact**
+  average morale and the month's change, the top three high-ranking officers
+  lost by name, and its doctrine in plain English. **Only the recruited-men
+  figure passes the fog filter** (`approximationvalues` = 50/100/500/1000/2000);
+  everything else is printed exactly. And `lastmonthaistrategy` is **a
+  high-water mark, not a doctrine** — five `AICampaign` sites raise it with
+  `if (x < n) x = n` and only the month-end reset lowers it — so the sentence
+  reports the most aggressive thing the AI did, with raiding masked by anything
+  else and value 4 raised **while a sea-invasion force is still assembling**,
+  which makes *"planning a naval invasion"* the one genuinely actionable
+  warning in the game.
+- **Log retention is ten game days, hardcoded, and enforced only while the log
+  panel is open.** `GameVars.holdmessagesfordays = 10f` is a bare field
+  initialiser with no loader and no other writer — in no config file and no
+  options screen — and `MessageLog.CheckAutoRemoval` runs in the panel's
+  `Update`, which `HidePanel`'s `SetActive(false)` stops. So dispatches are
+  destroyed **the moment the player opens the log**, invisibly, and at campaign
+  speed 50 ten game days is **thirty seconds of real time**. Untested: the
+  panel-object assumption wants an asset dump.
+- **Three fully authored dispatches have no writer** — ids 12, 13 and 14: the
+  enemy proposing a cease-fire, warning of its own retreat, and accepting terms
+  of surrender in words close to Lee's at Appomattox. All three are written as
+  requests for the player's orders, and the first explicitly waits on a reply,
+  so together they describe a negotiated-battle-end layer the game does not
+  have.
+- **46 declared ids, not the ~45 findings/25 estimated**, all 46 with a case
+  and **no `default:` arm** — so an unknown type yields an empty letter rather
+  than the newspaper's diagnostic string. Twenty-five ids inside the two ranges
+  are undeclared (17–19; 52, 62–73, 77, 78, 80–86). The symbol index is
+  `type + symboloffset`, with the campaign passing a hardcoded **−45**, so
+  battle type 0 and campaign type 50 share atlas slot 5.
+- Smaller findings: the **very-high-casualties dispatch has a dead twin**
+  (`Regiment` ~8183 differs only in signing the parent, and its
+  `!messagetriggered[4]` guard is already false), so the casualty warnings are
+  signed by the **regiment** while every other warning is signed by the
+  **corps** (`messagehighestunitlevel` = 15); the morale and rout warnings
+  exist at exactly **two echelons, Division and Corps** — an Army, an Army
+  Group and a brigade are all silent; delayed dispatches are **never
+  de-duplicated in the campaign** (both time branches sit inside
+  `if (!IsCampaign)`); the main duplicate test omits `targetdestination` while
+  the delayed one includes it; `CheckAutoRemoval` skips the new head after
+  removing index 0; the unread counter lags a full 50–100-record sweep;
+  `Dispatch` prints the year as `year - 1860`; id 87 is the only one of the 46
+  that assigns no tooltip; and `Load` guards a `Regiment[]` walk with a
+  `GameObject[]` null test.
+- **A mod seam that is really a trap:** `MessageLog.OpenMessage` writes a
+  single space into `manualsender` for any dispatch that has neither a sender
+  nor a signature, which defeats `Dispatch.UpdateContent`'s own
+  `manualsender.Length > 1` test and sends it into
+  `GameVars.commander[sender.commander]` with `sender == null`. No shipped
+  dispatch reaches it — every senderless one carries a cabinet title — but a
+  mod's will, as a `NullReferenceException` the first time the player opens it
+  from the log.
+- Also **resolved findings/25 §5.1's unexplained pair of flags**: `flag3` is
+  cleared when a naval action had under
+  `minshipsfornewspapernavalengagement` = 8 participants **or** when
+  `flag2 && flag` — some fleet with `fleetorders == 1` (Blockade) and some with
+  `fleetorders == 3` (Raid). So **a commerce raider running into a blockade
+  gets no paper at any size**, which is the same pair that suppresses the naval
+  national-morale adjustment ([17](code-findings/17-politics-and-support.md)
+  §3a). And `flag3` gates more than the newspaper: it also gates the
+  `OpenMessageOutright` that pops the battle-result dispatch open, so that
+  action does not interrupt the player at all.
+- Translated for the player: the newspaper as a **modal interrupt that pauses
+  the war** whose options switch **deletes** papers rather than deferring them,
+  including the one the end of the campaign waits for; **how much of the
+  written history each start date can still reach** — 94 of 105 dated papers
+  from Spring 1861 against **30 from Spring 1864**; the fifteen policies that
+  are also event unlocks, **Indian Wars alone worth six papers** while handing
+  the enemy +5 military experience, and a gate that fires on the enemy's
+  research as readily as yours, which makes those papers a free readout of what
+  the enemy has adopted; the four **AI crisis papers** as the enemy announcing
+  that it has just thrown away its running research; the **late-war papers that
+  quietly go missing at speed 50 below 40 fps**, with the workaround of
+  dropping to speed 20 for the last year; the battle report's three-step
+  captured-weapons scale and its constant morale sentence; and the 40 % morale
+  warning landing **above** the 25 % fire-break line but **below** the 50 %
+  contact one, so a division already in melee has passed its break threshold
+  before the dispatch is written.
+- Three new entries in `mechanics-findings/ui-vs-simulation.md` (§1.16–1.18)
+  and three new label traps; "fifteen label traps" → "eighteen".
+- `code-findings/summary-newspaper.md` retitled and extended with a dispatch
+  section; its asset-dump list grew from three questions to five.
+- **The planned mechanics index is now empty.** All ten translations are
+  written.
+
+**Next:** the mechanics layer is complete, so the next pass is the first of the
+code-side backlog: the **reachability audit of the remaining project effects**.
+It is the most urgent item because three consecutive sweeps have each turned up
+a discarded pref the previous one missed — `project_civilorderraids` in pass 14
+and the three `AddTradeWarfare`-style orphans in findings/25 §7 — which means
+the `_ = pref;` and bare-`Mathf.Max(...)`-as-a-statement patterns are not
+isolated and have never been enumerated exhaustively. The audit's output is a
+complete reachability table for every project effect in
+[22](code-findings/22-policy-and-project-catalogue.md), which is also what
+[09](code-findings/09-policy-and-project-effects.md) needs to be finished.
+
+After it, in order: the **~137 unverified dead prefs** from the findings/07
+sweep; the four subsystems [26](code-findings/26-naval-combat.md) §10 leaves
+open; and a single **asset dump** pass, which is now the binding constraint on
+six separate questions — the perk availability lists, the `Frontline2`
+state-set cut-over dates, the `levelgraphics` project-level cap, the campaign
+map's unit-to-mile scale, the `UI/Newspaper` sprite set, and the message-symbol
+atlas. Longer-standing: the **`DLC_WL` layer** (7,932 lines, which now also
+owns `DLC_WL.messageidstoignore` and the `Diary` channel) and the Phase 0
+leftovers (dnSpy; `xl/vbaProject.bin` from the ModdingTool workbook).
 
 **Exit criteria per file:** a reader who has never opened `code-findings/` can
 act on it, and every claim in it can be traced back to a section that supports

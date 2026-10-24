@@ -162,6 +162,7 @@ the evidence than in a central list.
 | File | Contents |
 | --- | --- |
 | [25-newspaper-and-events](25-newspaper-and-events.md) | The newspaper panel, its queue and its four producers; all 119 `historicalevents.dat` records with dates, images and the fifteen gating policies; the index-cursor scan and the game-day arithmetic that makes it tight rather than safe; the eleven events no shipped campaign can reach; `endbattle` and `battleresulttype`; the procedural battle report and the two prefs that make its morale paragraph a constant |
+| [27-dispatches-and-the-message-log](27-dispatches-and-the-message-log.md) | The other narrative channel: 46 code-written dispatch types, their 50 call sites and the seven shipped warning thresholds; the fog-gated dispatch whose one caller defeats its own gate, so enemy reinforcements are announced through fog of war; the battle de-duplication window that compares hour-of-day and so suppresses repeats for a whole day after midnight; the campaign supply warning that tests two of the four supplies; the Quartermaster's Morning Report, whose morale sentence is a constant; the monthly intelligence report's full disclosure list and its high-water-mark doctrine line; the ten-day log retention enforced only while the panel is open; and three fully authored dispatches the enemy can never send |
 
 ### Naval combat — [summary](summary-naval.md)
 
@@ -186,15 +187,14 @@ state those effects write to as
 [23-game-state](23-game-state.md), and the last untouched campaign subsystem as
 [24-campaign-objectives](24-campaign-objectives.md). The narrative channel both
 of those left open is now
-[25-newspaper-and-events](25-newspaper-and-events.md).
+[25-newspaper-and-events](25-newspaper-and-events.md), and its sibling — the
+dispatch log — is
+[27-dispatches-and-the-message-log](27-dispatches-and-the-message-log.md).
 
 **Every major campaign and battle subsystem now has a findings file.** What
 remains is narrower, and each item is recorded as an open question in the file
 it belongs to:
 
-- **`Messages`**, the small on-screen dispatch channel — 1,633 lines, ~45 typed
-  ids, text assembled in code rather than authored. Split out of
-  [25](25-newspaper-and-events.md), which covers the newspaper itself.
 - **The DLC layer.** `DLC_WL` is 7,932 lines and every other file defers to it:
   the prestige economy, incidents, staff, companions, the entirely DLC-gated
   `CheckCurrentOrderUpdate` of [21](21-ai-battle.md) §14, the
@@ -206,8 +206,9 @@ it belongs to:
   ([22](22-policy-and-project-catalogue.md) §16),
   `Frontline2.FrontlineTextureDateToBeUsedFrom`
   ([24](24-campaign-objectives.md) §12), `PerksShownGroup`/`PerksShownFleet`
-  ([19](19-commanders-and-perks.md)), and the `UI/Newspaper` sprite set
-  ([25](25-newspaper-and-events.md) §9).
+  ([19](19-commanders-and-perks.md)), the `UI/Newspaper` sprite set
+  ([25](25-newspaper-and-events.md) §9), and the message-symbol atlas
+  ([27](27-dispatches-and-the-message-log.md) §13).
 - **Phase 0 leftovers:** dnSpy, and `xl/vbaProject.bin` from the ModdingTool
   workbook.
 

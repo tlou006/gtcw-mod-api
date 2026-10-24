@@ -1,13 +1,19 @@
-# Summary: the newspaper and historical events
+# Summary: the newspaper, historical events and dispatches
 
 **Build:** see [00-build-provenance](00-build-provenance.md)
-**Source:** covers [25-newspaper-and-events](25-newspaper-and-events.md)
+**Source:** covers [25-newspaper-and-events](25-newspaper-and-events.md) and
+[27-dispatches-and-the-message-log](27-dispatches-and-the-message-log.md)
 
 The game's one full-screen narrative channel, and the last open question shared
 by [22](22-policy-and-project-catalogue.md) and
 [24](24-campaign-objectives.md). One panel, one queue, **four producers**: the
 dated event catalogue, the policy records, the objective records, and a
 procedurally written battle report.
+
+And the game's other one: the military dispatch, 46 code-written letter types
+feeding a ten-day log. The two channels share a panel neighbourhood and a pair
+of unreachable morale strings, and between them they are everything the game
+ever tells the player in its own voice.
 
 ---
 
@@ -130,7 +136,12 @@ id:
 The fourth producer is not authored at all: `WriteBattleResultToMonument` writes
 a paper from `battleresult.dat`, with headlines and prose assembled by ten
 `BattleMonument.GetNewspaper*` methods. Small naval actions (under
-`minshipsfornewspapernavalengagement = 8`) get a dispatch but no paper.
+`minshipsfornewspapernavalengagement = 8`) get a dispatch but no paper — and so
+does **a commerce raider running into a blockade, at any size**, which is the
+same `fleetorders` pair that suppresses the naval national-morale adjustment
+([17](17-politics-and-support.md) §3a). The same flag also gates the auto-open
+of the battle-result dispatch, so that action does not interrupt the player at
+all.
 
 Pinning it down required two enumerations no earlier file had, now in
 [16](16-enumerations.md): **`endbattle`** (14 values, four of them transient
@@ -164,6 +175,74 @@ masked: `GetNewspaperHeadline4` indexes the **loser**'s morale effect
 winner's entry, fixing only the thresholds would make the enemy press report
 itself unmoved after being routed and in shock after winning. **Fix the index
 and the thresholds together or not at all.**
+
+## The other channel: 46 dispatches, none of them authored
+
+`Messages` (1,633 lines), `MessageLog` (254) and `Dispatch` (139) are the
+military-dispatch channel — a blinking symbol over the map for 30 real seconds,
+then a scrolling log, with the letter itself rendered on a period form. **All
+46 texts are assembled in code**, which is the opposite of the newspaper's
+data-driven catalogue, and `Messages.Add` is the single entry point for all of
+them, called from 50 sites in eleven files.
+
+Only your own units report, and a warning is signed by the **corps** commander
+rather than the unit in trouble (`messagehighestunitlevel = 15`). The morale
+and rout warnings exist at exactly two echelons — **Division and Corps** — so
+an Army, an Army Group and a brigade are all silent.
+
+Four findings carry beyond the channel itself.
+
+> **The one fog-gated dispatch never waits for the sighting.** `useunitspotted`
+> has exactly one caller — `msg_enemyreinforcementsarrive` — and it passes
+> `timedelay: 0f`, so the elapsed-time release clause is satisfied on the next
+> frame and the fog clause is never consulted. **Enemy reinforcements are
+> announced by the commander's name, with formation type and approximate
+> strength, through fog of war, in every battle.** The strength figures still
+> pass the `approximationvalues` filter, so fog blurs the numbers and leaves
+> the arrival public. One-argument fix.
+
+> **The battle de-duplication window compares hour-of-day, not elapsed time.**
+> `uniStormSystem.Hour − message.time <= 0.5` goes negative once a battle
+> crosses midnight, and a negative difference satisfies the test — so a
+> dispatch raised at 18:00 on day one is treated as half an hour old until
+> 18:30 on day two. The campaign branch uses a cumulative clock and is correct.
+
+> **The Quartermaster's Morning Report always says morale is "intact."** Its
+> first sentence indexes `desertiontextinfo` with
+> `desertionslastnight × 10` on the player's **top formation** — a field only
+> `CheckDesertionsAndMorale` writes, and only for `unittyp <= 13`. So the index
+> is always 0 and four of the five strings are unreachable. This is the
+> dispatch channel's exact counterpart to the newspaper's constant morale
+> paragraph, and unlike that one it is **not** a config fix.
+
+> **The campaign supply warning tests two of the four supplies.**
+> `msg_outofsupply` requires `groupsupplystate[0] < 0.25 ||
+> groupsupplystate[3] < 0.25` — rifle ammunition or forage. Artillery
+> ammunition and **provisions** are not tested, although the dispatch body
+> reports all four. An army can starve of food with no warning raised.
+
+**The monthly intelligence report is near-perfect information, free.** Queued
+on the first frame of a new month alongside the economy report, never
+de-duplicated, it names every policy the enemy finished and every one it is
+still debating, its recruitment or credit crisis, every project completed,
+every Corps and Army raised **with the state it is meant to operate in**, every
+fleet raised, its armies' exact average morale and the month's change, the top
+three high-ranking officers it lost, and `lastmonthaistrategy` in plain
+English — which is a **high-water mark** of the most aggressive thing it did,
+with value 4 raised while a sea-invasion force is still assembling. Only the
+recruited-men figure passes the fog filter; everything else is exact.
+
+**Retention is ten game days, hardcoded, and enforced only while the log panel
+is open** — `holdmessagesfordays = 10` is a bare field initialiser with no
+loader, and `MessageLog.CheckAutoRemoval` runs in the panel's `Update`. So
+dispatches are destroyed the moment the player opens the log, and at campaign
+speed 50 ten game days is **thirty seconds of real time**.
+
+Three dispatch texts are complete and have **no writer**: ids 12, 13 and 14 —
+the enemy proposing a cease-fire, warning of its own retreat, and accepting
+terms of surrender in words close to Appomattox. All three are written as
+requests for the player's orders, which describes a negotiated-battle-end layer
+the game does not have.
 
 ## Traps
 
@@ -207,12 +286,16 @@ and the thresholds together or not at all.**
 
 ## What this leaves open
 
-An **asset dump** is now the binding constraint on three questions: which
+An **asset dump** is now the binding constraint on five questions: which
 `UI/Newspaper/<id>` sprites exist (the catalogue references 11–96 plus a
 **506/507/513/522/526** block that may be DLC), the serialized
-`ImgID_Victory` / `ImgID_Lost` values, and `PanelsWhenOpenedNotResetSpeed`.
+`ImgID_Victory` / `ImgID_Lost` values, `PanelsWhenOpenedNotResetSpeed`, which
+message-symbol atlas slot each `type + symboloffset` lands in, and whether
+`MessageLog` really sits on the panel object its retention behaviour depends on
+([27](27-dispatches-and-the-message-log.md) §8.1).
 
-The two sibling channels are deliberately out of scope here: **`Messages`**
-(1,633 lines, ~45 typed dispatch ids, text assembled in code) wants its own
-write-up, and **`Diary`** reads `config/diary.dat`, which is **absent from this
-install** — it is DLC content and belongs with the `DLC_WL` pass.
+Of the three narrative channels, two are now covered. The third, **`Diary`**,
+reads `config/diary.dat`, which is **absent from this install** — it is DLC
+content and belongs with the `DLC_WL` pass, along with
+`DLC_WL.messageidstoignore`, the list of dispatch ids a career scenario
+suppresses.

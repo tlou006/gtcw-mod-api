@@ -471,6 +471,69 @@ Market Reform, which has no effect at all.
 Source: [22](../code-findings/22-policy-and-project-catalogue.md) §3.1, §3.2,
 §12.5, [policy-order](policy-order.md) §2.3 and §3.
 
+### 1.16 The Quartermaster's "morale" sentence is a desertion figure
+
+Every battle day ends with a report signed *Quartermaster*, and its first line
+is *"The reports received suggest morale in the army is …"* followed by one of
+five words: intact, all right, slightly reduced, getting low, wavering.
+
+It is never anything but **intact**. Two faults stack:
+
+- the number behind the word is not morale at all. It is **last night's
+  desertion fraction**, run through a five-band scale that saturates at **8 %**
+  of the unit deserting in a night;
+- that field is only ever written for fighting units and low echelons, and the
+  report reads it on **the player's top formation** — an Army or Army Group.
+  Nothing writes it there, so it is 0, and 0 clamps to the first band.
+
+The rest of the report is sound and worth reading: total absent without leave,
+total wounded, the army's supply condition, and a four-line reserve forecast in
+days for rifle ammunition, artillery ammunition, provisions and forage.
+
+Source: [27](../code-findings/27-dispatches-and-the-message-log.md) §7,
+[events-and-the-press](events-and-the-press.md) §7.2.
+
+### 1.17 The dispatch log destroys the rest when you open it
+
+The log keeps dispatches for ten game days — a figure hardcoded in the
+assembly, in no config file and no options screen. The purge is not a
+background process: it runs in the log panel's own update, which only runs
+**while the panel is open**.
+
+So the log is not a record that ages out. It is a record that is **truncated at
+the moment you look at it**, and the truncation is invisible — there is no
+"older dispatches removed" line, no count, nothing. At campaign speed 50 a game
+day is 3.0 real seconds, so ten game days is **thirty seconds of real time**:
+fast-forward through a month and the monthly reports, the battle results and
+the officer-loss reports are gone before you open the panel.
+
+Two smaller readouts in the same panel. The **unread** count beside the total is
+computed by a background sweep of 50 to 100 records per frame and published only
+when the sweep wraps, so with a long log it is always one full sweep out of
+date while the *total* next to it is current. And a dispatch's body is **frozen
+when it is raised**, not rendered when it is read, so every figure in it —
+strength, morale, supply, readiness — describes the moment the courier left and
+will not match the unit panel.
+
+**Untested**: the conclusion that the purge needs the panel open rests on the
+log panel being deactivated when hidden, which the code implies and an asset
+dump would confirm.
+
+Source: [27](../code-findings/27-dispatches-and-the-message-log.md) §2, §8.
+
+### 1.18 The supply warning dispatch never fires for provisions
+
+*"<General> is low on supply"* reports all four supplies by name — rifle
+ammunition, artillery ammunition, provisions, forage — but it is only raised
+when **rifle ammunition or forage** is below 25 %. Artillery ammunition and
+provisions are absent from the test.
+
+An army can therefore run out of food, suffer the overnight morale and
+desertion penalties for it, and never raise a dispatch. Treat the alarm as an
+ammunition-and-forage alarm and read the four supply bars yourself.
+
+Source: [27](../code-findings/27-dispatches-and-the-message-log.md) §5.1.
+
 ## 2. Things the game tells you in words that are not true
 
 ### 2.1 The perk tooltip describes a system that does not exist
@@ -830,7 +893,7 @@ Sources: [11](../code-findings/11-combat-resolution.md) §2,
 
 ---
 
-## 5. For modders: fifteen label traps
+## 5. For modders: eighteen label traps
 
 None is player-facing, but each will bite a tool that reports game state.
 
@@ -933,6 +996,26 @@ like a research queue width and bounds the number of ladder levels a nation may
 ever hold; a tool reporting "policies in research" must filter on
 `researchprogress < 1f` itself
 ([22](../code-findings/22-policy-and-project-catalogue.md) §3.2).
+
+**`lastmonthaistrategy` is a high-water mark, not a strategy.** The field the
+monthly intelligence report renders as *"the enemy is carrying out offensive
+operations"* is raised by five sites with `if (x < n) x = n` and lowered only by
+the month-end reset, so it holds **the most aggressive thing the AI did last
+month**, ranked. A tool reporting it as the AI's current doctrine is wrong in
+both directions: raiding is masked by anything else, and the value persists
+after the activity has stopped
+([27](../code-findings/27-dispatches-and-the-message-log.md) §6.1).
+
+**A dispatch's `type` does not identify its symbol.** The atlas index is
+`type + symboloffset`, and `symboloffset` is 5 for battle dispatches and −45
+for campaign ones, so battle type 0 and campaign type 50 share slot 5. Reading
+`type` alone, or assuming the default offset, mislabels every campaign dispatch
+([27](../code-findings/27-dispatches-and-the-message-log.md) §2.1).
+
+**`desertiontextinfo` is rendered as a morale sentence.** The five-string array
+is a desertion scale and the Quartermaster's report prints it after the words
+*"morale in the army is"* — so the string and the quantity disagree even before
+the field being read turns out to be unwritten (§1.16).
 
 ---
 

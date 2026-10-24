@@ -561,11 +561,12 @@ inside `CheckIfAccomplished`, each guarded by `!flag` (the pre-call
 ### 3.3 The channels that are *not* the newspaper
 
 - **`Messages`** (1,633 lines) is the small on-screen dispatch channel, with
-  ~45 typed ids declared as `public static int msg_*` (0–28 battle, 50–91
+  **46** typed ids declared as `public static int msg_*` (0–28 battle, 50–91
   campaign; `msg_combatresult = 50` and `msg_navalcombatresult = 51` fire
   alongside the battle paper, and `msg_officerlossreport = 61` carries the
-  casualty list). Its text is assembled in code, not authored. A full write-up
-  is separate work.
+  casualty list). Its text is assembled in code, not authored. Now written up
+  as [27-dispatches-and-the-message-log](27-dispatches-and-the-message-log.md),
+  which also resolves the `flag3` condition of §5.1.
 - **`Diary`** (779 lines) reads `DLC_WL.ConfigFileNameDiary = "config/diary.dat"`,
   which **is not present in this install**, so the diary is DLC content and
   inert here. `BattleUnits.Update` still drives
@@ -642,13 +643,20 @@ scene (`SceneManagement.ExitCampaignBattleAndRebuildCampaign` →
 `overridepause: true`, so the battle paper appears even while the game is
 paused.
 
-### 5.1 Suppression for small naval actions
+### 5.1 Suppression for small naval actions, and for raider-versus-blockader
 
-`flag3` gates the `Show` call. It is cleared when `landorsea == 1` and the
-participant count is below `GamePrefs.minshipsfornewspapernavalengagement`
-(**8**), or when both of two other flags are set. The same pass still adds the
-`msg_navalcombatresult` dispatch, so a small engagement is reported in the
-message log but gets no paper.
+`flag3` gates the `Show` call at ~3401 — and also the `OpenMessageOutright`
+that pops the battle-result dispatch open at ~3198
+([27](27-dispatches-and-the-message-log.md) §9). It is cleared at ~3183 when
+`landorsea == 1` and either the participant count is below
+`GamePrefs.minshipsfornewspapernavalengagement` (**8**), or `flag2 && flag` —
+some fleet in the battle had `fleetorders == 1` (**Blockade**) and some fleet
+had `fleetorders == 3` (**Raid**). So the second condition is **a commerce
+raider running into a blockade, at any size**, which is the same pair of flags
+that suppresses the naval national-morale adjustment
+([17](17-politics-and-support.md) §3a). The same pass still adds the
+`msg_navalcombatresult` dispatch, so such an engagement is reported in the
+message log but gets no paper and does not interrupt the player.
 
 ### 5.2 Headline assembly
 
@@ -892,10 +900,11 @@ therefore never seen.
   references 0, 1, 3, 4, 8, 9, 10 and the dead 6, 7. The >500 block may be a
   DLC set. Also needed: the prefab's serialized `ImgID_Victory` / `ImgID_Lost`
   and whether sprites 0 and 1 are swapped (§5.6).
-- **`Messages`** — the ~45 typed dispatch ids, their text assembly, the
-  `checkifalreadyexist` de-duplication window
-  (`Time to last message to check for equal messages = 0.005` campaign yr) and
-  `OpenMessageOutright`. Its own write-up.
+- **`Messages`** — **closed.** The 46 typed dispatch ids, their text assembly,
+  the `checkifalreadyexist` de-duplication window and `OpenMessageOutright` are
+  now [27-dispatches-and-the-message-log](27-dispatches-and-the-message-log.md),
+  which found that the battle de-duplication window compares hour-of-day rather
+  than elapsed time.
 - **`Diary`** — `config/diary.dat` is absent from this install; belongs with
   the `DLC_WL` pass.
 - **`Newspaper.message`** (a `Messages` reference) is only used by `OnDisable`
