@@ -570,7 +570,7 @@ These are not modifiers — without them, your units are structurally worse.
 | Training Manuals (118) | military | $1.5 M | +5 % training speed |
 | Recruitment Offices (109) | military | $1 M | +5 % recruitment |
 | Recruit Agents (108) | military | $1 M | +5 % intelligence gathering |
-| Civil Order (107) | military | $1 M | **−5 % support loss** from casualties *and* from raids |
+| Civil Order (107) | military | $1 M | **−5 % support loss from casualties** — its raid half is inert (§8.3) |
 | Trade Warfare (106) | military | $1 M | +5 % blockade and blockade-running efficiency |
 | Infrastructure Reform (99) | industry | $2.5 M | +5 % node transport capacity |
 | Subsidize Industry (104) | industry | $2.5 M | +5 % building productivity |
@@ -600,6 +600,7 @@ are already occupying enemy territory.
 | --- | --- |
 | **Market Reform** (98) | **Inert.** The one place that reads its level discards both the level and its pref in bare expressions. The Market *building* works; the project that claims to improve it does not |
 | **Plantation Mechanization** (114) | Inert — its effect sits inside a condition that cannot be true ([the war economy](the-war-economy.md)) |
+| **Civil Order** (107) | **Half inert.** Its casualty term works; its raid term is computed in two places and the result thrown away both times, so raiding costs you the full support hit however many levels you hold |
 | **Farm Mechanization** (113) | Its crop-production half is inert; its **recruitment** half works |
 | Improve Credit Rating (97) | Works, but the effect summary formats a rating-notch count as "+100 %" per level |
 | 88, 89, 90, 110, 111, 112, 115, 120, 122, 123, 124 | **Eleven real projects that never appear in the active-effects panel at all** — including every structural reform in §8.1 |

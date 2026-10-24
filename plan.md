@@ -1223,18 +1223,80 @@ half of findings/22's open question 4 along the way.
   and halving its weapon stocks**, and Indian Wars handing the enemy the same
   military-experience grant it gives you.
 
-**Next:** `commanders-worth-having.md`, the eighth item on the planned index
-([19](code-findings/19-commanders-and-perks.md)) — the natural follow-on,
-because this pass keeps running into commanders from the policy side: the
-Lieutenant General Act writes a rank directly and multiplies the national
-morale cost of the defeats its holder presides over, military schools are the
-only source of three commander attributes, and the two reform projects call
-`CheckCommanderPromotions` as a side effect. The standing code-side backlog
-loses the subsidy-funding question (closed) and gains two: the length of
-`levelgraphics`, which caps every repeating project's level and needs an asset
-dump, and whether the subsidy sliders have detents — if the UI steps in tenths
-rather than continuously, two of the slot-cap plateaus are unreachable rather
-than merely wasteful.
+**Pass 14 — `mechanics-findings/commanders-worth-having.md`** (eighth item off
+the planned index). Translating
+[19](code-findings/19-commanders-and-perks.md), and in the process pricing
+every one of the 48 perks — which turned up four shipped arrays that point the
+wrong way.
+
+- **The six campaign perks findings/19 left with an empty effect column all
+  have real effects.** Siege Train, Engineers & Mechanics, Sappers and Miners,
+  Partisan Brigades and Limelights all ship **×1.25 / 1.50 / 2.00** on siege
+  strength, construction speed, siege assault, raiding casualties and night
+  combat respectively, reached through `HasPerkParent` sites in `Autocalc` and
+  `CBuilding`. Now [19](code-findings/19-commanders-and-perks.md) §1.7 with
+  every array's values.
+- **Balloon Corps lengthens your order delays.** `orderdelaysballooncorps`
+  ships **1.25 / 1.10 / 1.10** against a multiplier on the delay, where the
+  adjacent `fieldtelegraphorderdelays` ships 0.9 / 0.8 / 0.7. Taking the perk
+  costs order speed at every level and levelling it only recovers part of the
+  loss.
+- **Bushwhackers gets worse as it levels.** `skirmishingbushwhackers` ships
+  **1.25 / 1.20 / 1.10** as a multiplier on raiding casualties, while its
+  support-drop sibling rises correctly — diminishing increments authored as
+  absolute factors.
+- **Field Telegraph conceals and the intelligence perk exposes.**
+  `informationdelay` and `informationdelaybureauofmilitaryinformation` ship the
+  same 1.0 / 0.75 / 0.5 and are applied to the same spot-mark probability with
+  **opposite operators**. The probability is the chance the *player* is shown a
+  last-seen mark for an enemy formation and the perk read is that formation's
+  **own**, so Field Telegraph makes its holder half as easy to track and Bureau
+  of Military Information makes it **twice** as easy.
+- **Engineers & Mechanics is the one paired `HasPerkParent` site that does not
+  stack** — both branches assign `constructiontimer`, so the parent's level
+  overwrites the Corps' own.
+- **One genuine cross-namespace perk ambiguity**, qualifying findings/19 §1.4:
+  `Regiment` ~4700's raiding-target filter tests `HasPerk(6)` with no
+  `unittyp == 17` guard, so campaign perk 6 (Foot Cavalry) satisfies the
+  fleet-only Sea Raiders clause. The `IIP` copy is guarded and no shipped trade
+  node is reachable by land, so it is latent.
+- **`project_civilorderraids` is a second discarded-statement pref.**
+  `Regiment` ~4661 and ~4663 compute Civil Order's raid factor as bare
+  expressions and throw both away, immediately before the two `AdjustSupport`
+  calls it was meant to scale — so **Civil Order protects you from the support
+  cost of casualties and not from the support cost of raids**, although the
+  panel advertises both. Corrects
+  [22](code-findings/22-policy-and-project-catalogue.md) §12.3, which had
+  Market Reform as the only instance, and the row in
+  [policy-order](mechanics-findings/policy-order.md) §8.2.
+- Also priced for the player: **Close support delivers its whole ×2.0 canister
+  bonus at level I**, **Skilled laying III is the only perk that grants an
+  immunity** (zero demoralization under artillery fire), **Mounted rifles takes
+  the mounted-fire penalty from ×0.75 to ×0.2**, and **Supply Colliers is the
+  only perk with a standing penalty** (−30 % fleet speed at level I).
+- On the commander side, the numbers that change decisions: **leadership
+  swings retreat losses from +6 % to +42 %**, **two years in grade alone
+  promotes an AI officer** (`exp × 0.6 + fame × 0.525 + years × 0.5 > 1`),
+  **every commander change costs 10 points of readiness to every attached
+  unit**, **a feud is an hourly `|Δinitiative| + Δfame − 0.3`** so any visible
+  gap makes one certain, invented replacement commanders roll **[0.1, 0.7]**
+  where European ones roll **[0.5, 0.9]**, and it is **easier to become famous
+  in a minor victory than a major one**.
+- And a duplicate row for findings/19 in `code-findings/README.md` — two
+  entries for the same file, the older one superseded — removed.
+
+**Next:** `fighting-the-ai.md`, the ninth item on the planned index
+([20](code-findings/20-ai-campaign.md),
+[21](code-findings/21-ai-battle.md)) — the natural follow-on, because this
+pass ends on the AI reading commander attributes from both directions: the
+macro stance thresholds divide by initiative, vertical replacement swaps
+commanders on an attribute gap, and the feud controller is a third AI that
+takes your own formations away from you. The standing code-side backlog gains
+one item — whether the perk availability lists in the Unity scene actually
+offer all 18 campaign and 11 fleet perks, which needs an asset dump — and the
+reachability audit of the remaining project effects is now one entry shorter
+and one entry more urgent, since the sweep that was thought complete has
+turned up a second discarded pref.
 
 **Exit criteria per file:** a reader who has never opened `code-findings/` can
 act on it, and every claim in it can be traced back to a section that supports

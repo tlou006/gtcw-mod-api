@@ -1107,7 +1107,7 @@ This is where most of the interesting projects live. All take the shape
 | 104 | Subsidize Industry | `project_subsidizeindustry` | 0.05 | `CBuilding` productivity |
 | 105 | Subsidize Agriculture | `project_subsidizeagriculture` | 0.05 | `CBuilding` productivity |
 | 106 | Trade Warfare | `project_blockadeefficiency` / `…runnerefficiency` | 0.05 / 0.05 | `IIP` — blockade and blockade-running |
-| 107 | Civil Order | `project_civilordercasualties` / `…raids` | −0.05 / −0.05 | `ImportExportUnitData`, `Regiment` — support loss from casualties and raids |
+| 107 | Civil Order | `project_civilordercasualties` / `…raids` | −0.05 / −0.05 | `ImportExportUnitData` — support loss from casualties. **The raid half is inert**: both of its `Regiment` sites discard the result (§12.3) |
 | 108 | Recruit Agents | `project_recruitagents` | 0.05 | `Regiment.groupintelligencegathering` |
 | 109 | Recruitment Offices | `project_recruitment` | 0.05 | `Nation.recruitmentprojectfactortarget` |
 | 113 | Farm Mechanization | `project_farmmechanizationcropsproduction` / `…recruitment` | 0.1 / 0.1 | `CBuilding` crops, `Nation` volunteers |
@@ -1144,12 +1144,24 @@ Shipped one-time pref values: `project_propagandainfl` 0.01,
 > project that claims to improve it does not.
 >
 > **A sweep over every `project_*` pref** for a consumer outside `GamePrefs`
-> and the description generator finds `project_marketeffects` is the **only**
-> one whose sole remaining use is a discarded statement. The other inert
-> effects found so far — **114** entirely and **113**'s production half
-> ([18](18-economy.md) §3) — fail differently, inside a condition that cannot
-> be true, which no mechanical sweep catches. A reachability audit of the
-> remaining ~120 project effects is still outstanding.
+> and the description generator finds **two** whose sole remaining use is a
+> discarded statement: `project_marketeffects` above, and
+> **`project_civilorderraids`** — project 107 Civil Order's raid half.
+> `Regiment` ~4661 and ~4663 compute
+> `Mathf.Max(0.01f, 1f + GetProjectLevel(107) * project_civilorderraids)` as
+> **bare expressions whose results are thrown away**, immediately before the
+> two `AdjustSupport` calls that the factor was plainly meant to scale. Its
+> only other reference is `Projects.GetProjectEffect`, which prints it in the
+> panel. So **Civil Order protects you from the support cost of casualties and
+> not from the support cost of raids**, although the panel advertises both.
+> Corrects this file's earlier reading, which had Market Reform as the only
+> instance.
+>
+> The other inert effects found so far — **114** entirely and **113**'s
+> production half ([18](18-economy.md) §3) — fail differently, inside a
+> condition that cannot be true, which no mechanical sweep catches. A
+> reachability audit of the remaining ~120 project effects is still
+> outstanding.
 
 ### 12.4 Pull — boolean, via `projects.Contains(id)`
 

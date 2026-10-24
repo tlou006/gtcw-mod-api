@@ -21,8 +21,8 @@ goes off and fights his own battle.
 
 **Three namespaces, not one**: 19 battle perks, 18 army-campaign perks, 11
 fleet perks, each with its own tooltip file and its own id space. The id
-collisions recorded in [16](16-enumerations.md) were cross-namespace and never
-ambiguous at runtime.
+collisions recorded in [16](16-enumerations.md) were cross-namespace and are
+unambiguous at runtime everywhere but one site — see below.
 
 The namespace is decided by a single line:
 
@@ -43,12 +43,42 @@ Two things worth knowing before building on it:
 | | |
 | --- | --- |
 | **Slots unlock in order** | A perk slot earns experience only if it is slot 0 or its predecessor is already filled. Formations must commit to a first perk before the second starts progressing. |
-| **Inheritance is one level, Corps only** | `HasPerkParent` early-returns unless `unittyp == 15`. An Army's perk reaches its Corps and stops; a Division never inherits from its Corps. Where both are tested, the bonuses stack multiplicatively. |
+| **Inheritance is one level, Corps only** | `HasPerkParent` early-returns unless `unittyp == 15`. An Army's perk reaches its Corps and stops; a Division never inherits from its Corps. Where both are tested, the bonuses stack multiplicatively — except for Engineers & Mechanics, which assigns (see below). |
 
 And the tooltip lies: **`PerkRow.IsPerkUnlocked()` returns `true` and is never
 called.** The in-game text promising that available perks are "limited for each
 nation, depending on its policies and technologies" describes a feature that
 does not exist.
+
+## Perk magnitudes, and four data defects
+
+Every perk array is `float[3]` indexed by the 0-based level, so "level I" is
+index 0. The six campaign perks the first pass of
+[19](19-commanders-and-perks.md) could not find prefs for all have real
+effects, reached through `HasPerkParent` sites in `Autocalc` and `CBuilding`:
+Siege Train (siege weapon strength ×1.25/1.50/2.00), Engineers & Mechanics
+(construction speed, same), Sappers and Miners (siege assault, same), Partisan
+Brigades (raiding casualties, same), Limelights (night combat, same) and
+Bushwhackers. Full tables in §1.7.
+
+Four of the shipped arrays are wrong in a way that changes play.
+
+| What | Problem |
+| --- | --- |
+| **Balloon Corps** | `orderdelaysballooncorps` ships **1.25 / 1.10 / 1.10** against a *multiplier on the order delay*, where the adjacent `fieldtelegraphorderdelays` ships 0.9 / 0.8 / 0.7. **The perk lengthens its formation's order delays** at every level |
+| **Bushwhackers** | `skirmishingbushwhackers` ships **1.25 / 1.20 / 1.10**, so the raiding-casualty multiplier **falls** as the perk levels up. Its support-drop sibling rises correctly |
+| **Field Telegraph vs. Bureau of Military Information** | Both read a 1.0 / 0.75 / 0.5 array against the same spot-mark probability in `SpottedEnemy`, one with `*=` and one with `/=`. The probability is the chance **the player** is shown a last-seen mark for an enemy formation, and the perk read is that formation's **own** — so Field Telegraph conceals its holder and the intelligence perk makes its holder **twice as easy to track** |
+| **Engineers & Mechanics** | The own-perk and parent-perk branches both **assign** `constructiontimer` rather than multiplying, so this is the one paired `HasPerkParent` site that does not stack |
+
+And one genuine cross-namespace ambiguity, qualifying the claim above that
+there are none: `Regiment` ~4700's raiding-target filter tests `HasPerk(6)`
+with **no `unittyp == 17` guard**, so campaign perk 6 (**Foot Cavalry**)
+satisfies the fleet-only Sea Raiders clause. The `IIP` copy of the same test is
+guarded, and no shipped trade node is reachable by land, so it is latent.
+
+Two perks make their commander famous, which is worth ×1.4 on his fame
+everywhere: **Blockade Busters** on selection, and **Sea Raiders** on reaching
+level III while blockading a trade node.
 
 ## The attribute pipeline
 

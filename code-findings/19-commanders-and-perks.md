@@ -194,6 +194,139 @@ with battle perk 0, from pontoon and obstacle construction in `BattleUI`.
 | `PerkRow.GetPerkInfos` | Indexes the **campaign** tooltip table for anything that is not a fleet, including `unittyp <= 13`. Only ever called on top-level units, so it does not fire in practice — but it would read out of range for a battle perk above id 17. |
 | `UnitPerk.UpdateStatus` | Hardcoded tooltip strings from an older build, applied **after** the id-based lookup, claiming perk 2 is "Sharpshooters". Perk 2 is **Zouave**; perk 1 is Sharpshooters. |
 | `PerkRow.PerkSpriteMarkNames` | `{ "", "_h", "" }` — the greyed-out sprite is the same asset as the normal one. |
+| `orderdelaysballooncorps` (data) | Ships **1.25 / 1.10 / 1.10** against a multiplier on the order delay, where the adjacent `fieldtelegraphorderdelays` ships 0.9 / 0.8 / 0.7 — so **Balloon Corps lengthens orders** (§1.7). |
+| `skirmishingbushwhackers` (data) | Ships **1.25 / 1.20 / 1.10**, so the perk's raiding-casualty multiplier **falls** as it levels up, while its sibling support array rises correctly (§1.7). |
+| `SpottedEnemy.UpdateMarks` | `informationdelay` and `informationdelaybureauofmilitaryinformation` ship the **same** 1.0 / 0.75 / 0.5 and are applied with **opposite operators**, so one of the two is inverted — and the one that makes its holder easier to track is the intelligence perk (§1.7). |
+| `Regiment` ~4700 | `HasPerk(6)` with **no `unittyp == 17` guard**, so campaign perk 6 (Foot Cavalry) satisfies the fleet-only Sea Raiders clause. The `IIP` copy of the same test is guarded (§1.7). |
+| `CBuilding` ~1412 | The own-perk and parent-perk branches both **assign** `constructiontimer`, so Engineers & Mechanics does not stack from Army to Corps as every other paired site does (§1.7). |
+
+### 1.7 Shipped magnitudes — and the six "blank" campaign perks
+
+§1.1 to §1.3 listed the prefs each perk reaches. This is the other half: the
+values, read from `unitprefs.txt` (battle) and `campaignprefs.txt` (campaign,
+fleet). Every array is `float[3]`, indexed by the **0-based** `GetPerkLevel`,
+so index 0 is the tooltip's "level I".
+
+**The six campaign perks §1.2 left with an empty effect column all have real
+effects**, reached through `HasPerkParent` sites in `Autocalc` and
+`CBuilding`:
+
+| Campaign perk | Pref | I / II / III | Site |
+| --- | --- | --- | --- |
+| 0 Siege Train | `weaponfactorsiegetrains` | 1.25 / 1.50 / 2.00 | `Autocalc` ~415, siege weapon strength |
+| 7 Engineers & Mechanics | `constructionspeedengineersmechanics` | 1.25 / 1.50 / 2.00 | `CBuilding` ~1412, `constructiontimer = 1f / pref` |
+| 10 Sappers and Miners | `siegeassaultsappersandminers` | 1.25 / 1.50 / 2.00 | `Autocalc` ~3082, siege assault |
+| 12 Partisan Brigades | `skirmishingpartisanbrigades` / `raidingmoralepartisanbrigades` | 1.25 / 1.50 / 2.00 and 1.10 / 1.25 / 1.50 | `Autocalc` ~2404, raiding casualties and morale |
+| 13 Bushwhackers | `skirmishingbushwhackers` / `supportfactorraidingbushwhackers` | **1.25 / 1.20 / 1.10** and 1.10 / 1.25 / 1.50 | `Autocalc` ~2415; `Regiment` ~4655 |
+| 15 Limelights | `combatefficiencynighttimelimelights` | 1.25 / 1.50 / 2.00 | `Autocalc` ~3116, night sieges and skirmishing |
+
+and the rest of the campaign list:
+
+| Campaign perk | Pref | I / II / III |
+| --- | --- | --- |
+| 1 Field Telegraph | `fieldtelegraphorderdelays` | **0.9 / 0.8 / 0.7** (a multiplier on the delay) |
+| | `informationdelay` | 1.0 / 0.75 / 0.5 |
+| 2 Balloon Corps | `orderdelaysballooncorps` | **1.25 / 1.10 / 1.10** — see below |
+| | `intelligencefactorballooncorps` | 1.25 / 1.25 / 1.50 |
+| | `siegeeffectivenessballooncorps` | 1.05 / 1.10 / 1.15 |
+| 11 Land Torpedoes | `skirmishlandtorpedoes` | 1.05 / 1.10 / 1.20 |
+| | `movementreductionlandtorpedoes` | 0.9 / 0.8 / 0.7 on enemy movement in range |
+| 17 River Expedition | `siegeassaultefficiencyriverexpedition` | 1.1 / 1.25 / 1.5 |
+| | `rivermovementspeedriverexpedition` | 1.25 / 1.50 / 2.00 |
+
+#### Two arrays that point the wrong way
+
+**`orderdelaysballooncorps` lengthens order delays.** `Regiment` ~14964
+multiplies the order-delay accumulator by it, exactly as the line above
+multiplies by `fieldtelegraphorderdelays`. Field Telegraph ships
+**0.9 / 0.8 / 0.7** and Balloon Corps ships **1.25 / 1.10 / 1.10**, so the
+Balloon Corps perk makes a formation's orders **25 % slower at level I and
+10 % slower thereafter** — and levelling it up is the only way to recover part
+of the loss. The two arrays sit in adjacent config blocks with identical
+labels ("Order delays on campaign map for … perk, level N (factor)"), which
+makes this look like a set of "+25 % faster" figures entered against a
+multiplier on the delay.
+
+**`skirmishingbushwhackers` declines with level**: 1.25 / 1.20 / 1.10, applied
+as a multiplier on raiding casualties in `Autocalc` ~2415. Its sibling
+`supportfactorraidingbushwhackers` rises correctly (1.10 / 1.25 / 1.50). The
+declining array reads like diminishing *increments* authored as absolute
+factors, so **Bushwhackers III inflicts fewer raiding casualties than
+Bushwhackers I**.
+
+#### And one pair of identical arrays used with opposite operators
+
+`SpottedEnemy.UpdateMarks` computes `num2`, the probability that **the player**
+is given a "last seen here" mark for an enemy formation hidden in fog —
+`AddUnit` returns early for `reg.alliance == GameVars.playeralliance`, so the
+list holds enemy units only and higher `num2` is better for the viewer. The
+perks it reads are the **tracked formation's own**:
+
+```csharp
+if (regref.HasPerk(1))  num2 *= GamePrefs.informationdelay[level];          // 1.0 / 0.75 / 0.5
+…
+if (enemy within regref.commanderrange) {
+    if (regref.HasPerk(3))  num2 /= GamePrefs.informationdelaybureauofmilitaryinformation[level];
+}                                                                           // 1.0 / 0.75 / 0.5
+```
+
+Both arrays ship the same three values and are applied with **opposite
+operators**, so one of them is inverted:
+
+| Perk | Operator | Effect on its holder at level III |
+| --- | --- | --- |
+| 1 Field Telegraph | `*=` | marked **half as often** — a concealment benefit |
+| 3 Bureau of Military Information | `/=` | marked **twice as often** — while enemies are inside its own command range |
+
+> So the **intelligence** perk is the one that makes its formation easier for
+> the enemy to track, and the **telegraph** perk is the one that conceals it.
+> Neither effect is about what the holder sees, which is what both config
+> labels ("Information delay for …") imply.
+
+#### Fleet perk magnitudes
+
+| Fleet perk | Pref | I / II / III |
+| --- | --- | --- |
+| 0 Torpedoes | `rammingefficiencytorpedoes` | 1.25 / 1.50 / 2.00 |
+| 1 Mortar Boats | `siegebombardmentefficiencymortarboats` | 1.05 / 1.10 / 1.25 |
+| 2 Supply Colliers | `speedadjustmentsupplycolliers` | **0.7 / 0.8 / 0.9** — a speed *penalty* that shrinks with level |
+| | `supplyconsumptionsupplycolliers` | 0.85 / 0.70 / 0.50 |
+| 3 Balloon Barge | `intelligencegatheringperkbaloonbarge` | 1.25 / 1.35 / 1.50 |
+| | `siegeeffectivenessperkballoonbarge` | 1.00 / 1.00 / 1.05 |
+| 4 Limelights | `combatefficiencynighttime` | 1.25 / 1.50 / 2.00 — fort strength and every vessel's firing strength at night |
+| 5 Blockading Squadron | `blockadeefficiencyblockadingsquadron` | 1.1 / 1.25 / 1.50 |
+| 6 Sea Raiders | `priceincreasessearaiders` | 1.1 / 1.25 / 1.5 on prices at a blockaded **trade node** — plus the unlock itself, and `SetFamous()` at level III |
+| 7 Amphibious Attack | `fortoccupationprobamphibiousattacklev` | 1.00 / 1.10 / 1.50 |
+| 8 Blockade Busters | `fightingefficiencyblockadingfleetsblockadebusters` | 1.1 / 1.2 / 1.3 |
+| | `effectoonblockadewithinradius` | 0.9 / 0.8 / 0.7 on the blockade of **your own** ports in the fleet's radius; and **`ChoosePerk` calls `SetFamous()`** |
+| 9 Battery Runner | `fightingefficiencyvsfortsbatteryrunner` | 1.25 / 1.50 / 2.00 |
+| 10 Port Defender | `fightingefficiencyportradiusportdefender` | 1.25 / 1.50 / 2.00 |
+
+Three notes.
+
+**Supply Colliers is the only perk with a standing penalty.** Level I costs
+30 % of the fleet's speed for a 15 % consumption saving; level III costs 10 %
+for a 50 % saving. The perk is only worth taking on a fleet that does not need
+to move.
+
+**`combatefficiencynighttime` (fleet 4) and
+`combatefficiencynighttimelimelights` (campaign 15) are two different arrays
+with the same shipped values**, which is why both perks are called Limelights.
+
+**The Sea Raiders test is the one genuine cross-namespace ambiguity.** The
+`IIP` site guards it with `unittyp == 17`, but `Regiment` ~4700 — the raiding
+target filter — reads `HasPerk(6)` with no such guard, and campaign perk 6 is
+**Foot Cavalry**, so a land formation holding Foot Cavalry also satisfies the
+`IsTradeNode` clause. No shipped trade node is reachable by land, so it does
+not bite, but it qualifies §1.4's claim that the three namespaces are never
+ambiguous at runtime.
+
+**And one `HasPerkParent` site that assigns rather than stacks.**
+`CBuilding` ~1412 writes
+`constructiontimer = 1f / constructionspeedengineersmechanics[level]` in
+both the own-perk and the parent-perk branch, so a Corps that holds
+Engineers & Mechanics *and* inherits it from its Army takes the **parent's**
+level instead of compounding the two. Every other paired site multiplies.
 
 ---
 

@@ -125,8 +125,8 @@ the evidence than in a central list.
 
 | File | Contents |
 | --- | --- |
-| [19-commanders-and-perks](19-commanders-and-perks.md) | The three perk namespaces and the full perk catalogue; the attribute pipeline; ranks and promotion; fame and defame; casualties and succession; `campaignranking` and the commander-in-chief; feuds; `commanders.txt` |
-| [19-commanders-and-perks](19-commanders-and-perks.md) | The three perk namespaces and the full perk catalogue; the attribute pipeline and the full consumer map of all five attributes; ranks and promotion; fame and defame; casualties and succession; `campaignranking` and the commander-in-chief; feuds; the fog-of-war accuracy function; `commanders.txt` |
+| [19-commanders-and-perks](19-commanders-and-perks.md) | The three perk namespaces and the full perk catalogue; the attribute pipeline and the full consumer map of all five attributes; ranks and promotion; fame and defame; casualties and succession; `campaignranking` and the commander-in-chief; feuds; the fog-of-war accuracy function; **every perk array's shipped magnitudes, with four that point the wrong way**; `commanders.txt` |
+
 ### Campaign AI — [summary](summary-ai-campaign.md)
 
 | File | Contents |
