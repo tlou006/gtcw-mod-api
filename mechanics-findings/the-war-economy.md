@@ -329,6 +329,49 @@ is multiplied by `1 − blockade`, using the worse of the two endpoints.** A
 fully blockaded port stops trading. There is no partial routing around it
 within the model — the connection itself is throttled.
 
+### 4a. Spreading a blockading fleet wide is free, and guards are diluted
+
+Each blockading unit's contribution is built once per update and then applied
+at every node it is in range of. The arithmetic is worth seeing in plain
+terms, because it rewards something counter-intuitive:
+
+> A fleet's per-node blockade value is
+> **√(its own raiding efficiency − the *average* enemy guard strength across
+> all the nodes it covers)**, times a scaling constant.
+
+The fleet's own strength is **not** divided by the number of nodes. Only the
+defender's guards are averaged.
+
+| You cover | Each node gets | The enemy's one guard squadron costs you |
+| --- | --- | --- |
+| 1 harbour | your full strength | all of its strength, at that harbour |
+| 4 harbours | your full strength, at each | a **quarter** of its strength, at each |
+
+Two things follow:
+
+- **Spread a blockading fleet as wide as its range allows.** Covering four
+  harbours blockades all four as hard as covering one, so a single squadron
+  parked where several nodes overlap is worth four squadrons parked
+  individually.
+- **Defending against a blockade by stationing guards is weak against a wide
+  blockade**, because your guard's strength is divided across every node the
+  raider touches. Concentrating a defence only helps if the raider is also
+  concentrated.
+
+Two more live terms the earlier list did not have:
+
+- **Closing to combat range multiplies a blockade by 2.5.** The test is
+  whether the blockader is inside its own bugle range of the node, so a fleet
+  pushed right up against a port is worth two and a half of the same fleet
+  standing off.
+- **Land cavalry on Guard orders defends a trade node against a fleet.** The
+  guard sum does not separate land from sea — a cavalry brigade on **Guard**
+  and a fleet on **Blockade** both contribute the same guard strength against an
+  enemy raider. Guarding a coastal trade node with cavalry is a
+  real, cheap answer to a naval raider.
+
+Source: [30](../code-findings/30-naval-subsystems.md) §4.
+
 ### The "losses through blockades" figure is a tax number
 
 The strategy panel reports losses "through blockades & privateering". It is

@@ -1680,36 +1680,133 @@ removed two false positives (`debugsloaded`, an internal latch, and
   corrections in four places, `commanders-worth-having.md` **§10.3** (new),
   `ui-vs-simulation.md` **§1.20** (new).
 
-**Next:** the four subsystems [26](code-findings/26-naval-combat.md) §10 leaves
-open — the smallest remaining code-side item, and the last one that does not
-need either an asset dump or the DLC. After it, two things are left and both
-are large:
+**Pass 19 — `code-findings/30-naval-subsystems.md`** (591 lines, a new findings
+file). The four subsystems [26](code-findings/26-naval-combat.md) §10 left
+open, plus the fifth question about the European-only ship types. Five of its
+six open items closed; only the tooltip string table still needs an asset dump.
 
-- **A single asset dump pass.** Now the binding constraint on eight separate
-  questions: the perk availability lists
-  ([19](code-findings/19-commanders-and-perks.md)), the `Frontline2` state-set
-  cut-over dates ([24](code-findings/24-campaign-objectives.md) §12), the
-  `levelgraphics` project-level cap
-  ([28](code-findings/28-project-effect-reachability.md) §10), the campaign
-  map's unit-to-mile scale, the `UI/Newspaper` sprite set
-  ([25](code-findings/25-newspaper-and-events.md) §9), the message-symbol atlas
-  and whether `MessageLog` sits on the panel object its retention depends on
-  ([27](code-findings/27-dispatches-and-the-message-log.md) §13), and the
-  policy panel hierarchy
-  ([22](code-findings/22-policy-and-project-catalogue.md) §16).
-- **The `DLC_WL` layer**, 7,932 lines. Three passes have now shown it owns more
-  than its line count suggests: Army Groups, garrison deployment, the whole
-  scenario-`002` project set
-  ([28](code-findings/28-project-effect-reachability.md) §3), the `Diary`
-  channel and `messageidstoignore`
-  ([27](code-findings/27-dispatches-and-the-message-log.md) §13), and the
-  prestige economy every other file defers to.
+- **Every damaged ship escapes a fleet action.** `UpdateNavalBattle` ~1765
+  gates the escape on `(float)Random.Range(0, 1) <= num14`, and
+  `Random.Range(int, int)` is max-exclusive — the left side is **always 0**, so
+  the test always passes. Any vessel below `minconditionshipescape` = **0.35**
+  sails for harbour on the cycle it crosses the line, and the speed-weighted
+  chance that should govern it — `(ownSpeed / enemyAvgSpeed) ^ 0.3 × elapsed ×
+  365`, about **1.5 % per 21-minute cycle** at an even match — is computed and
+  discarded. **This also explains why ship capture is rare**: capture needs
+  `condition < conditionfordisabledships` (0.25) **and** `!IsActive()`, and the
+  escape threshold sits above it, so a ship must fall from healthy to disabled
+  inside one cycle to be taken. Qualifies
+  [26](code-findings/26-naval-combat.md) §7.3. One character fixes it.
+- **Shipyard congestion never slows a hull.** `Vessel` ~507 computes
+  `b = Mathf.Min(1f, tonnageUnderConstruction / capacity)` and then divides by
+  `Mathf.Max(1f, b)` — **two clamps in opposite directions that cancel**, so
+  the factor is always 1. Capacity gates whether a ship may be *laid down*
+  (`HasCapacity`), never how fast it builds. The third clamp-against-clamp in
+  the naval code after the rate-of-fire distance ratio and the armour display
+  band.
+- **`highestportlevel` is a latch.** `UpdateShipProductionCapacity`'s reset
+  loop clears six alliance fields and not that one, and the harbour loop only
+  raises it — so **losing your best harbour does not lose you the ship types
+  its level unlocked**. The capacity total does fall, so `HasCapacity` still
+  bites; only `HasPortLevel` latches. Same shape as `nation[].occupiedby`
+  ([28](code-findings/28-project-effect-reachability.md) §6.5).
+- **Transport interception, end to end.** A fleet catching an embarked army
+  (`currentmodeltype` 1 or 2, embarkation finished, within the fleet's bugle
+  range) attaches an `Autocalc` of type 5. Three findings in it:
+  - its closing term is `fleetdistancereduction × num` where the sibling
+    `UpdateNavalBattle` ~1547 writes `× num × **750000f**`, so at
+    `1.5 × 0.00004` per cycle against a start distance of `mapDistance × 65`
+    **the distance never closes** and the hit chance stays pinned at
+    `generalhitprobabilitybombardment[0]` = **0.2** instead of ramping to 1.0;
+  - the `SetRetreatToDepot` loop sits **outside** the hit test, so **one fleet
+    anywhere on a sea lane aborts any amphibious move it touches**, hit or not,
+    and since that call sets `onretreat` the engine destroys itself — the whole
+    interception is **one cycle and at most one casualty roll**. The convoy
+    also moves at `fleetmovementfactorwhileunderfire` = 0.1 while attached;
+  - `Autocalc.PickUnit` returns `list[Random.Range(0, list.Count - 1)]`, so
+    **the last unit in the convoy can never be the casualty** — the same
+    off-by-one as the battle AI's wing selection.
+  Also: the admiral's **initiative lengthens** the opening range by 30 % and
+  his **cunning shortens** it by 30 %, which given the (broken) distance ramp
+  would have made a cunning admiral the better interceptor.
+- **Blockade, in full.** A fleet's per-node value is
+  `sqrt(groupraidingefficiency − mean(enemy guards)) × blockadeefficiencyfactor`
+  (0.004), where the raiding term is `lowestshipspeed × combatvalue ×
+  fleetblockadefactor (5.0) × (1 + 0.5 × cunning)`. Because the raiding term is
+  constant inside the averaging loop it survives intact while **the defender's
+  guards are divided by the number of nodes covered** — so **spreading a
+  blockading fleet wide is free** and one guard squadron among four covered
+  harbours costs the raider a quarter of its strength at each. Closing to
+  combat range multiplies the result by **2.5**. Land cavalry on **Guard**
+  counts as a blockade guard alongside fleets on **Blockade**, and **Sea
+  Raiders** lets a fleet blockade trade nodes of powers it is not at war with.
+  `blockadeefficiencyfactors` is a `float[4]`, not the two slots findings/26
+  guessed, and all four slots are tooltip-only.
+- **The European intervention fleets are real, named, and identical in all six
+  campaign starts.** Joining `ships.dat` (23-line records: index, name,
+  `attachedtofleetgroupid`, `attachedtopool`, `shiptype`, …) against
+  `groups.dat` (32-line records: `groupid`, name, `tempgroupref`, `alliance`,
+  …) gives five pre-placed fleets totalling **25 ships**, md5-identical across
+  A–F: **French Intervention Fleet** (alliance 3), **Spanish Intervention
+  Fleet** (4), **British Intervention Fleet** (2), **North American Squadron**
+  (2) and **Western Coast Fleet** (3). Among them **five 92-gun Screw
+  Ship-of-the-Line** — the largest hull in `shiptypes.dat` at 9,150 t — four
+  80-gun Fast Screw Ship-of-the-Line, the **Warrior Class** that project 41
+  otherwise sells for $20 M, and the ***Normandie*** the newspaper catalogue
+  names in events 4 and 16. They are scenario data present from the first
+  frame; the intervention script only decides whether their alliance goes to
+  war.
+- **`SetRetreatToDepot` carries 123 unreachable lines.** Every land unit
+  returns at ~6689 after enqueuing a `Retreat.RetreatOrder`, so the second
+  `if (unittyp != 17)` block at ~6696–6818 — a complete inline depot search
+  over the retreat heat map, picking a Town, `CBuilding`, `IIP` or friendly
+  `Regiment` — can never be entered. Superseded rather than lost: the live
+  path is `Retreat.WorkDownRetreatOrders()`. For a **fleet**, lines 6819+ are
+  live and end in **`DisintegrateUnit()`** on three paths — no harbour found,
+  a harbour not on water, or a path crossing land — so **a fleet ordered to
+  retreat with no reachable friendly harbour is destroyed**.
+- Corrections to [26](code-findings/26-naval-combat.md): §7.2's
+  `UpdateFortBombardment` does not exist and is **`UpdateFortNavyEngagement`**
+  (~1157), whose own `fleetdistance` decrement is dead because it recomputes
+  from live map positions a few statements later; the field is spelled
+  **`blockadeefficencyvalue`**, one `i` short.
+- Player-facing: `the-war-economy.md` **§4a** (new) — spreading a blockading
+  fleet wide, the ×2.5 at combat range, and cavalry on Guard as an answer to a
+  naval raider. The rest of the pass is naval enough to want its own
+  translation, so `the-naval-war.md` is now the one item on the
+  `mechanics-findings/` planned index.
 
-One tool is worth building before either: **a label-to-field map for all 2,215
-prefs**, by simulating each loader in order rather than matching line by line
-([29](code-findings/29-dead-prefs-audit.md) §10). Pass 18 needed that map four
-times and reconstructed it by hand four times. Phase 0 leftovers remain (dnSpy;
-`xl/vbaProject.bin` from the ModdingTool workbook).
+**Next:** `mechanics-findings/the-naval-war.md`, the one item now on the
+mechanics planned index. Two code files back it
+([26](code-findings/26-naval-combat.md),
+[30](code-findings/30-naval-subsystems.md)) and the translation writes itself:
+why fleet actions are indecisive and captures rare, what a blockade is actually
+worth and why spreading one is free, the import market and the hull you must
+never buy, the shipyard gates, and the five European squadrons on the map from
+day one. It is also the last subsystem with no player-facing write-up at all.
+
+After it the code-side backlog is two items, both large:
+
+- **`Retreat`**, 624 lines — newly promoted by pass 19. It is the live land
+  retreat system for the whole campaign, it runs while the game is paused
+  ([10](code-findings/10-simulation-tick.md) Finding 7), every withdrawal and
+  rout on the campaign map goes through it, and nothing in this repo documents
+  it. The largest unexamined campaign subsystem outside the DLC.
+- **The `DLC_WL` layer**, 7,932 lines, which owns Army Groups, garrison
+  deployment, the whole scenario-`002` project set, the `Diary` channel, the
+  prestige economy and the defensive-facing battle subsystem.
+
+And one **asset dump** pass, the binding constraint on eight questions: the
+perk availability lists, the `Frontline2` state-set cut-over dates, the
+`levelgraphics` project-level cap, the campaign map's unit-to-mile scale, the
+`UI/Newspaper` sprite set, the message-symbol atlas, whether `MessageLog` sits
+on the panel object its retention depends on, and the `Tooltip` string table
+that is now findings/26's only remaining open question.
+
+Still worth building before the next pref question: **a label-to-field map for
+all 2,215 prefs**, by simulating each loader in order
+([29](code-findings/29-dead-prefs-audit.md) §10). Phase 0 leftovers remain
+(dnSpy; `xl/vbaProject.bin` from the ModdingTool workbook).
 
 **Exit criteria per file:** a reader who has never opened `code-findings/` can
 act on it, and every claim in it can be traced back to a section that supports

@@ -324,7 +324,9 @@ squadron three against three, with a floor of two.
 
 ### 7.2 Fort bombardment
 
-`UpdateFortBombardment` (~1180) mirrors §5 with the fort as one side:
+`UpdateFortNavyEngagement` (~1157) mirrors §5 with the fort as one side
+(an earlier version of this file called it `UpdateFortBombardment`, which does
+not exist):
 `GetFortWeaponStrength(isnavalengagement: true)` scales the fort's guns by
 `weightingfactorfortweaponsnavalengagement = 0.2`, hit probability comes from
 `generalhitprobabilitybombardment = {0.2, 1.0}` with a wider
@@ -431,23 +433,28 @@ participants).
 
 ## 10. Open questions
 
+**Five of the original six are closed** by
+[30-naval-subsystems](30-naval-subsystems.md), which also corrects §7.2's
+method name and found four live defects — two of them decisive: **every damaged
+ship escapes a fleet action** (`Random.Range(0, 1)` on the int overload), and
+**shipyard congestion never slows construction** (a `Mathf.Min` and a
+`Mathf.Max` that cancel). What it closed:
+
+| Was open | Now |
+| --- | --- |
+| Transport interception | [30](30-naval-subsystems.md) §1 — including a closing distance that never closes, so the hit chance is pinned at 0.2 per cycle, and a retreat order outside the hit test, so an interception always aborts the convoy |
+| Ship escape | [30](30-naval-subsystems.md) §3 — unconditional in both naval paths; repairs are charged the moment the ship detaches |
+| Blockade efficiency | [30](30-naval-subsystems.md) §4 — the full formula, and why a fleet spread across several nodes loses nothing while the enemy's guards are averaged across them |
+| Shipyard capacity and construction | [30](30-naval-subsystems.md) §6 — the three gates, a `highestportlevel` that latches, and congestion that never bites |
+| The European-only types in shipped forces | [30](30-naval-subsystems.md) §7 — **five named fleets, 25 ships, identical in all six starts**, including five 92-gun Screw Ship-of-the-Line |
+
+Still open here:
+
 1. **The tooltip string table.** §2's armour bands, the propulsion and
    movement words and the size bands all resolve through
    `Tooltip.GetTooltipText(id, entry)`, whose table is prefab data. An asset
    dump would turn the band structure into readable text.
-2. **Transport interception.** `transportinterceptionlossfactor` (10) and
-   `moralelosstransportinterception` (0.05) are shipped and the path
-   was not traced here.
-3. **Ship escape.** `minconditionshipescape` (0.35) and
-   `escapeprobabilityfactor` (0.3) point at a speed-weighted escape roll that
-   this pass did not follow.
-4. **Blockade efficiency.** `Regiment` ~10591 builds
-   `groupraidingefficiency` and a two-slot `blockadeefficiencyfactors` from
-   `lowestshipspeed` and `combatvalue`; the blockade model belongs with
-   [14](14-supply-and-logistics.md) §9 rather than here, and is unwritten.
-5. **Shipyard capacity and construction.** `requiredportlevel`,
-   `creationresources` and `upgradetoshipid` are read here only as data; the
-   construction pipeline is unexamined.
-6. **Whether the seven European-only types ever appear in a shipped
-   intervention force.** Their availability flags allow it; the scenario
-   `ships.dat` files were not parsed.
+
+And one question [30](30-naval-subsystems.md) opened: **`Retreat`** (624
+lines) is the live land retreat system for the whole campaign, runs while the
+game is paused, and is undocumented.
