@@ -1285,18 +1285,73 @@ wrong way.
 - And a duplicate row for findings/19 in `code-findings/README.md` — two
   entries for the same file, the older one superseded — removed.
 
-**Next:** `fighting-the-ai.md`, the ninth item on the planned index
-([20](code-findings/20-ai-campaign.md),
-[21](code-findings/21-ai-battle.md)) — the natural follow-on, because this
-pass ends on the AI reading commander attributes from both directions: the
-macro stance thresholds divide by initiative, vertical replacement swaps
-commanders on an attribute gap, and the feud controller is a third AI that
-takes your own formations away from you. The standing code-side backlog gains
-one item — whether the perk availability lists in the Unity scene actually
-offer all 18 campaign and 11 fleet perks, which needs an asset dump — and the
-reachability audit of the remaining project effects is now one entry shorter
-and one entry more urgent, since the sweep that was thought complete has
-turned up a second discarded pref.
+**Pass 15 — `mechanics-findings/fighting-the-ai.md`** (ninth item off the
+planned index). Translating [20](code-findings/20-ai-campaign.md) and
+[21](code-findings/21-ai-battle.md), and pricing the difficulty package for
+the first time.
+
+- **The difficulty slider's centre of gravity is a casualty discount, and it
+  is not a combat modifier.** `casualtiesmodifier = bonus × 0.50`, and its
+  single consumer is `Regiment.SufferCasualties` ~16249:
+  `if (playeralliance != alliance) amount /= 1f + casualtiesmodifier`. Because
+  it sits in the one entry point every loss passes through, **at Very Hard
+  every non-player unit takes 20 % fewer casualties from combat, disease,
+  desertion and raiding alike.** Now
+  [20](code-findings/20-ai-campaign.md) §9.1 with the whole package tabulated:
+  national morale ×(1−b) in the live path only, state support ÷(1+0.3b), and
+  morale recovery, unit experience, military experience, readiness, weapon
+  production and all spending at ×(1+0.3b).
+- **The two sliders reach the player as five-step labels**, `ceil(x × 5) − 1`
+  over the normalised position: **Very Easy → Very Hard** in 0.1 bands of
+  `bonus`, **Calm → Very High** in 0.25 bands of `aimode`. The battle start
+  menu shows the same `aimode` field as a binary "AI: historical" versus
+  "AI: dynamic" instead.
+- **The support-hit handicap leaks between the two sides.** `num67` in
+  `ImportExportUnitData` ~3641–3648 is not reset between side 0 and side 1, so
+  when the AI is evaluated second its support hit inherits the first side's
+  **Civil Order project** multiplier as well as its own. One-directional —
+  player first, AI second — and it compounds with project 107's raid half
+  being inert entirely.
+- Missing shipped values filled in:
+  **`aiagressivenessoffensiveoperationfaction` = Union 1.0, Confederacy 0.5**,
+  so the Confederate AI evaluates offensive operations at half the Union AI's
+  rate; `winteroffensiveoperationsmodifier` = **0.05** against the defensive
+  sibling's 0.2; `probdefensiveop` = **75** Union and **60** Confederate per
+  annum, about one consideration every five and six days.
+- Translated for the player, from material the code files already had: the AI
+  sees **every formation on the map** and reads **destinations with the
+  order-transmission delay bypassed**; **your concealment hides you from
+  nobody** while the AI's hides it from you; **fast-forwarding starves the
+  campaign AI to `√(game speed)` passes** and a battle's micro AI linearly,
+  while leaving its army-level decisions untouched; **chapter 0 ships zero
+  aggression** so the phoney war is data rather than code; the **cubic
+  anti-stall term** makes a stalled AI army attack within a year of sitting
+  still; the **capital-distance ÷ 3 reflex**; interceptions that cancel
+  themselves at 40 % morale or a fifth of their strength; **reloading resetting
+  every defensive operation's give-up baseline**; the two crisis doctrines that
+  cancel the AI's own research; a battle stance ladder where **an initiative of
+  1.0 divides every threshold by 1.7** and a general above 0.6 initiative
+  **never retreats voluntarily**; and the eight exploitable battle defects —
+  **artillery always on the left wing**, coin-flip reserve commitment, one
+  reserve per tick, the left-wing unit never withdrawn, two cooldowns that
+  never gate, a charge test whose strength weighting cancels, a feuding
+  formation that can never assault, and a defensive-facing subsystem that has
+  never run.
+- Also noted for the player: **giving one of your own formations a stance
+  enrols it in the player-side battle AI**, which will fight it for you but
+  will **not** march to the sound of the guns — that flag ships `false` for
+  your units only, while the enemy AI always runs it.
+
+**Next:** `events-and-the-press.md`, the tenth and last item on the planned
+index ([25](code-findings/25-newspaper-and-events.md)) — which completes the
+mechanics layer. After it the planned index is empty, and the natural next
+phase is the code-side backlog: the **reachability audit of the remaining
+project effects** (now the most urgent item, since two sweeps have each turned
+up a discarded pref the previous one missed), the **~137 unverified dead prefs**
+from the findings/07 sweep, the four subsystems findings/26 §10 leaves open,
+and the asset dump that would close the perk availability lists, the state-set
+cut-over dates, the `levelgraphics` cap and the campaign map's unit-to-mile
+scale in one pass.
 
 **Exit criteria per file:** a reader who has never opened `code-findings/` can
 act on it, and every claim in it can be traced back to a section that supports

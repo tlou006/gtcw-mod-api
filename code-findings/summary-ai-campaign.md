@@ -200,6 +200,31 @@ morale-recovery boosts.
 > `aicheat_shiftedbonusmoralelosstrigger` applies only when no human is
 > playing. Given the uniformity of the rest, that reads as a sign error.
 
+**What the difficulty slider actually buys**, with `b` the slider value:
+
+| Term | Formula | At Very Hard (b = 0.5) |
+| --- | --- | --- |
+| **Casualties** | `amount /= 1 + 0.5b` in `Regiment.SufferCasualties` ~16249, for every non-player alliance | **−20 % from every source** — combat, disease, desertion, raiding |
+| National morale from battle losses | `× clamp(1 − b, 0.1, 1)`, live path only | half the loss |
+| State support from own casualties | `÷ (1 + 0.3b)` | −13 % |
+| Morale recovery / unit exp / military exp / readiness / weapon production / all spending | `× (1 + 0.3b)` each | +15 % each |
+
+> **The casualty division is the whole package's centre of gravity**, because
+> it sits in the single entry point every loss in the game passes through
+> rather than in a combat formula.
+
+The sliders reach the player as five-step labels, `ceil(x × 5) − 1` over the
+normalised position: **Very Easy / Easy / Mediocre / Hard / Very Hard** in
+0.1 bands of `bonus`, and **Calm / Low / Mediocre / Elevated / Very High** in
+0.25 bands of `aimode`. The battle start menu shows the same `aimode` field as
+a binary "AI: historical" versus "AI: dynamic" instead.
+
+And the support-hit half of the handicap leaks between the two sides:
+`num67` in `ImportExportUnitData` ~3641–3648 is not reset between side 0 and
+side 1, so when the AI is the side evaluated second its support hit inherits
+the first side's **Civil Order project** multiplier as well as its own
+([20](20-ai-campaign.md) §9.2).
+
 ## Foreign intervention is a script, not a system
 
 Refines [17-politics-and-support](17-politics-and-support.md): the

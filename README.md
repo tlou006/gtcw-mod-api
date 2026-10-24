@@ -45,6 +45,7 @@ engine's. **Start with a summary:**
 | [How you lose](mechanics-findings/how-you-lose.md) | The only loss condition and what moves it: why battles are a rounding error and support and towns are the war, the 1864 election cliff, and what low morale costs before it kills you |
 | [Policy order](mechanics-findings/policy-order.md) | What to research and in what order: the research pipe and why queueing is slower, the slot counter that is a lifetime allowance of twelve of twenty ladder levels, what a ladder level buys, the pre-war keys, and project prices against the dates that gate nothing |
 | [Commanders worth having](mechanics-findings/commanders-worth-having.md) | Which officers matter and which of their numbers do: the attribute pipeline, the three attributes that never improve, promotion and fame, the readiness cost of succession, feuds, and all 48 perks with their shipped magnitudes |
+| [Fighting the AI](mechanics-findings/fighting-the-ai.md) | What the two sliders change, the ten cheats, what the AI knows that you do not, when it attacks and when it will not, and eight exploitable defects in its battle handling |
 
 [`code-findings/00-build-provenance.md`](code-findings/00-build-provenance.md) records
 which build everything was written against.

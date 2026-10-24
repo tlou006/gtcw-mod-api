@@ -131,7 +131,7 @@ the evidence than in a central list.
 
 | File | Contents |
 | --- | --- |
-| [20-ai-campaign](20-ai-campaign.md) | The 36-step job scheduler; the texture-derived zone map, the value map and the heatmaps; offensive and defensive operations; recruiting; AI personalities; the difficulty sliders and the ten hardcoded cheats, one of whose one-shots never takes effect in a campaign; intervention as a script; two determinism problems |
+| [20-ai-campaign](20-ai-campaign.md) | The 36-step job scheduler; the texture-derived zone map, the value map and the heatmaps; offensive and defensive operations; recruiting; AI personalities; the difficulty sliders with **every handicap priced and the casualty discount located in `SufferCasualties`**, and the ten hardcoded cheats, one of whose one-shots never takes effect in a campaign; intervention as a script; two determinism problems |
 
 ### Battle AI — [summary](summary-ai-battle.md)
 

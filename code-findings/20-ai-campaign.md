@@ -446,8 +446,8 @@ attack if Random(0,1) <= threshold
 | Pref | Value |
 | --- | --- |
 | `aiagressiveness[0..4]` | **0.00**, 0.75, 1.50, 2.00, 2.50 |
-| `winterdefensiveoperationsmodifier` | applied when `month <= winterquartersmonthuntil` or `>= winterquartersmonthfrom` |
-| `aiagressivenessoffensiveoperationfaction[0..1]` | separate Union and Confederate constants |
+| `winteroffensiveoperationsmodifier` | **0.05**, applied when `month <= winterquartersmonthuntil` or `>= winterquartersmonthfrom` (the defensive sibling is **0.2**) |
+| `aiagressivenessoffensiveoperationfaction[0..1]` | **Union 1.0, Confederacy 0.5** — the Confederate AI evaluates offensive operations at half the Union AI's rate |
 
 > **`aiagressiveness[0] = 0` means the AI launches no offensive operations at
 > all in chapter 0.** The "phoney war" is enforced by data, not code.
@@ -518,8 +518,11 @@ fighting force, and within its operations theater. Range is
 `maxdistancedefensiveoperations` (**275**) if the responder has enemies in
 range, else `maxdistancedefensiveopnoenemy` (**650**).
 
-Probability is per side: `probdefensiveop[1]` for the Confederacy,
-`probdefensiveop[0]` for everyone else, times the same winter modifier.
+Probability is per side and per annum — `probdefensiveop[1]` = **60** for the
+Confederacy,
+`probdefensiveop[0]` = **75** for everyone else, times the winter modifier of
+**0.2**. The config glosses 100 as "approx every 3rd day", so 75 is about one
+consideration every five days and 60 about one every six.
 
 `DefensiveOperation` accumulates `initialstrength` as
 `Σ groupstrengthactive × groupmorale ^ expmoraleweightfordefensiveoperations`
@@ -710,9 +713,37 @@ GameVars.casualtiesmodifier        = bonus * GamePrefs.casualtiesmodifierbonus;
 | `usedcampaignagressiveness` | **0.5 – 1.75** | offensive-operation probability, recruiting target, and it **divides** the economy's debt burden ([18](18-economy.md)) |
 | `usedcampaignbonus` / `…running` | **0 – 0.5** | the handicap multiplier below |
 
-> **`casualtiesmodifier` is the bonus slider × `casualtiesmodifierbonus`** —
-> which answers the provenance question left open in
-> [11-combat-resolution](11-combat-resolution.md).
+> **`casualtiesmodifier` is the bonus slider × `casualtiesmodifierbonus`
+> (0.50)** — which answers the provenance question left open in
+> [11-combat-resolution](11-combat-resolution.md). Its single consumer is
+> `Regiment.SufferCasualties` ~16249:
+>
+> ```csharp
+> if (GameVars.playeralliance != alliance)  amount /= 1f + GameVars.casualtiesmodifier;
+> ```
+>
+> **Because it sits in `SufferCasualties`, it applies to every loss in the
+> game** — combat, disease, desertion, raiding, disintegration — not only to
+> battle damage. At the maximum bonus of 0.5 the divisor is 1.25, so **every
+> non-player unit takes 20 % fewer casualties from everything.** It is the
+> largest single handicap in the difficulty package.
+
+Both sliders are shown to the player through five-step label arrays, so the
+internal value is only legible in bands. `Tools.GetSteps(x, 0, 4)` is
+`ceil(x × 5) − 1` clamped, over the slider's normalised position:
+
+| Difficulty (`bonus`) | Label | Aggressiveness (`aimode`) | Label |
+| --- | --- | --- | --- |
+| 0 – 0.1 | Very Easy | 0.50 – 0.75 | Calm |
+| 0.1 – 0.2 | Easy | 0.75 – 1.00 | Low |
+| 0.2 – 0.3 | Mediocre | 1.00 – 1.25 | Mediocre |
+| 0.3 – 0.4 | Hard | 1.25 – 1.50 | Elevated |
+| 0.4 – 0.5 | Very Hard | 1.50 – 1.75 | Very High |
+
+`GameVars.difficultytext` and `GameVars.agressivenesstext` (the game's
+spelling) hold the labels. In the **battle** start menu the same `aimode`
+field is shown instead as a binary "AI: historical" (`aimode == 0`) versus
+"AI: dynamic".
 
 `usedcampaignbonus` is a **one-shot that never takes effect in a campaign.**
 It is applied in `BattleUnits.import_battledata`'s `!IsCampaign` branch — the
@@ -766,6 +797,36 @@ Ten constants on `GameVars`, with literal defaults, every one of them
 > `aicheat_shiftedbonusmoralelosstrigger` applies **only** in AI-vs-AI games
 > and never against a human. Given the uniformity of every sibling, this looks
 > like a sign error rather than intent.
+
+#### And one accumulator that leaks between the two sides
+
+The state-support half of the handicap (`aibonus_supporthit`, 0.3) is applied
+in `ImportExportUnitData` ~3641–3648, where the battle's per-state casualty
+support hit is written for each side in turn:
+
+```csharp
+float num67 = 1f;
+num67 = ((alliance[0] != playeralliance) ? (num67 / max(1f, bonus * aibonus_supporthit + 1f)) : 1f);
+num67 *= max(0.01f, 1f + alliance[alliance[0]].GetProjectLevel(107) * project_civilordercasualties);
+… AdjustSupport for side 0 …
+num67 = ((alliance[1] != playeralliance) ? (num67 / max(1f, bonus * aibonus_supporthit + 1f)) : 1f);
+num67 *= max(0.01f, 1f + alliance[alliance[1]].GetProjectLevel(107) * project_civilordercasualties);
+… AdjustSupport for side 1 …
+```
+
+**`num67` is not reset between the two sides.** The second assignment's
+true-branch divides the *accumulated* value, which already carries side 0's
+Civil Order project multiplier — so whenever the side evaluated second is the
+AI, its support hit inherits the first side's Civil Order level as well as its
+own. The false-branch resets to `1f`, so the leak only runs in one direction:
+**player first, AI second.** Since battle side 0 is the side that *called* the
+battle ([17](17-politics-and-support.md) §3a), which side is which varies per
+engagement.
+
+Magnitude is small — project 107 is −0.05 per level — but it is a genuine
+cross-side contamination of two different alliances' project levels, and it
+compounds with the finding that **project 107's raid half is inert entirely**
+([22](22-policy-and-project-catalogue.md) §12.3).
 
 ---
 
