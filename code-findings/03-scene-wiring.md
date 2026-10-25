@@ -166,6 +166,53 @@ nothing else survives a rebuild. `MainMenuControls` lives in `Main`, which is
 why it survives *additive* loads and can own the global frame counter (see
 [10-simulation-tick](10-simulation-tick.md)).
 
+## Where to patch for session lifecycle
+
+Established while building the ModApi's lifecycle feature, so these are the
+load-bearing four rather than a survey.
+
+**Four patch points cover every transition in the game.**
+
+| Point | Patch | Raises |
+| --- | --- | --- |
+| `LoadCampaignScenario` | postfix | session started, campaign |
+| `LoadBattleScenario` | postfix | session started, battle |
+| `LoadCampaignBattleScenario` | postfix | session started, battle |
+| `RebuildScenes` | prefix | session ending |
+
+Two facts make that set complete, and both needed reading rather than
+searching:
+
+1. **`RebuildScenes()` has exactly one caller** — `UpdateBatchOperations`, on
+   `bo_rebuildscene` — which **fifteen** sites across `MainMenu`,
+   `PanelHandler`, `Saving`, `ImportExportUnitData`, `BattleController`,
+   `CampaignController` and `SceneManagement` itself queue. So it is a single
+   chokepoint by construction, not merely by convention.
+2. **Every queued load funnels back into the three `Load*Scenario` methods.**
+   `bo_loadhistoricbattle`, `bo_loadcampaignscenario`, `bo_loadcampaignbattle`
+   and the two from-save variants all call one of the three, so patching the
+   three catches direct and deferred loads alike.
+
+> **The trap: do not use the `Exit*Scenario` methods for this.**
+> `ExitCampaignScenario` and `ExitBattleScenario` **destroy nothing** — they
+> call `ClearBattlefield`, save `lastgame`, and reset `currentoperation` to 0.
+> And `ExitCampaignBattleAndRebuildCampaign`, the battle→campaign return,
+> **calls neither of them**. A lifecycle hook built on `Exit*` would therefore
+> leak a dead session on the most common transition in the game, while looking
+> correct on the main-menu paths.
+
+The ordering is clean in both directions, so a session never overlaps its
+successor:
+
+```
+campaign → battle   bo_exitcampaignscenario → bo_rebuildscene → bo_loadcampaignbattle
+battle → campaign   bo_rebuildscene → bo_loadcampaignscenario
+```
+
+`PrepareLaunchingBattleFromCampaign` only sets `currentoperation = 4` and
+records the target; `SceneManagement.Update` sees that value and calls
+`LoadBattleScenarioFromCampaign`, which queues the first sequence above.
+
 ## Open questions
 
 - Where `Policy.InitializeStatics` is called from in the load order, since

@@ -40,6 +40,9 @@ namespace GTCW.ModApi
         /// <summary>Scene-scoped lifecycle and the boot milestones.</summary>
         public static ILifecycle Lifecycle => Host.Lifecycle;
 
+        /// <summary>Battle notifications.</summary>
+        public static IBattleEvents Battle => Host.Battle;
+
         /// <summary>
         /// The library's own log. Mods should prefer their BepInEx logger; this
         /// is for reporting through the ModApi's channel so capability and
@@ -56,6 +59,7 @@ namespace GTCW.ModApi
     {
         ICapabilities Capabilities { get; }
         ILifecycle Lifecycle { get; }
+        IBattleEvents Battle { get; }
         IModApiLog Log { get; }
     }
 

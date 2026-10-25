@@ -1,6 +1,8 @@
 using GTCW.ModApi;
+using GTCW.ModApi.Runtime.Battle;
 using GTCW.ModApi.Runtime.Capabilities;
 using GTCW.ModApi.Runtime.Lifecycle;
+using HarmonyLib;
 
 namespace GTCW.ModApi.Runtime
 {
@@ -10,19 +12,31 @@ namespace GTCW.ModApi.Runtime
     /// </summary>
     internal sealed class ModApiRuntime : IModApiHost
     {
+        /// <summary>
+        /// Harmony id. One instance for the whole library, so every patch can
+        /// be attributed to us in Harmony's own diagnostics.
+        /// </summary>
+        private const string HarmonyId = "gtcw.modapi";
+
         private readonly CapabilityRegistry _capabilities;
         private readonly LifecycleService _lifecycle;
+        private readonly BattleEventsService _battle;
+        private readonly Harmony _harmony;
 
         private ModApiRuntime(IModApiLog log)
         {
             Log = log;
             _capabilities = new CapabilityRegistry(log);
             _lifecycle = new LifecycleService(log);
+            _battle = new BattleEventsService(log, _lifecycle);
+            _harmony = new Harmony(HarmonyId);
         }
 
         public ICapabilities Capabilities => _capabilities;
 
         public ILifecycle Lifecycle => _lifecycle;
+
+        public IBattleEvents Battle => _battle;
 
         public IModApiLog Log { get; }
 
@@ -75,15 +89,21 @@ namespace GTCW.ModApi.Runtime
         /// </summary>
         private void RegisterFeatures()
         {
-            _capabilities.Add(Feature.Planned(
+            _capabilities.Add(new Feature(
                 Capability.Lifecycle,
-                "scene-scoped sessions and the seven boot milestones",
-                "plan.md Phase 3, build-out step 4"));
+                "scene-scoped sessions and the boot milestones",
+                LifecyclePatches.Probe,
+                () => LifecyclePatches.Apply(_harmony, _lifecycle)));
 
-            _capabilities.Add(Feature.Planned(
+            // Derived from Lifecycle rather than patched separately, so it is
+            // available exactly when the lifecycle is.
+            _capabilities.Add(new Feature(
                 Capability.BattleEvents,
                 "Battle.Started / Battle.Ended",
-                "plan.md Phase 3, build-out step 4"));
+                () => _capabilities.Has(Capability.Lifecycle)
+                    ? ProbeResult.Pass()
+                    : ProbeResult.Fail("requires the Lifecycle capability, which is off"),
+                () => { }));
 
             _capabilities.Add(Feature.Planned(
                 Capability.UnitEvents,

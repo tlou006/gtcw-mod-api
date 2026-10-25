@@ -43,23 +43,50 @@ wrong, rather than with four hundred "type not found" errors.
 2. Run the game once so BepInEx generates its folders.
 3. Copy `GTCW.ModApi*.dll` from
    `src/GTCW.ModApi.Plugin/bin/Debug/netstandard2.1/` into `BepInEx/plugins/`.
-4. Read `BepInEx/LogOutput.log`.
+4. Copy `HelloWorldMod.dll` from
+   `samples/HelloWorldMod/bin/Debug/netstandard2.1/` into `BepInEx/plugins/`
+   too — without it the log cannot show an event reaching a mod, and BepInEx
+   will report `1 plugin to load` instead of 2.
+5. Read `BepInEx/LogOutput.log`.
 
-At this stage a good log looks like:
+A good startup looks like this:
 
 ```
-[Info   : GTCW ModApi] Game build recognised: Steam buildid 14703111 (2026-10-13).
-[Info   : GTCW ModApi] Anchor check: all 10 expected game types present.
-[Info   : GTCW ModApi] Capabilities on: (none)
-[Warning: GTCW ModApi] Capability off: Lifecycle — not implemented in this release — plan.md Phase 3, build-out step 4
-...
+[Info   :   BepInEx] Supports SRE: True
+[Info   :GTCW ModApi] Game build recognised: Steam buildid 14703111 (2026-10-13).
+[Info   :GTCW ModApi] Anchor check: all 10 expected game types present.
+[Info   :GTCW ModApi] Capabilities on: BattleEvents, Lifecycle
+[Warning:GTCW ModApi] Capability off: ConfigOverrides — not implemented in this release — ...
 ```
 
-Every capability reporting "not implemented" is correct for this milestone —
-the registry, the probes and the reporting are what step 3 delivers, and the
-features themselves are step 4 onward. What the log proves is that the plugin
-loads, the build is identified, and the type names the research recorded are
-real.
+`Supports SRE: True` is worth checking first: without runtime IL generation
+Harmony cannot patch at all, and every capability would report off.
+
+Capabilities still reporting "not implemented" are correct — those features are
+Phase 4. What the log proves is that the plugin loads, the build is identified,
+the type names the research recorded are real, and the two built features
+probed clean.
+
+Then load a battle. The sample should print:
+
+```
+[Info   :Hello World] Session started: Battle
+[Info   :Hello World] Battle reached MapReady
+[Info   :Hello World] Battle reached UnitsReady
+[Info   :Hello World] Battle reached SubsystemsLoaded
+[Info   :Hello World] Battle reached BattleDeployed
+[Info   :Hello World] Battle reached BattleIdle
+[Info   :Hello World] Battle started — a mod is running inside the game.
+```
+
+Milestones must appear **in order** and **once each**. A repeat means the
+frame-rewind dedupe is not holding; a milestone that never arrives means its
+boot gate differs on this build from what `BootMilestones` records.
+
+Launching a battle from inside a campaign should show the campaign session
+ending before the battle session starts, with no overlap. If
+`LifecycleService` logs *"A session was still open when another began"*, a
+transition path is not covered by the four patch points.
 
 ## Gotchas already paid for
 

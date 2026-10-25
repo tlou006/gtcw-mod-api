@@ -39,6 +39,11 @@ namespace GTCW.ModApi.Runtime.Capabilities
         /// throws counts as a failed probe, and a patch that throws disables
         /// only its own feature.
         /// </summary>
+        /// <remarks>
+        /// Features are processed in registration order, so a later feature's
+        /// probe may ask <see cref="Has"/> about an earlier one. Register a
+        /// dependent feature after what it depends on.
+        /// </remarks>
         public void ApplyAll()
         {
             foreach (Feature feature in _features)

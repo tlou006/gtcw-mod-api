@@ -33,12 +33,30 @@ namespace HelloWorldMod
 
                 ModApi.Lifecycle.MilestoneReached += (session, milestone) =>
                     Logger.LogInfo($"{session.Kind} reached {milestone}");
+
+                ModApi.Lifecycle.SessionEnding += session =>
+                    Logger.LogInfo($"Session ending: {session.Kind}");
             }
             else
             {
                 Logger.LogWarning(
                     "Lifecycle unavailable: " +
                     ModApi.Capabilities.Explain(Capability.Lifecycle));
+            }
+
+            if (ModApi.Capabilities.Has(Capability.BattleEvents))
+            {
+                ModApi.Battle.Started += session =>
+                    Logger.LogInfo("Battle started — a mod is running inside the game.");
+
+                ModApi.Battle.Ended += session =>
+                    Logger.LogInfo("Battle ended.");
+            }
+            else
+            {
+                Logger.LogWarning(
+                    "Battle events unavailable: " +
+                    ModApi.Capabilities.Explain(Capability.BattleEvents));
             }
         }
     }

@@ -9,31 +9,70 @@ namespace GTCW.ModApi
     /// a clock because it <b>rewinds</b> while the map builds. So the API
     /// exposes milestones and keeps the frame numbers to itself.
     /// </summary>
+    /// <remarks>
+    /// Each milestone belongs to one or both session kinds — a battle has no
+    /// policies and a campaign has no deployment zones — and the <c>Kinds</c>
+    /// note on each says which. A session only ever raises its own.
+    /// </remarks>
     public enum Milestone
     {
-        /// <summary>The map is built. The boot sequence stalls here until it is.</summary>
+        /// <summary>
+        /// The map is built. <i>Campaign and battle.</i>
+        /// </summary>
+        /// <remarks>
+        /// The boot sequence stalls at this gate until the map is ready, by
+        /// resetting the frame counter — which is why this is the one milestone
+        /// that cannot be observed early.
+        /// </remarks>
         MapReady = 1,
 
         /// <summary>
-        /// Policy effects have been applied for the first time. Any effect
-        /// registration is already too late by this point.
+        /// Policy effects have been applied for the first time. <i>Campaign
+        /// only.</i> Any effect registration is already too late by this point.
         /// </summary>
         PoliciesReady = 2,
 
-        /// <summary>Regiments exist. Nothing may read units before this.</summary>
+        /// <summary>
+        /// Regiments exist. Nothing may read units before this. <i>Campaign and
+        /// battle.</i>
+        /// </summary>
         UnitsReady = 3,
 
-        /// <summary>Every saved subsystem has loaded.</summary>
+        /// <summary>
+        /// Every saved subsystem has loaded. <i>Campaign and battle.</i>
+        /// </summary>
+        /// <remarks>
+        /// The game only does work at this gate when a save is being loaded, so
+        /// on a fresh start this marks the point passed rather than work done.
+        /// </remarks>
         SubsystemsLoaded = 4,
 
-        /// <summary>Ownerships and frontlines are set; the campaign is live.</summary>
+        /// <summary>
+        /// Ownerships and frontlines are set; the campaign is live. <i>Campaign
+        /// only.</i>
+        /// </summary>
         CampaignLive = 5,
 
-        /// <summary>Project effects have been applied.</summary>
+        /// <summary>Project effects have been applied. <i>Campaign only.</i></summary>
         ProjectsReady = 6,
 
-        /// <summary>Chapter updated, speed zero, waiting for the player.</summary>
+        /// <summary>
+        /// Chapter updated, speed zero, waiting for the player. <i>Campaign
+        /// only.</i>
+        /// </summary>
         CampaignIdle = 7,
+
+        /// <summary>
+        /// Units and objectives are allocated to the AI and both sides are
+        /// placed in their deployment zones. <i>Battle only.</i>
+        /// </summary>
+        BattleDeployed = 8,
+
+        /// <summary>
+        /// The battle boot sequence is complete. <i>Battle only.</i> This is
+        /// what raises <c>Battle.Started</c>.
+        /// </summary>
+        BattleIdle = 9,
     }
 
     /// <summary>Which scene a session belongs to.</summary>

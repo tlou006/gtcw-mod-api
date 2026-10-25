@@ -2165,19 +2165,39 @@ Each milestone is independently useful and independently verifiable.
        `samples/HelloWorldMod`. All five build clean, the three reference tiers
        work, the boundary guard fires when violated, and no game DLL reaches
        `bin/`. See [`src/README.md`](src/README.md).
-2. [ ] BepInEx loads; a log line comes out of the game; the build hash is
-       identified and reported. **Everything for this is written — it needs a
-       live run.** Copy the four DLLs into `BepInEx/plugins/` and read the log
-       for the build line, the anchor check and the capability report.
+2. [x] **BepInEx loads; the build is identified; the anchor check passes.**
+       Verified on a live run against BepInEx 5.4.23.6, Unity 2021.3.16.4200023,
+       CLR 4.0.30319, Bits64/Windows, `Supports SRE: True` — so runtime IL
+       generation works and Harmony patches rather than degrading. The build
+       hash matched buildid 14703111, and **all ten anchor types resolved**,
+       which confirms the global-namespace rule and the publicized reference
+       against a running game rather than against the decompile.
 3. [x] **Capability registry and the fail-soft wrapper** — built first, before
        anything depends on them: `CapabilityRegistry` (probe → apply → report,
        isolating each feature), `Feature.Planned` so unbuilt features report an
        honest reason instead of a bare false, `FailSoft` with a per-subscriber
        throw budget, and `AnchorCheck`, which verifies the ten types the library
        intends to patch are present under the names the research recorded.
-4. [ ] `GameSession` plus milestones, and **one** end-to-end event
+4. [~] `GameSession` plus milestones, and **one** end-to-end event
        (`Battle.Started` — easy to trigger, easy to verify) reaching a sample
-       mod.
+       mod. **Written and building; needs a live run to confirm.** Four patch
+       points cover every transition — postfixes on the three `Load*Scenario`
+       methods and a prefix on `RebuildScenes` — for the reasons now recorded
+       in [03-scene-wiring](code-findings/03-scene-wiring.md), "Where to patch
+       for session lifecycle". Milestones come from postfixes on
+       `CampaignController.Update` and `BattleController.Update`, mapped through
+       `BootMilestones`; `Battle.Started` is derived from the battle session's
+       last boot gate rather than patched separately, because the game has no
+       "battle started" method to patch.
+
+       Two design points worth keeping:
+       - **The frame rewind is handled by construction**, not by a special case.
+         A postfix observes the counter *after* the stall line has run, so a
+         value above 3 proves the map is ready; and each milestone fires at most
+         once per session, so a rewind cannot duplicate one.
+       - **Milestones are per session kind.** A battle has no `PoliciesReady`
+         and a campaign no `BattleDeployed`, so the enum documents which kinds
+         raise each value and a session raises only its own.
 
 **Exit criteria:** sample mod prints on battle start, from a clean install,
 booting into a fixed scenario without manual UI steps — and prints a correct
