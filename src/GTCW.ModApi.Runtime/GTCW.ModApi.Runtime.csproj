@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The internal, VOLATILE layer: the only assembly that knows real game types.
+    Harmony patches, capability probes, contribution folding, the id broker, the
+    config pipeline, and translation from game state into the stable DTOs.
+
+    When the game updates, this is the project that gets repaired. Dependent
+    mods keep working unrecompiled.
+  -->
+
+  <PropertyGroup>
+    <AssemblyName>GTCW.ModApi.Runtime</AssemblyName>
+    <RootNamespace>GTCW.ModApi.Runtime</RootNamespace>
+    <UsesGameAssemblies>true</UsesGameAssemblies>
+
+    <!-- CS0436: Krafs.Publicizer and MonoMod.Utils (via HarmonyX) each define
+         IgnoresAccessChecksToAttribute. They are the same attribute by design —
+         the compiler just sees two sources for it. Harmless and expected when
+         publicizing inside a BepInEx plugin. -->
+    <NoWarn>$(NoWarn);CS0436</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GTCW.ModApi\GTCW.ModApi.csproj" />
+    <ProjectReference Include="..\GTCW.ModApi.Schemas\GTCW.ModApi.Schemas.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The plugin is the only caller of the bootstrap. Nothing in here is
+         public: mods must reach the library through GTCW.ModApi. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>GTCW.ModApi.Plugin</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- BepInEx.Core brings HarmonyX. Both are build-time only; BepInEx itself
+         supplies them at runtime, so nothing here ships in the release zip. -->
+    <PackageReference Include="BepInEx.Core" Version="5.4.21" PrivateAssets="all" ExcludeAssets="runtime" />
+
+    <!-- Publicizes the game reference into obj/ at build time so private
+         members are reachable with ordinary typed code instead of reflection
+         strings. The publicized assembly is a local build artifact: never
+         committed, never shipped. -->
+    <PackageReference Include="Krafs.Publicizer" Version="2.2.1" PrivateAssets="all" />
+    <Publicize Include="Assembly-CSharp" />
+  </ItemGroup>
+
+</Project>

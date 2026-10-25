@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Typed models for the Config/ data files, generated from the schemas in
+    code-findings/ (06-config-file-format, 07-config-data-model).
+
+    Split out from the runtime for two reasons: the generated models are large
+    and mechanical, and they are the one artifact a modder may legitimately
+    want to reference directly.
+
+    These are SCHEMAS, NEVER GAME DATA. A generated model describes the shape of
+    a file — field names, order, widths, types. It never carries the publisher's
+    shipped values. See the Distribution boundary section of plan.md.
+
+    No game reference: a schema is a description, not a binding.
+  -->
+
+  <PropertyGroup>
+    <AssemblyName>GTCW.ModApi.Schemas</AssemblyName>
+    <RootNamespace>GTCW.ModApi.Schemas</RootNamespace>
+  </PropertyGroup>
+
+</Project>

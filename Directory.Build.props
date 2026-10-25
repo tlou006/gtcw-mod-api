@@ -1,0 +1,55 @@
+<Project>
+
+  <!--
+    Common build settings for the hook library.
+
+    Three reference tiers, so the layer boundary from plan.md Phase 3 is
+    enforced by the build rather than by code review:
+
+      (nothing)                  GTCW.ModApi, GTCW.ModApi.Schemas — build with
+                                 no game installed at all. A game type cannot
+                                 leak into the public API, because it is not
+                                 even referenceable here.
+
+      UsesUnityAssemblies=true   Unity only. What a mod needs: a BepInEx plugin
+                                 derives from MonoBehaviour, but a mod has no
+                                 business touching Assembly-CSharp.
+
+      UsesGameAssemblies=true    Unity + Assembly-CSharp. Only the volatile
+                                 layer and the plugin entry point.
+
+    game.props is gitignored and machine-specific. See game.props.example.
+  -->
+
+  <Import Project="$(MSBuildThisFileDirectory)game.props"
+          Condition="Exists('$(MSBuildThisFileDirectory)game.props')" />
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+
+    <!-- netstandard2.1 is not assumed: Managed/ ships netstandard.dll, so the
+         game's Api Compatibility Level is .NET Standard 2.1. -->
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <Version>0.1.0-alpha</Version>
+    <Authors>decompile-gtcw contributors</Authors>
+    <Product>GTCW ModApi</Product>
+
+    <!-- The whole library is reflected over and patched into a running game;
+         trimming and symbol stripping both make that harder to debug. -->
+    <DebugType>portable</DebugType>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- XML doc warnings are noise while scaffolding; the Phase 5 release
+         checklist turns this back on. -->
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(GameDir)' != ''">
+    <GameManaged>$(GameDir)\The Civil War (1861-1865)_Data\Managed</GameManaged>
+  </PropertyGroup>
+
+</Project>

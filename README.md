@@ -63,6 +63,8 @@ copyrighted by the publisher and are excluded by `.gitignore`.
 | --- | --- | --- |
 | `code-findings/` | yes | Research write-ups: formats, structures, call graphs, behavior |
 | `mechanics-findings/` | yes | What that behavior means as gameplay, sourced back to `code-findings/` |
+| `src/` | yes | The BepInEx hook library — see [`src/README.md`](src/README.md) |
+| `samples/` | yes | Sample mods, written against the public API only |
 | `scripts/` | yes | Parsers and analysis tooling written here |
 | `game/` | **no** (README only) | A copy of the game install — see `game/README.md` |
 | `decompiled/`, `extracted/` | no | Decompiler and asset-extractor output |
@@ -78,6 +80,8 @@ fresh clone still shows what belongs where.
 decompile-gtcw/
 ├── code-findings/      # what the code does, plus summary-*.md overviews
 ├── mechanics-findings/ # what that means as gameplay
+├── src/                # the hook library (GTCW.ModApi + Runtime/Schemas/Plugin)
+├── samples/            # sample mods, public API only
 ├── scripts/            # analysis / parsing tooling
 ├── tools/              # (ignored) IL2CPP dumpers, AssetRipper, dnSpy, ILSpy, ...
 ├── game/               # (ignored) local copy of the game

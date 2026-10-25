@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The BepInEx entry point. Bootstrap, build identification, the capability
+    report, logging and plugin config — and nothing else. Behaviour lives in
+    the runtime; this project exists so that "how we get loaded" is replaceable
+    without touching anything that knows about the game.
+  -->
+
+  <PropertyGroup>
+    <AssemblyName>GTCW.ModApi.Plugin</AssemblyName>
+    <RootNamespace>GTCW.ModApi.Plugin</RootNamespace>
+    <UsesGameAssemblies>true</UsesGameAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GTCW.ModApi\GTCW.ModApi.csproj" />
+    <ProjectReference Include="..\GTCW.ModApi.Runtime\GTCW.ModApi.Runtime.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BepInEx.Core" Version="5.4.21" PrivateAssets="all" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+</Project>

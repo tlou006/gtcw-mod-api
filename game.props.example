@@ -1,0 +1,17 @@
+<Project>
+
+  <!--
+    Copy this file to game.props (gitignored) and point GameDir at your own
+    install. The repo never carries game assemblies; every developer compiles
+    against their own copy.
+
+    The GTCW_GAME_DIR environment variable works too, and takes effect when
+    game.props is absent.
+  -->
+
+  <PropertyGroup>
+    <GameDir Condition="'$(GameDir)' == ''">$(GTCW_GAME_DIR)</GameDir>
+    <GameDir Condition="'$(GameDir)' == ''">E:\SteamLibrary\steamapps\common\Grand Tactician The Civil War (1861-1865)</GameDir>
+  </PropertyGroup>
+
+</Project>

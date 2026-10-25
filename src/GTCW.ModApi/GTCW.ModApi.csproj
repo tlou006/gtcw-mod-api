@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The public, STABLE layer. What modders reference.
+
+    This project deliberately has NO reference to Assembly-CSharp, no Harmony
+    and no Unity simulation types, so a game type cannot leak into the public
+    API even by accident. It builds on a machine with no game installed.
+
+    See plan.md Phase 3, "Architecture: isolate volatility".
+  -->
+
+  <PropertyGroup>
+    <AssemblyName>GTCW.ModApi</AssemblyName>
+    <RootNamespace>GTCW.ModApi</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The runtime is the only assembly allowed to drive the facade. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>GTCW.ModApi.Runtime</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+</Project>

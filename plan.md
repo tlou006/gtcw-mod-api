@@ -1944,8 +1944,8 @@ it.
 
 ## Phase 3 — Hook library foundation (Goal 2)
 
-**Goal:** a loadable DLL that runs code inside the game and exposes a first
-stable event.
+**Goal:** a loadable DLL that runs code inside the game, survives a game
+update without bricking, and exposes a first stable event.
 
 ### Technical decisions
 
@@ -1955,107 +1955,233 @@ stable event.
 | Patching | **HarmonyX** (ships with BepInEx) | Runtime IL patching — prefix/postfix/transpiler. No patched game DLLs to redistribute, which keeps us legally clean. |
 | Private member access | **`Krafs.Publicizer`** (MSBuild) | Compile against a publicized `Assembly-CSharp` reference so we can reach private members with normal typed code instead of reflection strings. Publicizes at build time only — **never redistributed**. |
 | Game references | **Resolved from each developer's own install**, never vendored | See [Distribution boundary](#distribution-boundary). No game DLL enters the repo or the release. |
-| Target framework | `netstandard2.1` (match Unity 2021.3) | ABI compatibility with the game's Mono runtime. |
+| Target framework | `netstandard2.1` | **Confirmed**, not assumed: `Managed/` ships `netstandard.dll`, so the project's Api Compatibility Level is .NET Standard 2.1. |
 | Language | C# | Required by the goal, and native to the ecosystem. |
+| Version strategy | **Capability probing**, hash as metadata | A hash gate alone bricks every mod on every Steam patch. See [Version resilience](#version-resilience-a-capability-registry-not-a-hash-gate). |
+| Write model | **Contributions, not setters** | Forced by the three state idioms in [summary-game-state](code-findings/summary-game-state.md). See [the write path](#the-write-path-contributions-not-setters). |
 
 ### Referencing the game without shipping it
 
 The library must compile against `Assembly-CSharp.dll` but must never carry a
-copy of it. Point MSBuild at a path the developer supplies, and fail the build
-with a clear message when it's absent:
+copy of it. `Directory.Build.props` (tracked) holds the common settings and
+imports a gitignored `game.props` for the local install path; the
+`GTCW_GAME_DIR` environment variable works as a fallback. **Scaffolded and
+building** — see [`src/README.md`](src/README.md).
 
-```xml
-<!-- Directory.Build.props (tracked) -->
-<Project>
-  <!-- game.props is gitignored; it sets <GameDir>. Env var also works. -->
-  <Import Project="game.props" Condition="Exists('game.props')" />
-  <PropertyGroup>
-    <GameDir Condition="'$(GameDir)' == ''">$(GTCW_GAME_DIR)</GameDir>
-    <GameManaged>$(GameDir)\The Civil War (1861-1865)_Data\Managed</GameManaged>
-  </PropertyGroup>
+Three **reference tiers**, so the layer boundary is enforced by the build
+rather than by code review:
 
-  <Target Name="CheckGameDir" BeforeTargets="ResolveReferences">
-    <Error Condition="!Exists('$(GameManaged)')"
-           Text="Game not found. Set GameDir in game.props or the GTCW_GAME_DIR environment variable to your install directory. The game is not distributed with this repo." />
-  </Target>
+| Tier | Projects | Can see |
+| --- | --- | --- |
+| *(none)* | `GTCW.ModApi`, `GTCW.ModApi.Schemas` | nothing — they build with no game installed |
+| `UsesUnityAssemblies` | `samples/*` | Unity only. A BepInEx plugin derives from `MonoBehaviour`, but a mod has no business touching `Assembly-CSharp` |
+| `UsesGameAssemblies` | `GTCW.ModApi.Runtime`, `GTCW.ModApi.Plugin` | Unity + `Assembly-CSharp` |
 
-  <ItemGroup>
-    <Reference Include="Assembly-CSharp" HintPath="$(GameManaged)\Assembly-CSharp.dll" Private="false" />
-    <Reference Include="UnityEngine.CoreModule" HintPath="$(GameManaged)\UnityEngine.CoreModule.dll" Private="false" />
-  </ItemGroup>
-</Project>
-```
+A `ForbidGameReferences` target errors if `Assembly-CSharp` ever appears in a
+project that did not ask for it, so the inviolable boundary is a build failure
+rather than a review miss. Verified by deliberately violating it.
 
-`Private="false"` is the load-bearing attribute — it stops MSBuild copying the
-game's DLLs into `bin/`, which is exactly how game assemblies accidentally end
-up inside a release zip. `Krafs.Publicizer` then publicizes into `obj/` at
-build time, so the publicized reference is a local build artifact that is
-never committed and never shipped.
+> **The tier conditions must live in `Directory.Build.targets`, not
+> `.props`.** MSBuild imports `.props` *before* the project body and
+> `.targets` *after* it, and the tier is chosen by a property the project
+> itself sets. In `.props` the conditions evaluate false, the references are
+> never added, and — because the first scaffolded code reached game types only
+> through `AccessTools.TypeByName` — **the build still succeeds.** It looks
+> like a working setup right up until the first line that names a game type.
+> This cost a debugging cycle; it is written down so it costs nobody another.
+
+`Private="false"` on each reference is the other load-bearing detail — it stops
+MSBuild copying those DLLs into `bin/`, which is exactly how game assemblies
+accidentally end up inside a release zip. `Krafs.Publicizer` then publicizes
+into `obj/PublicizedAssemblies/` at build time, so the publicized reference is
+a local build artifact that is never committed and never shipped. Both
+confirmed on the scaffold: no game or Unity DLL appears in any `bin/`.
+
+One more packaging detail worth recording: **BepInEx does not publish to
+nuget.org.** `BepInEx.Core` (which brings HarmonyX) comes from
+`https://nuget.bepinex.dev/v3/index.json`, added in the tracked
+`NuGet.config`. `Krafs.Publicizer` is on nuget.org. Both are referenced
+`PrivateAssets="all" ExcludeAssets="runtime"` so neither ships in the release.
 
 ### Architecture: isolate volatility
 
 The whole design rests on one principle — **game updates must break only one
-layer.** Three layers, strictly separated:
+layer.** Four projects, strictly separated:
 
 ```
 ┌─────────────────────────────────────────────────┐
 │  GTCW.ModApi            (public, STABLE)        │  ← what modders reference
-│  events, interfaces, DTOs. No game types leak.  │
+│  events, interfaces, DTOs, capability enum.     │     NO game reference at all
+│  No game types leak. No Harmony. No Unity sim.  │
 ├─────────────────────────────────────────────────┤
-│  GTCW.ModApi.Bindings   (internal, VOLATILE)    │  ← the only layer that
+│  GTCW.ModApi.Runtime    (internal, VOLATILE)    │  ← the only layer that
 │  Harmony patches, publicized game-type access,  │     knows real game types
-│  translation from game state → stable DTOs      │
+│  capability probes, contribution folding,       │
+│  id broker, config pipeline, DTO translation    │
+├─────────────────────────────────────────────────┤
+│  GTCW.ModApi.Schemas    (generated)             │
+│  typed config models generated from the         │
+│  Phase 2 schemas — schemas, never game data     │
 ├─────────────────────────────────────────────────┤
 │  GTCW.ModApi.Plugin     (BepInEx entry point)   │
-│  bootstrap, version gate, logging, config       │
+│  bootstrap, build identification, capability    │
+│  report, logging, BepInEx config                │
 └─────────────────────────────────────────────────┘
 ```
 
 A modder referencing `GTCW.ModApi` never touches a game type. When the game
-updates, `Bindings` is repaired and dependent mods keep working unrecompiled.
+updates, `Runtime` is repaired and dependent mods keep working unrecompiled.
 If game types leak into the public API, every mod breaks on every patch — so
-treat that boundary as inviolable.
+treat that boundary as inviolable. The enforcement is mechanical rather than
+cultural: **`GTCW.ModApi` has no reference to `Assembly-CSharp` at all**, so a
+leak is a compile error rather than a code-review miss.
 
-### Build out
+`Schemas` is split out from `Runtime` because the typed config models are
+generated and large, and because they are the one artifact a modder may
+legitimately want to reference directly.
 
-- [ ] Scaffold the three projects under `src/`, plus `samples/HelloWorldMod`.
-- [ ] Verify BepInEx loads against this build; get a log line out of the game.
-- [ ] Implement the **version gate**: on startup, hash `Assembly-CSharp.dll`
-      and compare against known-good hashes (`code-findings/00-build-provenance.md`).
-      Mismatch → loud warning, continue in degraded mode. Never hard-crash
-      someone's game over a version bump.
+### Version resilience: a capability registry, not a hash gate
 
-      > **Hashing is not just the convenient option, it is the only one.**
-      > Phase 1 found there is no version constant in the assembly: the game
-      > parses its own version out of a `TextMeshProUGUI` label in the campaign
-      > UI (`MainMenuControls.currentversion`). That is far too late and too
-      > fragile to gate on. Read it if available, but only to phrase the
-      > mismatch in the user's own terms.
-- [ ] Land **one** end-to-end event (suggest `Battle.Started` — easy to trigger,
-      easy to verify) and prove it reaches a sample mod.
-- [ ] Establish **fail-soft** as a rule: a failed patch disables that one
-      feature and logs; it never takes down the game or the other patches.
+Hashing `Assembly-CSharp.dll` is the only way to *identify* a build —
+[01-assembly-partition](code-findings/01-assembly-partition.md) found no
+version constant, and the game parses its own version out of a
+`TextMeshProUGUI` label far too late to gate on. But identification is not the
+same as gating, and a pure hash gate means **every Steam patch disables every
+mod in the ecosystem until we ship**. Steam already moved this build on
+2026-10-13, the day analysis started.
 
-### A deterministic test harness, for free
+So invert it. A **feature** is the unit of enable/disable:
+
+```csharp
+sealed class Feature {
+    public Capability Id;             // public enum, part of the stable API
+    public Func<bool> Probe;          // does this build still support me?
+    public Action Apply;              // install the Harmony patches
+    public string DegradedMessage;    // what a modder is told if I am off
+}
+```
+
+- Hash matches a known build → trust the recorded capability table, skip probes.
+- Hash is unknown → **run every probe**, enable feature by feature, log a
+  one-line capability report naming what is on and what is off.
+- A probe failure or a throw during `Apply` disables **that feature only**.
+
+Probes check for the members a feature actually patches — method exists, right
+signature, field present — by reflection over the real assembly. That is the
+same information the **signature manifest** in
+[Surviving game updates](#surviving-game-updates) already tracks, so the
+manifest becomes the probe table's source rather than a separate document.
+
+Then `ModApi.Capabilities.Has(Capability.PolicyRegistration)` is a public
+query, a mod can branch on it, and a patch-day breakage degrades to "config
+overrides still work, policy registration is off" instead of a dead install.
+
+- [ ] Public `Capability` enum, one value per feature.
+- [ ] Probe per feature, generated from or checked against the signature manifest.
+- [ ] Capability report in the log, and in `ModApi.Capabilities` for mods.
+- [ ] Build identification by hash, against
+      [00-build-provenance](code-findings/00-build-provenance.md). Mismatch →
+      loud warning and probe-driven degraded mode. **Never hard-crash someone's
+      game over a version bump.**
+
+### Fail-soft as a rule
+
+Not an aspiration — a mechanism. Every patch install is wrapped, every
+subscriber invocation is wrapped, and the failure unit is the feature or the
+mod, never the process.
+
+- [ ] Wrap `Apply` per feature; a throw disables that feature and logs once.
+- [ ] Wrap subscriber dispatch per mod; a throwing mod is reported by name and,
+      after N throws on one event, unsubscribed rather than left to spam.
+- [ ] Never let an exception cross back into game code from a postfix.
+
+### Sessions, not frames
+
+`GameController` is scene-scoped and every scenario transition is a
+non-additive `LoadScene("Main")`, so a binding held across a transition points
+at a **destroyed** object. And `GameVars.frame` **rewinds** during load
+(`if (BFS.initialized < 3 && GameVars.frame > 3) GameVars.frame = 3;`), so it
+is a program counter for the boot sequence, not a monotonic clock.
+
+Both facts point the same way:
+
+- A **`GameSession`** object is created per scenario load and invalidated on
+  `bo_rebuildscene`. Every binding hangs off the session; nothing is cached
+  statically. `GameVars` itself must be re-read through the static each time —
+  scene changes do not clear it, but the arrays are rebuilt by
+  `import_nations`, and the state count is **52, 53 or 54 depending on the
+  scenario**. Never hardcode 53.
+- Expose **named milestones**, never frame numbers. Modders ask for
+  `OnUnitsReady`, not `frame >= 12`.
+
+| Milestone | Boot gate | Why it matters |
+| --- | --- | --- |
+| `MapReady` | 3 | the sequence stalls here until the map is built |
+| `PoliciesReady` | 8 | `UpdatePolicyEffects(startsetup: true)` — **effect registration must already be done** |
+| `UnitsReady` | 11–12 | nothing may read units before this |
+| `SubsystemsLoaded` | 25 | all saved subsystems in |
+| `CampaignLive` | 30 | `currentoperation = 2` |
+| `ProjectsReady` | 37 | `UpdateProjectEffects()` |
+| `CampaignIdle` | 50 | chapter update, speed 0, ready for input |
+
+Because `PoliciesReady` is frame 8, **registration happens at plugin load, not
+on a game event.** That is an API contract, not an implementation detail:
+`Register` calls after the first `PoliciesReady` must throw rather than
+silently no-op.
+
+- [ ] `GameSession` with per-scene binding resolution, invalidated on `bo_rebuildscene`.
+- [ ] Milestone events derived from the boot gates; frame numbers stay internal.
+- [ ] Registration deadline enforced with a clear exception message.
+
+### A deterministic test harness — with one correction
 
 `debug.txt` can boot straight into a specific battle or campaign scenario at
 startup, and its "Debug Army Setup" mode loads the four ArmySetup files
 (`battledata.dat`, `groups.dat`, `nations.dat`, `regiments.dat`) from
-`Config/ArmySetup/` — exactly the files the ModdingTool emits.
+`Config/ArmySetup/` — exactly the files the ModdingTool emits. That is a
+developer-supported path to a reproducible scenario, which is normally the
+hardest part of testing game hooks.
 
-That's a **developer-supported path to a reproducible scenario**, which is
-normally the hardest part of testing game hooks. Set it up early:
+> **It is not free in this build.**
+> [23-game-state](code-findings/23-game-state.md) found
+> `Battlefields/DebugArmySetup/nations.dat` is still in the **legacy 40-line**
+> alliance format, and `import_nations` has no version gate for the two fields
+> it lacks — so `debug_loaddebugarmysetup` throws `FormatException` on load.
+> The fixture work starts with authoring a correct 42-line `nations.dat`.
 
-- [ ] Author a minimal two-unit battle via the ModdingTool; boot directly into
-      it through `debug.txt`.
+- [ ] Author a correct 42-line `nations.dat` for the debug army setup.
+- [ ] Author a minimal two-unit battle; boot directly into it via `debug.txt`.
 - [ ] Use it as the fixture for every hook test, so runs are comparable rather
       than dependent on clicking through menus identically each time.
 
 Many `debug.txt` flags are marked `[deactivated]`, so confirm which still work
 in the shipped build before relying on them.
 
+### Build out, in shippable order
+
+Each milestone is independently useful and independently verifiable.
+
+1. [x] **Scaffold the four projects** under `src/`, plus
+       `samples/HelloWorldMod`. All five build clean, the three reference tiers
+       work, the boundary guard fires when violated, and no game DLL reaches
+       `bin/`. See [`src/README.md`](src/README.md).
+2. [ ] BepInEx loads; a log line comes out of the game; the build hash is
+       identified and reported. **Everything for this is written — it needs a
+       live run.** Copy the four DLLs into `BepInEx/plugins/` and read the log
+       for the build line, the anchor check and the capability report.
+3. [x] **Capability registry and the fail-soft wrapper** — built first, before
+       anything depends on them: `CapabilityRegistry` (probe → apply → report,
+       isolating each feature), `Feature.Planned` so unbuilt features report an
+       honest reason instead of a bare false, `FailSoft` with a per-subscriber
+       throw budget, and `AnchorCheck`, which verifies the ten types the library
+       intends to patch are present under the names the research recorded.
+4. [ ] `GameSession` plus milestones, and **one** end-to-end event
+       (`Battle.Started` — easy to trigger, easy to verify) reaching a sample
+       mod.
+
 **Exit criteria:** sample mod prints on battle start, from a clean install,
-booting into a fixed scenario without manual UI steps.
+booting into a fixed scenario without manual UI steps — and prints a correct
+capability report when run against a deliberately mismatched assembly.
 
 ---
 
@@ -2063,22 +2189,95 @@ booting into a fixed scenario without manual UI steps.
 
 Driven by Phase 2's findings — you can only expose what you understand.
 
+### The write path: contributions, not setters
+
+**The most important design decision in the library, and the least obvious.**
+[summary-game-state](code-findings/summary-game-state.md) found three state
+idioms, two of which make a direct write futile:
+
+| Idiom | What happens to a mod's write | Fields |
+| --- | --- | --- |
+| **Double-buffered sweep** | a cursor walks one entity per frame into `<field>temp`; on wrap the published field is overwritten and `temp` zeroed. **The write is undone.** | `averagesupport`, `totalpopulation`, `privateincome`, `corporateprofits`, `volumeimports`, `tradevolume`, a dozen more |
+| **Reset-then-accumulate** | `UpdateAllianceData` zeroes ~18 fields and refills them from `unitlist`; `UpdatePolicyEffects` zeroes thirteen. **The write survives ≤12 game hours.** | alliance aggregates, policy effect accumulators |
+| **Trailing average** | `Tools.AddToAverage(…, 0.25, dt)` accepts the write; it simply decays | the rest |
+
+And `UpdatePolicyEffects` **replays every active policy's effect on every
+pass** — every 12 game hours per alliance, with `dt ≈ 0.5/365` campaign years
+handed to each rate integration — so "apply once on activation" is the wrong
+model even for effects.
+
+If the public API exposes setters, every mod in the ecosystem is subtly broken
+and nobody can tell why. So the API is **declarative**: a mod registers a
+contribution, and the runtime folds it in at the right point in the game's own
+pass.
+
+```csharp
+// not: nation.Support += 0.1f;
+Modifiers.Support.Add("mymod.railbonus",
+    scope:   Scope.Nation("Virginia"),
+    perYear: ctx => 0.25f * ctx.Alliance.RailCapacity);
+```
+
+Properties this buys, none of which a setter API can offer:
+
+- **Replay-safe.** Re-applied by construction, so the 12-hour reset is a
+  feature instead of a bug.
+- **Rate-correct.** Contributions are expressed per game year and scaled by the
+  `dt` the pass already computed — copying
+  `Economy.UpdateEconomyEstimates(num2)`, not the frame-modulo pattern. Cadence
+  is frame-rate dependent and must never leak into a mod's arithmetic.
+- **Composable.** Two mods contributing to one field sum instead of racing, and
+  the pattern matches the game's own commutative idiom (Tariff Act and Free
+  Trade each check the other and multiply).
+- **Attributable.** Every contribution carries a mod id, so the log can explain
+  a number and conflicts can name both culprits.
+
+Fold at the chokepoints [23-game-state](code-findings/23-game-state.md) already
+ranks: `Nation.AdjustSupport`, `Alliance.AdjustNationalMorale`,
+`AddTradeWarfare`, `Alliance.AdjustTreasury`, the `GetSubsidyFactor` /
+`GetSubsidyCost` / `GetCurrentTaxValuePa` / `GetAdminCost` / `GetBalance`
+pure-function set, and `BattleUnits.UpdateAllianceData` for anything the pass
+itself resets.
+
+- [ ] Contribution registry with mod attribution and a documented fold order.
+- [ ] One chokepoint end to end — **`AdjustSupport` is the cleanest** (single
+      writer, already clamp-then-recompute).
+- [ ] `ModApi.Unsafe.*` for direct mutation, documented as unsupported, with
+      the double-buffered and reset-then-accumulate fields named in the XML
+      docs so the warning reaches IntelliSense rather than only a guide.
+- [ ] Never expose writes to `nation[].name` — it is mutated at runtime by
+      `statesetname`, and everything that matches a state by string then
+      silently stops matching.
+
 ### Event surface
 
 | Area | Events |
 | --- | --- |
-| Lifecycle | `Game.Initialized`, `Campaign.Loaded`, `Campaign.Saving`, `Turn.Advancing/Advanced` |
+| Lifecycle | `Game.Initialized`, `Session.Started/Ending`, the boot milestones, `Campaign.Loaded`, `Campaign.Saving` |
 | Battle | `Battle.Started/Ended`, `Battle.Tick` |
 | Units | `Unit.Damaged`, `Unit.MoraleChanged`, `Unit.Routed`, `Unit.Destroyed` |
 | Economy | `Production.Calculating`, `Trade.Resolved` |
 | Commanders | `Commander.Promoted`, `Commander.TraitApplied` |
 
-Two event flavors, and the distinction matters:
+**Three event tiers, and the distinction is load-bearing:**
 
 - **Notification** (`…ed`, past tense) — read-only, cannot be cancelled. Safe.
 - **Mutation** (`…ing`, present participle) — carries a mutable args object so
-  a mod can adjust a value or cancel. Powerful and dangerous; every one needs
-  an explicit contract for what happens when two mods both write.
+  a mod can adjust a value or cancel. Every one needs an explicit contract for
+  what happens when two mods both write.
+- **Sampled** — coalesced per tick or per N entities, **documented as lossy**.
+
+The third tier exists because of a performance trap, not a design preference.
+`Regiment.Update` is 458 lines running per unit per frame, there is no fixed
+timestep, and modulo staggering keys off the *display* frame rate — so a 144 Hz
+monitor runs every frame-paced subsystem 2.4× faster than a 60 Hz one. A naive
+per-unit event dispatch costs units × frame rate delegate invocations and will
+be blamed on the library.
+
+- [ ] Per-unit-per-frame subscription only behind an opt-in that logs a
+      performance warning naming the subscribing mod.
+- [ ] Document main-thread-only, and **no determinism guarantee across
+      machines** — that is a property of the game, not a limitation we can fix.
 
 ### Layered config overrides — the feature worth building
 
@@ -2097,42 +2296,51 @@ Benefits: mods stack, overrides survive game patches, conflicts are detectable
 and reportable, and nothing on disk is modified. This alone justifies the
 library's existence.
 
-- [x] Reach the config parsers (Phase 1) — done; they are plain `StreamReader`
-      sequences against relative paths, so post-parse interception is
-      straightforward Harmony work with no Unity-specific machinery.
-- [ ] Intercept post-parse and expose the parsed models.
-- [ ] Typed models per data file, generated from the Phase 2 schemas.
-- [ ] Conflict detection and a resolution policy.
-
 **The game has no field-level merge** — a scenario copy of a prefs file
-*replaces* the global one wholesale. **Verified in code**: the idiom
-throughout `GamePrefs` is to build the scenario-local path and, if the file is
-absent, reassign the path to `Config/` — one path wins entirely
+*replaces* the global one wholesale. **Verified in code**: the idiom throughout
+`GamePrefs` is to build the scenario-local path and, if the file is absent,
+reassign the path to `Config/` — one path wins entirely
 (`loadcampaigncontrols`, `loadunitprefs`, `loadcontrols`). `loadcontrols` also
 forces the `Config/` fallback when `SceneManagement.currentoperation` is 3 or
 8, which is the mechanism behind the scale-dependent prefs finding in
-`code-findings/07-config-data-model.md`. So mod overrides add a layer the game lacks entirely, rather than
-extending an existing merge:
+[07-config-data-model](code-findings/07-config-data-model.md). So mod overrides
+add a layer the game lacks entirely, rather than extending an existing merge:
 
 ```
 Config/ (global)  ─replaced by─►  scenario file  ─merged by us─►  mod overrides
      └──────── the game's two-entry chain ───────┘   └─ new capability ─┘
 ```
 
-- [ ] Slot the override layer after the game's own resolution, so a mod patch
-      applies to whichever file actually won. Modders then reason about one
-      rule: *the effective value, whatever its source*.
-- [ ] Validate before injecting. The game's data layer fails hard — a missing
-      or malformed file makes a scenario fail to load — so overrides must be
-      checked and rejected individually rather than inheriting that behavior.
-      Phase 1 explains *why* it fails hard: `int.Parse`/`float.Parse`/
-      `bool.Parse` with no guards, and field offsets that shift silently when a
-      line count is wrong. Reuse the game's own
-      `ImportExportUnitData.CheckFileIntegrity` as a reference for what it
-      considers valid. **One exception to copy carefully:**
+The pipeline is four stages, and **attribution is what makes it better than a
+pile of Harmony patches**: `parse → collect (each patch tagged with its mod id)
+→ validate → commit`.
+
+- [x] Reach the config parsers (Phase 1) — done; they are plain `StreamReader`
+      sequences against relative string literals, so post-parse interception is
+      straightforward Harmony work with no Unity-specific machinery.
+- [ ] Intercept **post-parse**, so a patch applies to whichever file actually
+      won the game's own resolution. Modders then reason about one rule: *the
+      effective value, whatever its source*.
+- [ ] Typed models per data file, generated from the Phase 2 schemas, into
+      `GTCW.ModApi.Schemas`.
+- [ ] Conflict detection that names **both mods and the field**, with a
+      documented resolution policy.
+- [ ] Validate before injecting, rejecting bad overrides **individually**
+      rather than inheriting the game's all-or-nothing failure.
+      [06-config-file-format](code-findings/06-config-file-format.md) explains
+      why it fails hard: unguarded `int.Parse` / `float.Parse` / `bool.Parse`,
+      and field offsets that shift silently when a line count is wrong. Reuse
+      `ImportExportUnitData.CheckFileIntegrity` as a reference for what the game
+      considers valid. **Two exceptions to copy carefully:**
       `Tools.GetIntPartitions` uses `int.TryParse` and silently *drops*
-      unparseable entries — so a typo'd id in a list field is invisible today.
-      Our validator should report it instead.
+      unparseable entries — so a typo'd id in a list field is invisible today,
+      and our validator should **report** it instead; and entries that do not
+      fill `partlen` exactly are dropped the same way.
+- [ ] **Settle the culture question first.** `float.Parse` is called with no
+      `CultureInfo` ([summary-data-layer](code-findings/summary-data-layer.md)).
+      If the game does not force an invariant culture at startup, a
+      comma-decimal locale parses `1.5` as `15` — which would make the override
+      layer locale-dependent. That is a correctness blocker, not a polish item.
 
 ### Effect registration — the capability nothing else provides
 
@@ -2149,64 +2357,141 @@ GTCW.ModApi.Projects.Register("Repeating Rifles", effect => {
 });
 ```
 
-- [ ] Map which hardcoded effects are already balanceable via
-      `campaignprefs.txt` (the designated balance surface) versus which need
-      patching outright. That split defines the work. Phase 1 confirmed the
-      split is real: some switch arms read their magnitude from `GamePrefs`
-      (e.g. `machinegunprojectstock`, `project_propagandainfl`) while others
-      use literals.
-- [x] **Find the effect dispatch site for policies and projects, and establish
-      whether new IDs can be injected or only existing ones intercepted.**
-      Found, and the answer is the good one:
+**Ship projects first, policies second.** They are not the same difficulty:
 
-      | | Site | Shape |
-      | --- | --- | --- |
-      | Policies, one-shot | `Policies.LaunchPolicyEffect(Policy, int alliance, float timediff, bool startupset)` | ~1,200-line `switch` on `policy.UniquePolicyID`, 117 arms |
-      | Policies, teardown | `Policies.DeactivatePolicyEffect(Policy, int alliance)` | mirror |
-      | Policies, recurring | `Policies.UpdatePolicyEffects(int alliance, float timediff, bool startsetup)` | per-tick |
-      | Projects, one-shot | `Projects.UpdateOneTimeProjectsEffects(int projectid, int alliance)` | `switch`, 12 arms |
-      | Projects, recurring | `Projects.UpdateProjectEffects()` | `switch` inside an alliance loop |
+| | Projects | Policies |
+| --- | --- | --- |
+| New id from config? | **yes** — `Projects.LoadedProjects.Import` is the whole definition | **no** — `policies.dat` only overrides ids the scene already carries |
+| Free ids | **56** `PLACEHOLDER` slots (20–29, 42–87) | **20** (180–199) |
+| Unity assets needed | **none** | a cloned `Policy` GameObject under `UI` |
+| Live-build unknowns | none | three (below) |
 
-      **Neither file has a single `default:` arm.** An unrecognised id falls
-      through, the game still accepts/researches/tracks the policy or project,
-      and nothing happens. So **new ids can be injected**, and a Harmony
-      *postfix* supplies their behaviour — composing with the game's switch
-      instead of replacing it. No transpiler, and none of the 117 existing arms
-      need reimplementing.
+So project registration is policy registration minus the hard part, with
+nearly three times the id space. It proves the whole feature with no Unity
+risk.
 
-      Policy ids also carry a **`+100` offset convention** for the second side
+- [x] **Find the effect dispatch sites, and establish whether new ids can be
+      injected or only existing ones intercepted.** Found, and the answer is the
+      good one — the five dispatch sites are tabulated in
+      [summary-effects](code-findings/summary-effects.md), and **not one of them
+      has a `default:` arm.** An unrecognised id falls through, the game still
+      accepts/researches/tracks the policy or project, and nothing happens. So
+      **new ids can be injected**, and a Harmony *postfix* supplies their
+      behaviour — composing with the game's switch instead of replacing it. No
+      transpiler, and none of the 117 existing policy arms need reimplementing.
+      Policy ids also carry the **`+100` offset convention** for the second side
       (`case 0: case 100:` → Union / Confederate instances of one policy), so a
       registered effect must handle both id blocks or key off `alliance`.
 - [x] **Resolve the prefab question — was the gating unknown.** Answered in
       [22-policy-and-project-catalogue](code-findings/22-policy-and-project-catalogue.md)
-      §15. **Projects need no prefab at all**: `projects.dat` is the whole
-      definition and ids 20–29 and 42–87 ship as `PLACEHOLDER`. **Policies
-      cannot be added from config** — `policies.dat` only overrides ids the
-      scene already carries — but `Policy.InitializeStatics()` is
-      `public static` and rebuilds `allpolicies` from every `Policy` component
-      under the `UI` GameObject, so cloning a policy GameObject there and
-      calling that method is the registration route. Three things still need a
-      live build before the ModApi commits to a public policy-registration
-      surface: whether the clone is found, whether `ButtonTooltipRef` and
-      `markedasgrandpolicy` survive cloning, and what the panel does with a
-      button it has no layout slot for.
+      §15. Projects need no prefab. Policies cannot come from config, but
+      `Policy.InitializeStatics()` is `public static` and rebuilds `allpolicies`
+      from every `Policy` component under the `UI` GameObject, so **cloning a
+      policy GameObject there and calling that method is the registration
+      route** — inheriting the editor-authored UI wiring that cannot be rebuilt
+      from data.
 - [x] Harvest the id → effect catalogue into
-      [code-findings/22-policy-and-project-catalogue.md](code-findings/22-policy-and-project-catalogue.md).
-      All 117 policies and 125 projects, with chapters, prerequisites,
-      reason codes, the state-index table and the AI agendas. One correction to
-      the plan: `Projects.GetProjectEffect` is a real rosetta stone, but
+      [22-policy-and-project-catalogue](code-findings/22-policy-and-project-catalogue.md).
+      All 117 policies and 125 projects, with chapters, prerequisites, reason
+      codes, the state-index table and the AI agendas. One correction to the
+      plan: `Projects.GetProjectEffect` is a real rosetta stone, but
       `Policies.UpdateAllTooltips` is **not** — it only appends research-speed
       text, so the policy half had to be read out of the 1,200-line switch.
-      Also note the effect contract: `UpdatePolicyEffects` resets thirteen
-      fields and **replays every policy's effect each tick**, so a postfix must
-      either guard on `alreadyactivatedacts` or scale by `timediff`.
+- [x] Map which effects are balanceable via config versus which need patching.
+      **33 `project_*` prefs carry every project magnitude in the game**, with
+      one exception (project 5 Hall's Carbines uses literals). So project
+      rebalancing is config work and belongs to the override layer, not to
+      effect registration.
+- [ ] **Projects:** postfix `Import` to append records, and both
+      `UpdateOneTimeProjectsEffects` and `UpdateProjectEffects` for behaviour.
+      `Alliance.GetProjectLevel(int)` is the pull side — one postfix changes
+      every consumer at once.
+- [ ] **Policies:** the registration surface stays **out of the public API**
+      until three things are tested on a live build: whether the clone is
+      discovered under `UI`; whether `ButtonTooltipRef` and the other outward
+      references survive `Instantiate` or still point at the original's
+      objects; and what the panel does with a button it has no layout slot for.
+      A fourth is already known from the code: `InitializeStatics` runs
+      `ImportPolicyData` immediately afterwards, which **overwrites the clone's
+      fields** if `policies.dat` carries that id. Note also that grand-policy
+      status is decided by the **grandparent object's name**, not by a field.
+- [ ] Respect the **replay contract**: `UpdatePolicyEffects` resets thirteen
+      fields and replays every policy's effect each pass, so a registered effect
+      must either guard on `alreadyactivatedacts` or scale by `timediff` — which
+      is exactly what the contribution model does for free.
+- [ ] Cover **teardown** (`DeactivatePolicyEffect`) and **recurrence**
+      (`UpdatePolicyEffects`), not just the launch path, or an effect persists
+      after its policy is removed.
+- [ ] Text via `Tooltip.RegisterNewTooltip` — `public static`, appends to the
+      live tooltip table.
+- [ ] Teach the AI, or decide not to and say so.
+      `Policies.CheckAIPolicyChange` and `AIPersonality.GetNextProjectRandom`
+      are both small and data-driven; without them, mod content is player-only —
+      a legitimate v1 choice, but it must be documented rather than discovered.
+
+### The id broker
+
+Both effect systems key off a bare `int`, and the space is small, shared and
+unmanaged. Left alone, two mods pick 184 and the second player to install both
+gets silent nonsense.
+
+- **Policies: ids 180–199 only — twenty slots.** `maxpoliciesingame = 200`
+  sizes `interventionpointspolicy`, which is indexed by policy id, and the
+  highest shipped id is 179. This **supersedes** the earlier note that
+  `requiredpolicyids` being three characters wide leaves "room above 199" — the
+  field width is irrelevant when the array throws. The `+100`
+  Union/Confederate convention may consume them in pairs, so budget ten
+  logical policies, not twenty.
+- **Projects: 56 `PLACEHOLDER` ids** (20–29, 42–87).
+
+So the ModApi must allocate ids, not let modders choose them:
+
+- [ ] Allocate from a **string key** (`"mymod.conscription-reform"`), never a
+      number the modder picks.
+- [ ] **Persist the key → id mapping in the save side-car.** Without this, a
+      save referencing policy 184 means something different after the player
+      installs another mod and allocation order shifts. This is the single most
+      corruption-prone part of the design.
+- [ ] Report exhaustion as a clear error naming which mods hold which slots, and
+      investigate whether the policy array can be grown by a patch to lift the
+      200 ceiling.
+
+### Persistence: side-cars, never the game's files
+
+Saves reconcile objects **by position with a float tolerance**
+(`GetGameObjectFromPosition(..., float accuracy = 0.5f)`), not by stable id, so
+anything appended to a game save file is fatal.
+
+- [ ] Side-car files keyed off the save folder, hooked on
+      `SceneManagement.SaveAll`.
+- [ ] Every record carries **its own identifier**; never rely on position.
+- [ ] A save must still load with the mod uninstalled.
+- [ ] The id-broker table lives here.
+
+### Scheduling
+
+- [ ] **Defer work through `SceneManagement.batchoperation`** rather than
+      starting coroutines — it inherits the game's ordering and pacing. The
+      dispatch is 16 named ids with no default branch, so a mod id passes
+      through harmlessly and a postfix on `UpdateBatchOperations` picks it up.
+      Arguments are boxed `object`s cast unchecked, so a mod id must own its own
+      argument discipline. Note the queue **drains before** `GameVars.frame++`,
+      so an operation scheduled for frame N runs while the counter still reads
+      N−1.
+- [ ] **Rate-correct, never tick-correct.** `Economy.UpdateEconomyEstimates(num2)`
+      takes the elapsed delta; that is the pattern to copy.
+- [ ] Expose `GameVars.SetGameSpeed(float)` rather than anything in UniStorm —
+      game time comes from the third-party weather asset, and `Time.deltaTime`
+      has no consumer in any simulation class.
 
 ### Also worth investigating
 
 - [ ] **Re-enable the dormant debug mode.** `debug.txt` shows numerous
       `[deactivated]` dev flags. If those code paths still exist, exposing them
       gives modders a dev console and scenario-loading tools nearly free.
-- [ ] UI injection points, so mods can add panels rather than only change numbers.
+- [ ] UI injection points, so mods can add panels rather than only change
+      numbers. The policy-clone work is the first real test of whether the UI
+      hierarchy tolerates additions at all, so sequence it after that.
 
 ---
 

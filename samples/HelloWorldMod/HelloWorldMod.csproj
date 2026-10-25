@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    What a mod looks like from the outside.
+
+    Note what is NOT here: no Assembly-CSharp reference, no publicizer, no
+    Harmony. Unity is referenced only because a BepInEx plugin derives from
+    MonoBehaviour. Everything about the game itself arrives through
+    GTCW.ModApi, which is the whole point of the layering — when the game
+    updates, GTCW.ModApi.Runtime is repaired and this keeps working
+    unrecompiled.
+
+    A real mod would reference the GTCW.ModApi NuGet package rather than the
+    project; the project reference is here because the sample ships in-repo.
+  -->
+
+  <PropertyGroup>
+    <AssemblyName>HelloWorldMod</AssemblyName>
+    <RootNamespace>HelloWorldMod</RootNamespace>
+    <UsesUnityAssemblies>true</UsesUnityAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\GTCW.ModApi\GTCW.ModApi.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BepInEx.Core" Version="5.4.21" PrivateAssets="all" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+</Project>

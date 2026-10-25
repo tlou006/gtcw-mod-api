@@ -1,0 +1,56 @@
+<Project>
+
+  <!--
+    Reference tiers. These live in .targets rather than .props because MSBuild
+    imports .props BEFORE the project body and .targets AFTER it — and the tier
+    is chosen by a property the project itself sets. In .props these conditions
+    would silently evaluate false and the references would never be added,
+    which looks exactly like a working build right up until the first line of
+    code that touches a game type.
+
+    Tiers are documented in Directory.Build.props.
+  -->
+
+  <PropertyGroup Condition="'$(UsesGameAssemblies)' == 'true'">
+    <!-- The game tier includes the Unity tier. -->
+    <UsesUnityAssemblies>true</UsesUnityAssemblies>
+  </PropertyGroup>
+
+  <!-- Fail with a readable message rather than 400 "type not found" errors. -->
+  <Target Name="CheckGameDir"
+          BeforeTargets="ResolveReferences"
+          Condition="'$(UsesUnityAssemblies)' == 'true'">
+    <Error Condition="'$(GameDir)' == ''"
+           Text="GameDir is not set. Copy game.props.example to game.props and point it at your install, or set the GTCW_GAME_DIR environment variable. The game is not distributed with this repo." />
+    <Error Condition="!Exists('$(GameManaged)')"
+           Text="No Managed folder at '$(GameManaged)'. Check GameDir in game.props — it should be the folder containing the game executable." />
+  </Target>
+
+  <!--
+    Private="false" is load-bearing: it stops MSBuild copying these DLLs into
+    bin/, which is exactly how game assemblies accidentally end up inside a
+    release zip.
+  -->
+  <ItemGroup Condition="'$(UsesUnityAssemblies)' == 'true'">
+    <Reference Include="UnityEngine" HintPath="$(GameManaged)\UnityEngine.dll" Private="false" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(GameManaged)\UnityEngine.CoreModule.dll" Private="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(UsesGameAssemblies)' == 'true'">
+    <Reference Include="Assembly-CSharp" HintPath="$(GameManaged)\Assembly-CSharp.dll" Private="false" />
+    <Reference Include="UnityEngine.UI" HintPath="$(GameManaged)\UnityEngine.UI.dll" Private="false" />
+    <Reference Include="Unity.TextMeshPro" HintPath="$(GameManaged)\Unity.TextMeshPro.dll" Private="false" />
+  </ItemGroup>
+
+  <!--
+    Guard the inviolable boundary mechanically: if a game reference ever appears
+    in a project that did not ask for one, that is the public API leaking.
+  -->
+  <Target Name="ForbidGameReferences"
+          BeforeTargets="ResolveReferences"
+          Condition="'$(UsesGameAssemblies)' != 'true'">
+    <Error Condition="'%(Reference.Identity)' == 'Assembly-CSharp'"
+           Text="$(MSBuildProjectName) references Assembly-CSharp without setting UsesGameAssemblies. Game types must not reach this layer — see plan.md Phase 3, 'Architecture: isolate volatility'." />
+  </Target>
+
+</Project>
