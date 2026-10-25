@@ -121,3 +121,10 @@ $RECYCLE.BIN/
 # Findings drawn from it live in mechanics-findings/manual-vs-code.md.
 game-manual.*
 *Quick Guide*
+
+# ---------------------------------------------------------------------------
+# Local developer scripts
+# ---------------------------------------------------------------------------
+# Deploy helpers and anything else under .claude/ hardcode a machine-specific
+# game install path, so they stay local.
+.claude/
