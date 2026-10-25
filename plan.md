@@ -1776,37 +1776,75 @@ six open items closed; only the tooltip string table still needs an asset dump.
   translation, so `the-naval-war.md` is now the one item on the
   `mechanics-findings/` planned index.
 
-**Next:** `mechanics-findings/the-naval-war.md`, the one item now on the
-mechanics planned index. Two code files back it
-([26](code-findings/26-naval-combat.md),
-[30](code-findings/30-naval-subsystems.md)) and the translation writes itself:
-why fleet actions are indecisive and captures rare, what a blockade is actually
-worth and why spreading one is free, the import market and the hull you must
-never buy, the shipyard gates, and the five European squadrons on the map from
-day one. It is also the last subsystem with no player-facing write-up at all.
+**Pass 20 — `mechanics-findings/the-naval-war.md`** (538 lines, a new mechanics
+file, and the last subsystem with no player-facing write-up). Translating
+[26](code-findings/26-naval-combat.md) and
+[30](code-findings/30-naval-subsystems.md), with the import projects from
+[28](code-findings/28-project-effect-reachability.md) §4.2a and the blockade
+economics from `the-war-economy.md` §4/§4a.
 
-After it the code-side backlog is two items, both large:
+Nothing new was decompiled; the value is in connecting findings that were
+spread across two code files into decisions a player can act on.
 
-- **`Retreat`**, 624 lines — newly promoted by pass 19. It is the live land
-  retreat system for the whole campaign, it runs while the game is paused
-  ([10](code-findings/10-simulation-tick.md) Finding 7), every withdrawal and
-  rout on the campaign map goes through it, and nothing in this repo documents
-  it. The largest unexamined campaign subsystem outside the DLC.
+- The organising fact is the **condition ladder, and it is in the wrong
+  order**: a ship is fully effective to 60 %, stops being able to ram below
+  60 %, **leaves the action with certainty below 35 %**, and would only become
+  capturable below 25 % — under the line at which it has already sailed away.
+  So **fleet actions are damage-trading exercises that end with both squadrons
+  intact**, the 2.5 % magazine explosion is the player's main source of
+  outright kills, and prizes come from the margins rather than from battle.
+- **Repairs are charged the moment a ship turns for port** — a fraction of its
+  full build cost equal to the damage taken, plus a full resupply — and since
+  the escape is automatic, that bill is the real price of a fleet action and
+  cannot be declined.
+- Translated for the first time as advice: **spread a blockading fleet as wide
+  as its range allows** (the defender's guards are averaged across every node
+  it covers, the fleet's own strength is not), **push blockaders inside bugle
+  range for ×2.5**, **guard coastal trade nodes with cavalry** — which counts
+  exactly as a fleet on Blockade would — **raid big blockades with small
+  fleets**, since a raider forces the blockading squadron down to its own
+  numbers at no political cost, and **park one gunboat on an enemy sea lane**,
+  which denies amphibious movement through it entirely.
+- The three gates on building a hull, with the two quirks that matter: **a
+  blockaded or damaged harbour builds less** (condition × (1 − blockade) × the
+  level's rated tonnage), and **losing your best harbour keeps the ship types
+  its level unlocked** because the port-level test latches.
+- **Still open and flagged as such**: what a hit actually takes off a ship, and
+  therefore how long a fleet action lasts. The damage formula is known; its
+  scale against a real squadron is not, and that is the one number a player
+  would most want.
+- `mechanics-findings/README.md`'s planned index is empty again — every
+  `code-findings` subsystem now has a translation.
+
+**Next:** **`Retreat`** (624 lines) — `code-findings/31-retreat.md`. Pass 19
+promoted it: `Retreat.WorkDownRetreatOrders()` is the live retreat system for
+every land unit in the campaign, it is one of only three things that keep
+running while the game is paused
+([10](code-findings/10-simulation-tick.md) Finding 7), every withdrawal, rout
+and depot fallback goes through it, and nothing in this repo documents it. It
+is self-contained, it is the last campaign subsystem outside the DLC, and
+[30](code-findings/30-naval-subsystems.md) §5 already establishes the entry
+point and what the dead inline alternative was meant to do.
+
+After that, two items remain and both are large:
+
 - **The `DLC_WL` layer**, 7,932 lines, which owns Army Groups, garrison
   deployment, the whole scenario-`002` project set, the `Diary` channel, the
-  prestige economy and the defensive-facing battle subsystem.
+  prestige economy, incidents, staff, companions and the defensive-facing
+  battle subsystem. Several files defer to it; it would take more than one
+  pass.
+- **One asset dump pass**, the binding constraint on eight questions: the perk
+  availability lists, the `Frontline2` state-set cut-over dates, the
+  `levelgraphics` project-level cap, the campaign map's unit-to-mile scale, the
+  `UI/Newspaper` sprite set, the message-symbol atlas, whether `MessageLog`
+  sits on the panel object its retention depends on, and the `Tooltip` string
+  table that is findings/26's last open question.
 
-And one **asset dump** pass, the binding constraint on eight questions: the
-perk availability lists, the `Frontline2` state-set cut-over dates, the
-`levelgraphics` project-level cap, the campaign map's unit-to-mile scale, the
-`UI/Newspaper` sprite set, the message-symbol atlas, whether `MessageLog` sits
-on the panel object its retention depends on, and the `Tooltip` string table
-that is now findings/26's only remaining open question.
-
-Still worth building before the next pref question: **a label-to-field map for
-all 2,215 prefs**, by simulating each loader in order
-([29](code-findings/29-dead-prefs-audit.md) §10). Phase 0 leftovers remain
-(dnSpy; `xl/vbaProject.bin` from the ModdingTool workbook).
+Two tools are worth building before the passes that need them: **a
+label-to-field map for all 2,215 prefs**, by simulating each loader in order
+([29](code-findings/29-dead-prefs-audit.md) §10), and the release-packaging
+check in the Licensing section below. Phase 0 leftovers remain (dnSpy;
+`xl/vbaProject.bin` from the ModdingTool workbook).
 
 **Exit criteria per file:** a reader who has never opened `code-findings/` can
 act on it, and every claim in it can be traced back to a section that supports

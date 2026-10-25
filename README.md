@@ -47,6 +47,7 @@ engine's. **Start with a summary:**
 | [Commanders worth having](mechanics-findings/commanders-worth-having.md) | Which officers matter and which of their numbers do: the attribute pipeline, the three attributes that never improve, promotion and fame, the readiness cost of succession, feuds, and all 48 perks with their shipped magnitudes |
 | [Fighting the AI](mechanics-findings/fighting-the-ai.md) | What the two sliders change, the ten cheats, what the AI knows that you do not, when it attacks and when it will not, and eight exploitable defects in its battle handling |
 | [Events and the press](mechanics-findings/events-and-the-press.md) | The newspaper and the dispatch log: which of the 119 events your start date can still reach, the late-war papers that go missing at full speed, the warning thresholds, the monthly intelligence report, and the ten-day log |
+| [The naval war](mechanics-findings/the-naval-war.md) | Why fleet actions are indecisive and prizes rare, what decides a fleet action, blockade and the raider that forces a fair fight, one gunboat closing a sea lane, where your navy comes from, and the five European squadrons on the map from day one |
 
 [`code-findings/00-build-provenance.md`](code-findings/00-build-provenance.md) records
 which build everything was written against.
