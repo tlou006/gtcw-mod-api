@@ -345,8 +345,10 @@ back on, and `DisintegrateUnit` fallbacks when none is found.
 > `Retreat.WorkDownRetreatOrders()` — one of the three things
 > [10](10-simulation-tick.md) Finding 7 found still runs while the game is
 > paused — so the inline search was replaced by a queued one and left behind
-> the same guard. Worth knowing before patching: a mod that hooks
-> `SetRetreatToDepot` expecting the depot search to run will find it does not.
+> the same guard. The replacement keeps the same five candidate sources, which
+> is how [31-retreat](31-retreat.md) §4 could confirm the intent. Worth
+> knowing before patching: a mod that hooks `SetRetreatToDepot` expecting the
+> depot search to run will find it does not.
 
 ### 5.1 For a fleet, retreating means finding a harbour or ceasing to exist
 
@@ -575,10 +577,10 @@ read `UpdateFortNavyEngagement`.
 
 - **The tooltip string table** — [26](26-naval-combat.md) §10's first item,
   still the only one of the six that needs an asset dump.
-- **`Retreat`** (624 lines). `Retreat.WorkDownRetreatOrders()` is the live land
-  retreat system for the whole campaign, it runs while the game is paused
-  ([10](10-simulation-tick.md) Finding 7), and nothing in this repo documents
-  it. It is now the largest unexamined campaign subsystem outside `DLC_WL`.
+- ~~**`Retreat`** (624 lines).~~ **Written up** as
+  [31-retreat](31-retreat.md), which found that a cut-off unit with no friendly
+  fallback is sent **toward the nearest enemy**, and that holding the right
+  mouse button suspends every pending retreat in the game.
 - **Whether the interception's one casualty roll matters.** At 0.2 probability
   and `10 × 0.00004 × firingStrength × 1000` casualties, the magnitude depends
   entirely on `GetFiringStrength`, whose scale [26](26-naval-combat.md) §4

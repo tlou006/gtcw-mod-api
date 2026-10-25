@@ -319,7 +319,8 @@ matter:
 | `Vessel` ~174 | fleet updates stop |
 
 Everything else in `BattleUnits.Update`'s campaign branch **keeps running every
-frame while paused**: `Retreat.WorkDownRetreatOrders()`, `Camp.UpdateCamp()`,
+frame while paused**: `Retreat.WorkDownRetreatOrders()`
+([31-retreat](31-retreat.md)), `Camp.UpdateCamp()`,
 the frontline and railroad-usage accumulator resets,
 `AICampaign.DefensiveMovingOrder.UpdateOrders()`,
 `FortConstructionOrder.UpdateFortConstructionOrders()`, the sea-invasion and

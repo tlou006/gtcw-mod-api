@@ -147,9 +147,9 @@ whether their alliance goes to war.
 One structural find outside the navy: **`SetRetreatToDepot` carries 123
 unreachable lines** — a complete inline depot search behind a second
 `if (unittyp != 17)` that the first one's early return makes impossible. The
-live land path is `Retreat.RetreatOrder`, and `Retreat` (624 lines) is now the
-largest undocumented campaign subsystem outside `DLC_WL`. For a **fleet**, the
-same method ends in `DisintegrateUnit()` when no reachable harbour is found.
+live land path is `Retreat.RetreatOrder`, now written up as
+[31-retreat](31-retreat.md). For a **fleet**, the same method ends in
+`DisintegrateUnit()` when no reachable harbour is found.
 
 ## Hook seams
 

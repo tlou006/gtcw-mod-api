@@ -89,6 +89,7 @@ the evidence than in a central list.
 | File | Contents |
 | --- | --- |
 | [10-simulation-tick](10-simulation-tick.md) | How the game is driven: the frame counter, the boot state machines, the five scheduling patterns, the day length each scene actually uses, the battle end-of-day state machine, what pausing stops, and the clock-paced / frame-paced census |
+| [31-retreat](31-retreat.md) | The retreat system: a queued destination-finder and the game's only mechanism that makes units physically block movement, which `AICampaign` borrows for its own moves through a single global slot. The three-tier battle search — retrace your own advance, rally on a parent HQ with no enemy within 70, or just go backwards — and the five-source campaign search over towns, forts, depots, trade nodes and the nearest unrouted friendly unit, in a ring 35 to 300 from a probe 70 to the rear. **With no candidate it returns the nearest enemy's position, and four of the six call sites then send the unit there at double-quick**; a unit with no known enemy disintegrates instead. **Holding the right mouse button suspends every pending retreat**, and every obstacle rebuild pushes the whole queue back two frames. What execution costs: surrender at 40–80 % prisoners, or 10–20 % for a veteran at full fighting spirit, since experience and fighting spirit each halve it; disintegration at 30–80 % desertion by national morale with readiness zeroed, or outright deletion when no fallback town exists |
 
 ### Combat — [summary](summary-combat.md)
 

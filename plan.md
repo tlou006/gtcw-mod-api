@@ -1816,35 +1816,125 @@ spread across two code files into decisions a player can act on.
 - `mechanics-findings/README.md`'s planned index is empty again — every
   `code-findings` subsystem now has a translation.
 
-**Next:** **`Retreat`** (624 lines) — `code-findings/31-retreat.md`. Pass 19
-promoted it: `Retreat.WorkDownRetreatOrders()` is the live retreat system for
-every land unit in the campaign, it is one of only three things that keep
-running while the game is paused
-([10](code-findings/10-simulation-tick.md) Finding 7), every withdrawal, rout
-and depot fallback goes through it, and nothing in this repo documents it. It
-is self-contained, it is the last campaign subsystem outside the DLC, and
-[30](code-findings/30-naval-subsystems.md) §5 already establishes the entry
-point and what the dead inline alternative was meant to do.
+**Pass 21 — `code-findings/31-retreat.md`** (507 lines, a new findings file).
+`Retreat`, 624 lines, the one campaign subsystem no earlier file had opened and
+the item pass 19 promoted. It turns out to be two systems: a **queued
+destination-finder** and the game's **only** mechanism that makes units
+physically block movement, which `AICampaign` borrows for its own campaign
+moves through a single global slot.
 
-After that, two items remain and both are large:
+- **A cut-off unit ordered to withdraw marches toward the nearest enemy.**
+  `GetRetreatDestinationLand` overwrites its `fromposition` parameter with the
+  nearest enemy's position in step 1 (to compute the retreat direction) and
+  then, if the candidate search finds nothing, **returns that parameter**. The
+  caller's disintegrate check is
+  `CompareVector3(retreatdestination, fromposition, 5f)`, and because the
+  method takes the parameter by value the comparison is against whatever the
+  **call site** passed. Four of the six land call sites pass the unit's own
+  position (`Regiment` ~6533, `BattleUnits` ~2790/~2937, `Autocalc` ~1078), so
+  the check misses and `WorkDownRetreatOrders` waypoints the unit at the enemy
+  with `doublequick: true`. The two that pass the enemy's position
+  (`Regiment` ~6559, `BattleUnits` ~14270) get the intended disintegration.
+  The search ring is bounded — 35 to 300 map units from a probe 70 to the rear
+  — so the no-candidate case is reachable, not theoretical.
+- **The other branch of the same slip**: a unit with **no known enemy** never
+  has `fromposition` overwritten, so the comparison matches and it is marked to
+  disintegrate — a unit with nothing near it and nowhere to go dissolves rather
+  than standing still.
+- **Holding the right mouse button suspends every pending retreat in the
+  game.** `if (retreatorder == null || Input.GetMouseButton(1) ||
+  GameVars.frame < 50) return;` heads both `WorkDownRetreatOrders` and
+  `PrepareAllianceObstacles`, so a player panning the camera freezes both
+  sides' retreats for the duration of the drag. The only place found so far
+  where an input state gates a simulation process.
+- **`Retreat` owns the only mechanism that makes units physically block
+  movement.** `PrepareAllianceObstacles(alliance)` enables a `navmeshobstacle`
+  on every unit of every *other* alliance, sized at `blockrangecampaign` — a
+  **hardcoded `30f` static with no loader**, so the width of an enemy army's
+  shadow on the campaign map is not a pref — capped by that unit's own distance
+  to its nearest enemy, so **two forces in contact barely block each other**,
+  which is what lets a retreat squeeze out of a line. In battle the base is 75
+  and formations (`unittyp > 13`) drop to 1, so HQ markers do not obstruct.
+  Three filters decide whether a unit blocks at all: a strength comparison that
+  lets weak enemies be walked past, a flag that forces garrisons to block, and
+  a flag that excludes fleets.
+- **The queue is coupled to AI movement traffic.** Only one alliance's retreats
+  are processed per frame, `currentlyactivated` is a single global int that
+  `AICampaign` ~1128 also claims for its movement orders, and **both the
+  activate and the deactivate path call `IncreaseAllOrdersFrames`**, which
+  pushes **every** pending order's ready-frame to `frame + 2`. So the nominal
+  two-frame delay is a floor and a long AI movement queue postpones retreats
+  two frames per order.
+- **What breaking actually costs, quantified.** `Surrender()` takes
+  `powratiosurrender` **0.6 ± 0.2** and then halves it twice —
+  `powmultiplierexp` **0.5** on experience and `powmultiplierfightingspirit`
+  **0.5** on fighting spirit — so prisoners run **40–80 %** for a green unit
+  and **10–20 %** for a veteran at full fighting spirit, a **fourfold** spread
+  that nothing in the interface mentions. `DisintegrateUnit` zeroes readiness
+  for the formation and everything attached, then either relocates the
+  survivors to a friendly town after **50–80 %** desertion at national morale 0
+  falling to **30–50 %** at 100 (`desertionsdisintegrationnatmorale0/1`), or —
+  with no town in reach — **deletes the formation outright**, with no casualty
+  accounting at all.
+- The **battle destination ladder**: retrace your own advance (only when
+  routing out of melee, using the unit's own position history), else rally on
+  the nearest parent HQ with **no enemy within `mindistancetoofferrallypoints`
+  = 70**, else just move along the retreat angle. And a unit with no path
+  surrenders **only if an enemy is within its own frontage**, which is why
+  pocketed units often neither escape nor surrender.
+- Campaign retreats are waypointed at **double-quick with `useorderdelay:
+  false`**, so a retreat is the one order that bypasses commander order
+  transmission; `onretreat` is toggled off and on around the call so the
+  waypoint logic will accept it.
+- Smaller: **`debug_navmeshoperationoff` guards only the deactivate path**, so
+  setting it leaves every obstacle permanently enabled; the
+  surviving-disintegration dispatch uses the **fleet-named** id 75 for land
+  formations; the disintegration town search is unbounded (`99999f`) while the
+  destination search is capped at 300; and `Retreat`'s own `Start()` and
+  `Update()` are **both empty** — it is driven entirely from
+  `BattleUnits.Update`.
+- Player-facing: `why-units-break.md` **§7a** (new, with §7a.1–7a.3) and three
+  new bullets in its §8. `summary-simulation.md` extended; findings/10, /30 and
+  `summary-naval.md` cross-referenced.
 
-- **The `DLC_WL` layer**, 7,932 lines, which owns Army Groups, garrison
-  deployment, the whole scenario-`002` project set, the `Diary` channel, the
-  prestige economy, incidents, staff, companions and the defensive-facing
-  battle subsystem. Several files defer to it; it would take more than one
-  pass.
+**Next:** the code-side backlog is down to two items and one tool, and both
+items are larger than a single pass.
+
+- **The `DLC_WL` layer**, 7,932 lines — now clearly the biggest remaining
+  unknown. Five passes have shown it owns more than its line count suggests:
+  Army Groups and garrison deployment
+  ([28](code-findings/28-project-effect-reachability.md) §3.1), the whole
+  scenario-`002` project set, the `Diary` channel and
+  `messageidstoignore` ([27](code-findings/27-dispatches-and-the-message-log.md)
+  §13), the prestige economy, incidents, staff, companions, the career-panel
+  battle outcome ([25](code-findings/25-newspaper-and-events.md) §4.1) and the
+  defensive-facing battle subsystem that [21](code-findings/21-ai-battle.md)
+  found gated off in the base game. It wants a scoping pass first — a type and
+  entry-point inventory, like Phase 1 did for the assembly — before any
+  subsystem write-up.
 - **One asset dump pass**, the binding constraint on eight questions: the perk
-  availability lists, the `Frontline2` state-set cut-over dates, the
-  `levelgraphics` project-level cap, the campaign map's unit-to-mile scale, the
-  `UI/Newspaper` sprite set, the message-symbol atlas, whether `MessageLog`
-  sits on the panel object its retention depends on, and the `Tooltip` string
-  table that is findings/26's last open question.
+  availability lists ([19](code-findings/19-commanders-and-perks.md)), the
+  `Frontline2` state-set cut-over dates
+  ([24](code-findings/24-campaign-objectives.md) §12), the `levelgraphics`
+  project-level cap ([28](code-findings/28-project-effect-reachability.md) §10),
+  the campaign map's unit-to-mile scale, the `UI/Newspaper` sprite set
+  ([25](code-findings/25-newspaper-and-events.md) §9), the message-symbol atlas
+  and whether `MessageLog` sits on the panel object its retention depends on
+  ([27](code-findings/27-dispatches-and-the-message-log.md) §13), and the
+  `Tooltip` string table ([26](code-findings/26-naval-combat.md) §10).
 
-Two tools are worth building before the passes that need them: **a
-label-to-field map for all 2,215 prefs**, by simulating each loader in order
-([29](code-findings/29-dead-prefs-audit.md) §10), and the release-packaging
-check in the Licensing section below. Phase 0 leftovers remain (dnSpy;
-`xl/vbaProject.bin` from the ModdingTool workbook).
+The tool worth building before the next pref question is **a label-to-field map
+for all 2,215 prefs**, by simulating each loader in order
+([29](code-findings/29-dead-prefs-audit.md) §10) — four passes have now
+reconstructed parts of it by hand.
+
+Phase 0 leftovers remain (dnSpy; `xl/vbaProject.bin` from the ModdingTool
+workbook), and the release-packaging check in the Licensing section below is
+still unwritten.
+
+**Every subsystem of the base game now has a `code-findings` file and a
+`mechanics-findings` translation.** What is left is the DLC, the assets, and
+tooling.
 
 **Exit criteria per file:** a reader who has never opened `code-findings/` can
 act on it, and every claim in it can be traced back to a section that supports

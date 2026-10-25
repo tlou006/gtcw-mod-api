@@ -393,6 +393,104 @@ it just never touches cohesion.
 
 ---
 
+## 7a. Where a broken unit goes, and what the journey costs
+
+A unit that routs or is ordered to withdraw does not simply move away. A
+retreat is a **queued order** with a destination worked out when it is issued,
+and the destination search has a ladder of fallbacks that decides how much the
+retreat costs you.
+
+**In a battle**, three tiers, in order:
+
+1. **It retraces its own advance.** A unit routing out of melee walks back
+   along the positions it came forward through, which is the one case where the
+   ground is guaranteed passable.
+2. **It rallies on a parent headquarters** — the nearest division, corps or
+   army HQ above it **that has no enemy within 70**. That is the rally-point
+   rule, and it is why keeping your HQs back from the line is worth something
+   concrete: an HQ in contact cannot take your broken brigades.
+3. **It just goes backwards** along its retreat angle, with no check that
+   anything is there.
+
+> And if no path is found at all, the unit **surrenders — but only if an enemy
+> is within its own frontage**. A pocketed unit with the enemy a little further
+> off neither escapes nor surrenders; it stands there with no path. That is the
+> "stuck" state you occasionally see in a closed pocket.
+
+**In the campaign**, the search looks for the nearest friendly **town, fort,
+supply depot, trade node or unrouted friendly unit**, in a ring 35 to 300 map
+units out from a probe point 70 units behind the unit, preferring candidates
+within 90° of straight back. Then it moves there **at double-quick, with no
+order delay** — a retreat is the one order that is not slowed by your
+commanders' order-transmission times, and it pays the double-quick condition
+cost ([what kills your men](what-kills-your-men.md)).
+
+> **Keep a depot, fort or garrisoned town within about 300 units behind your
+> armies.** It is not only a supply anchor
+> ([supply in practice](supply-in-practice.md) §4) — it is the thing that
+> catches a beaten formation. The next two subsections are what happens when
+> there is nothing there.
+
+### 7a.1 Surrender: experience and fighting spirit each halve the prisoners
+
+When a unit surrenders, the share of its men taken prisoner starts at
+**60 % ± 20** and is then halved twice over, once by experience and once by
+fighting spirit:
+
+| Unit | Prisoners |
+| --- | --- |
+| Green, no fighting spirit | **40–80 %** |
+| Full experience *or* full fighting spirit | 20–40 % |
+| Full experience **and** full fighting spirit | **10–20 %** |
+
+> **A fourfold spread, and nothing in the interface mentions it.** This is one
+> of the largest returns on experience anywhere in the game, and the clearest
+> argument for keeping fighting spirit up on units you expect to be cut off —
+> it is not only about whether they break, but about what breaking costs.
+
+### 7a.2 Disintegration: 30–80 % desert, and readiness goes to zero
+
+If a retreat finds no path at all in the campaign, the formation
+**disintegrates**. What that means depends entirely on whether a friendly town
+is in reach:
+
+- **With a town**: every brigade loses a random share of its men to
+  **desertion** and the survivors are relocated to that town. The share is
+  read off your **national morale** — **50–80 %** at national morale 0, falling
+  to **30–50 %** at 100 — and **readiness drops to zero** for the formation
+  and everything attached to it, which forbids most orders until it recovers
+  ([supply in practice](supply-in-practice.md) §8).
+- **With no town**: the formation is **deleted outright**. Every man is gone,
+  with no casualty accounting at all.
+
+> So national morale is not only the loss condition
+> ([how you lose](how-you-lose.md)) — **it is also the exchange rate on your
+> own collapses.** A disintegration at 30 % national morale costs about 20
+> percentage points more of the formation than the same disintegration at
+> 90 %, and the difference between losing two thirds of a corps and losing all
+> of it is whether a friendly town is in range.
+
+Source: [31-retreat](../code-findings/31-retreat.md) §3, §4, §5.
+
+### 7a.3 Two things to know about the retreat queue itself
+
+**A cut-off unit can be sent toward the enemy.** When the campaign search finds
+no friendly candidate at all, what it returns is the position of the **nearest
+enemy**, and four of the six paths that queue a retreat do not catch that — so
+the unit is waypointed at the enemy, at double-quick. The situation needs a
+force with nothing friendly within 35–300 units of a point 70 to its rear,
+which is a lone brigade deep in enemy territory. **Untested** in play, but the
+derivation is unambiguous.
+
+**Holding the right mouse button suspends every retreat in the game.** The
+queue and the pathfinding machinery both stop while that button is down, on
+both sides, for as long as the drag lasts. Right-drag is the camera control, so
+this is easy to do without meaning to — and easy to do on purpose.
+
+Source: [31-retreat](../code-findings/31-retreat.md) §2, §4.1.
+
+---
+
 ## 8. What to do differently
 
 - **Watch the blink, not the bar.** The morale icon starts blinking at 50 %,
@@ -421,6 +519,16 @@ it just never touches cohesion.
 - **Drill is the cheapest insurance against the final break.** It is the only
   one of the four inputs to the unbearable-losses trigger you can buy outright,
   and that trigger is unrecoverable when it fires.
+- **Keep a depot, fort or garrisoned town within about 300 map units behind
+  your armies.** It is what catches a beaten formation, and the difference
+  between a disintegration that costs you two thirds of a corps and one that
+  deletes it (§7a.2).
+- **Keep your HQs out of contact.** A parent headquarters only offers itself as
+  a rally point if no enemy is within 70, so an HQ in the line cannot take your
+  broken brigades (§7a).
+- **Fighting spirit is worth keeping up on units that may be cut off**, not
+  only on units that may break. It halves the prisoners a surrender costs, and
+  experience halves them again (§7a.1).
 
 ---
 

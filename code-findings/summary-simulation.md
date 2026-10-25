@@ -1,6 +1,7 @@
 # Summary — How the simulation is driven
 
-**Covers:** [10-simulation-tick](10-simulation-tick.md)
+**Covers:** [10-simulation-tick](10-simulation-tick.md) and
+[31-retreat](31-retreat.md)
 **Build:** see [00-build-provenance](00-build-provenance.md)
 
 ## In one paragraph
@@ -83,6 +84,40 @@ units must wait until **after frame 12**.
 - **`GamePrefs.updatetimeforcampaigndata` is the macro-economy tick interval**
   and is already a config value — a mod changing it changes how often a large
   part of the campaign simulation runs.
+
+## And one of the things that keeps running is the retreat queue
+
+[31-retreat](31-retreat.md) opens `Retreat`, the one campaign subsystem no
+earlier file had touched. `Retreat.WorkDownRetreatOrders()` is called every
+frame from `BattleUnits.Update` and is one of the three things that keep going
+while the game is paused — so every rout, withdrawal and depot fallback in the
+campaign is resolved by a queue that the pause does not stop.
+
+Two things in it reach beyond the retreat system itself.
+
+> **Holding the right mouse button suspends every pending retreat.** The guard
+> `if (retreatorder == null || Input.GetMouseButton(1) || GameVars.frame < 50)
+> return;` sits at the top of the pump and again at the top of the obstacle
+> preparation, so a player panning the camera freezes both sides' retreats for
+> as long as the drag lasts. It is the only place in the repo so far where an
+> input state gates a simulation process.
+
+> **`Retreat` owns the only mechanism that makes units physically block
+> movement.** It enables a `navmeshobstacle` on every unit of the alliances
+> that are *not* pathing, sizes it at `blockrangecampaign` — a hardcoded
+> **30f** static with no loader — capped by that unit's own distance to its
+> nearest enemy, and switches the whole set off again afterwards.
+> `AICampaign` borrows the same machinery for its campaign movement orders
+> through a single global `currentlyactivated` slot, and every claim or release
+> calls `IncreaseAllOrdersFrames`, which pushes **every** pending retreat back
+> two frames. So retreat latency is coupled to AI movement traffic.
+
+The destination search itself is sound in design and has one severe defect:
+with no friendly town, fort, depot, trade node or unrouted friendly unit in
+range, it returns **the nearest enemy's position**, and four of its six call
+sites pass an argument that makes the disintegrate check miss that — so **a
+cut-off unit ordered to withdraw marches at the enemy at double-quick**
+([31](31-retreat.md) §4.1).
 
 ## Still open
 
