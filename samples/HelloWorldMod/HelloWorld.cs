@@ -66,7 +66,9 @@ namespace HelloWorldMod
                         "GTCW.ModApi test fixture. Free, repeatable, and on appointment it " +
                         "grants a deliberately enormous support contribution so the write path " +
                         "can be seen working in seconds. Not a balanced project.";
-                    p.EffectText = "+10 support per half game day, in every state.";
+                    p.EffectText =
+                        "Per half game day: +10 support in every state, +10 national morale, " +
+                        "+10,000,000 treasury. Test values, not balance.";
 
                     // Points at a sprite the game already has loaded, in the
                     // same form its own records use ("folder/name"). Left unset,
@@ -116,21 +118,40 @@ namespace HelloWorldMod
                                 return 73f;
                             });
 
-                        // Treasury, in currency per game year. Large enough to
-                        // see in the finance panel within seconds.
+                        // Treasury: 7e9 per year is ~10.2M per fold at the
+                        // measured dt. That roughly doubles a starting
+                        // treasury every fold, so it is unmistakable in the
+                        // finance panel.
+                        //
+                        // Deliberately kept under 100M per fold: AdjustTreasury
+                        // writes a "!!!!!!!!!! Cash Balance changed by" line to
+                        // the game's own log above that, and flooding it would
+                        // bury everything else we need to read.
                         ModApi.Modifiers.Treasury.Add(
                             $"helloworld.testing.treasury.{ctx.Side}",
                             ctx.Side,
-                            _ => 100_000_000f);
+                            c =>
+                            {
+                                Logger.LogInfo($"fold: {c.Side} treasury = {c.CurrentValue:N0}");
+                                return 7_000_000_000f;
+                            });
 
-                        // National morale is the only loss condition, so this
-                        // one stays deliberately gentle even in a test fixture:
-                        // +1 point per game year, which is visible over a few
-                        // game months rather than seconds.
+                        // National morale on the same 73/year basis as support,
+                        // since both are 0-1 quantities: ~10.7 points per fold,
+                        // saturating from zero in about ten folds.
+                        //
+                        // Worth knowing what this means: national morale is the
+                        // game's only loss condition, so a contribution this
+                        // size decides the war in seconds. Fine for a fixture,
+                        // never for a mod.
                         ModApi.Modifiers.NationalMorale.Add(
                             $"helloworld.testing.morale.{ctx.Side}",
                             ctx.Side,
-                            _ => 0.01f);
+                            c =>
+                            {
+                                Logger.LogInfo($"fold: {c.Side} national morale = {c.CurrentValue:P1}");
+                                return 73f;
+                            });
 
                         Logger.LogInfo(
                             $"Contributions registered for {ctx.Side}: support, treasury, morale.");
