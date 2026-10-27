@@ -44,6 +44,12 @@ namespace GTCW.ModApi
         public static IBattleEvents Battle => Host.Battle;
 
         /// <summary>
+        /// Adds projects to the game. Register while your plugin loads — see
+        /// <see cref="IProjectRegistry.Register"/>.
+        /// </summary>
+        public static IProjectRegistry Projects => Host.Projects;
+
+        /// <summary>
         /// The library's own log. Mods should prefer their BepInEx logger; this
         /// is for reporting through the ModApi's channel so capability and
         /// conflict messages stay together.
@@ -60,6 +66,7 @@ namespace GTCW.ModApi
         ICapabilities Capabilities { get; }
         ILifecycle Lifecycle { get; }
         IBattleEvents Battle { get; }
+        IProjectRegistry Projects { get; }
         IModApiLog Log { get; }
     }
 

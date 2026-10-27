@@ -44,6 +44,38 @@ namespace HelloWorldMod
                     ModApi.Capabilities.Explain(Capability.Lifecycle));
             }
 
+            if (ModApi.Capabilities.Has(Capability.ProjectRegistration))
+            {
+                ModApi.Projects.Register("helloworld.repeating-rifles", p =>
+                {
+                    p.Name = "Repeating Rifles";
+                    p.Sides = Side.Both;
+                    p.Category = ProjectCategory.Industry;
+                    p.FirstLevelCost = 500_000f;
+                    p.Repeating = false;
+                    p.Description =
+                        "A sample project added by a mod, through GTCW.ModApi. " +
+                        "It costs industrial subsidy and logs when appointed.";
+                    p.EffectText = "Proves a mod can add a project.";
+
+                    p.Completed += ctx =>
+                        Logger.LogInfo($"Project appointed by {ctx.Side} (level {ctx.Level}).");
+
+                    // Replayed on load and on every appointment, so this must
+                    // not accumulate anything.
+                    p.Refreshed += ctx =>
+                        Logger.LogInfo($"Project effects refreshed for {ctx.Side}.");
+                });
+
+                Logger.LogInfo($"Project registered; {ModApi.Projects.RemainingSlots} slots left.");
+            }
+            else
+            {
+                Logger.LogWarning(
+                    "Project registration unavailable: " +
+                    ModApi.Capabilities.Explain(Capability.ProjectRegistration));
+            }
+
             if (ModApi.Capabilities.Has(Capability.BattleEvents))
             {
                 ModApi.Battle.Started += session =>

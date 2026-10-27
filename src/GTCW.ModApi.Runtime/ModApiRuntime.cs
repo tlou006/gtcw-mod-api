@@ -2,6 +2,7 @@ using GTCW.ModApi;
 using GTCW.ModApi.Runtime.Battle;
 using GTCW.ModApi.Runtime.Capabilities;
 using GTCW.ModApi.Runtime.Lifecycle;
+using GTCW.ModApi.Runtime.Projects;
 using HarmonyLib;
 
 namespace GTCW.ModApi.Runtime
@@ -21,6 +22,7 @@ namespace GTCW.ModApi.Runtime
         private readonly CapabilityRegistry _capabilities;
         private readonly LifecycleService _lifecycle;
         private readonly BattleEventsService _battle;
+        private readonly ProjectRegistry _projects;
         private readonly Harmony _harmony;
 
         private ModApiRuntime(IModApiLog log)
@@ -29,6 +31,7 @@ namespace GTCW.ModApi.Runtime
             _capabilities = new CapabilityRegistry(log);
             _lifecycle = new LifecycleService(log);
             _battle = new BattleEventsService(log, _lifecycle);
+            _projects = new ProjectRegistry(log);
             _harmony = new Harmony(HarmonyId);
         }
 
@@ -37,6 +40,8 @@ namespace GTCW.ModApi.Runtime
         public ILifecycle Lifecycle => _lifecycle;
 
         public IBattleEvents Battle => _battle;
+
+        public IProjectRegistry Projects => _projects;
 
         public IModApiLog Log { get; }
 
@@ -120,10 +125,11 @@ namespace GTCW.ModApi.Runtime
                 "declarative contributions folded into the game's own passes",
                 "plan.md Phase 4, the write path"));
 
-            _capabilities.Add(Feature.Planned(
+            _capabilities.Add(new Feature(
                 Capability.ProjectRegistration,
-                "new projects in the 56 PLACEHOLDER ids",
-                "plan.md Phase 4, effect registration"));
+                "new projects, claiming the shipped PLACEHOLDER slots",
+                ProjectPatches.Probe,
+                () => ProjectPatches.Apply(_harmony, _projects, Log)));
 
             _capabilities.Add(Feature.Planned(
                 Capability.PolicyRegistration,
