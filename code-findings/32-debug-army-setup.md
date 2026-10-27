@@ -143,13 +143,49 @@ game version**, which is far above 0.7802. The reader therefore expects the
 > (`num < 14`, and `num >= grp[i].regref.unittyp && num < 16`), so bringing the
 > file to the current format is the safer route.
 
-## 5. `ships.dat` is missing and the read is unguarded
+**The field is morale.** `num17` is passed as the trailing argument to
+`create_regiment`, whose signature ends `bool isgarrison = false, float morale
+= 1f`, and is compared against `GamePrefs.moralecracklevel` immediately after.
+So the legacy branch's `1f` is full morale, and appending `1` per record
+reproduces exactly what the file was written to mean rather than inventing
+data — which is why this fix needs no reference file, unlike §3.
+
+Fixed by [`scripts/fix-debug-regiments.ps1`](../scripts/fix-debug-regiments.ps1).
+Two details the script has to respect, both different from `nations.dat`:
+`import_units` opens this file as **UTF-8** (as it does `groups.dat`) where
+`import_nations` uses `Encoding.Default`, and **neither shipped copy has a
+BOM** — a BOM would be fatal, since the first line is a record count and
+`int.Parse` would choke on the mark.
+
+Record field 1 is read and discarded and appears to be a sequential index (0,
+1, 2 …), with field 2 the name. Useful as a boundary check: if the record
+arithmetic were off by one, a tool walking records would print indices or empty
+strings where names belong.
+
+## 5. `ships.dat` is missing, and it does not matter
 
 `ImportShips` opens `text + "/ships.dat"` with a bare `StreamReader` and no
-`File.Exists` check. `Battlefields/000/A/` ships one; `DebugArmySetup/` does
-not. Whether that throws for a land battle depends on whether `ImportShips` is
-reached at all in that path, which is **not yet confirmed** — but a one-line
-`ships.dat` with a count of `0` is the obvious inoculation.
+`File.Exists` check, and `DebugArmySetup/` ships no such file while
+`Battlefields/000/A/` does. That looked like a third blocker. **It is not.**
+
+`ImportShips` has exactly one caller, and it is in the wrong scene:
+
+| Method | Called from | Calls `ImportShips` |
+| --- | --- | --- |
+| `InitCampaignBattleUnits` | `CampaignController` | **yes** |
+| `InitBattleUnits` | `BattleController` | no |
+
+So a standalone battle — the only thing the debug flag applies to, since
+`currentoperation == 3` always beats it (§2) — never reads `ships.dat`. No file
+is needed, and adding an empty one would be dead weight. (A count of `0` would
+be valid if it were ever needed: the loop is `for (j < num)` and
+`streamReader.Close()` follows immediately, with no trailing reads.)
+
+**The campaign side of the flag is a dead end regardless.** Every `IsCampaign`
+branch redirects to `Campaigns/DebugArmySetup`, and **no such folder ships** —
+not in the install, not anywhere. So the flag would fail on the first file it
+touched. `debug_loaddebugarmysetup` is effectively **battle-only**, whatever its
+`debug.txt` label implies.
 
 ## 6. Resolved: the game forces invariant culture at startup
 
@@ -174,13 +210,26 @@ Two caveats worth keeping:
   the library does itself should pass `CultureInfo.InvariantCulture`
   explicitly, or call `SetCultureInfo` first.
 
+## 7. Where that leaves the fixture
+
+| File | State |
+| --- | --- |
+| `nations.dat` | **fixed** — 1310 to 1326 lines (§3) |
+| `regiments.dat` | **fixed** — 799 to 820 lines (§4) |
+| `groups.dat` | already current — 32 lines per group, same as `000/A` |
+| `ships.dat` | not needed on the battle path (§5) |
+| `battledata.dat` | unverified (below) |
+
+Both repairs keep CRLF, keep each file's own encoding, leave the original
+fields byte-identical, and back up what they replace. Whether the flag now
+loads is a live question for the next run.
+
 ## Still open
 
-- Whether `ImportShips` is reached for a standalone land battle (§5).
 - What `num`'s `< 14` / `< 16` comparisons in `import_units` mean, given `num`
   is otherwise a version like `0.7802` or the current version.
-- Whether `Campaigns/DebugArmySetup` exists or is referenced only
-  aspirationally — the `IsCampaign` branches name it, but no such folder ships.
 - Whether `battledata.dat`'s debug copy is current. Its line count differs from
-  `000/A` (188 vs 398), but the record layout has not been checked, so this is
-  unknown rather than broken.
+  `000/A` (188 vs 398), but it is not a count-prefixed record list like the
+  others — the first line is a battle name — so the comparison proves nothing
+  and the layout has not been checked. **This is the remaining candidate if the
+  flag still fails to load.**

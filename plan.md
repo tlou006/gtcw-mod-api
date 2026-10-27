@@ -2169,19 +2169,34 @@ The debug folder's data files also ship stale, in three different ways:
       which merges the values out of a shipped reference, checks the alliance
       names align first, and backs up the original. The repo tracks the
       transformation, never the data.
-- [ ] **`regiments.dat` — one field short per regiment** (38 lines against 39).
+- [x] **`regiments.dat` — fixed.** One field short per regiment, 38 against 39.
       Here a version gate *does* exist (`num >= 0.7802f`), but `num` falls back
-      to the **current game version** when `version.dat` is absent, which it is.
-      Two possible fixes, and the cheaper one is riskier — see
-      [32](code-findings/32-debug-army-setup.md) §4.
-- [ ] **`ships.dat` — absent**, and `ImportShips` opens it with no
-      `File.Exists` guard. A one-line file containing `0` is the obvious
-      inoculation; whether the path is reached for a land battle is unconfirmed.
+      to the **current game version** when `version.dat` is absent, which it is,
+      so the gate never fires. The field is **morale**, passed to
+      `create_regiment` as its trailing `float morale = 1f`, so appending `1`
+      per record reproduces what the file was written to mean rather than
+      inventing data — and needs no reference file. Fixed by
+      [`scripts/fix-debug-regiments.ps1`](scripts/fix-debug-regiments.ps1);
+      799 to 820 lines.
+- [x] **`ships.dat` — not needed.** It is absent and `ImportShips` opens it with
+      no `File.Exists` guard, which looked like a third blocker. But
+      `ImportShips` has one caller, `InitCampaignBattleUnits`, which belongs to
+      the **campaign** scene; `InitBattleUnits` never calls it. A standalone
+      battle — the only thing the flag applies to — never reads the file. No
+      file added.
+- [x] `groups.dat` was already current: 32 lines per group, same as `000/A`.
 - [ ] Then: a minimal two-unit battle as the standing fixture, so runs are
       comparable rather than dependent on clicking through menus identically.
 
-Both remaining items are needed before the flag loads at all, so the fixture is
-not usable yet.
+**The data files are now current as far as the arithmetic can tell**, and
+whether the flag loads is a live question for the next run. One candidate
+remains if it does not: `battledata.dat` is not a count-prefixed record list
+like the others, so its line count cannot be checked the same way and its
+layout is unverified ([32](code-findings/32-debug-army-setup.md), still open).
+
+A side note that narrows the flag's usefulness: every `IsCampaign` branch
+redirects to `Campaigns/DebugArmySetup`, and **no such folder ships**. So the
+flag is battle-only in practice, whatever its label implies.
 
 **And one open question closed on the way.** `float.Parse` with no
 `CultureInfo` was flagged as a possible correctness blocker for the whole
