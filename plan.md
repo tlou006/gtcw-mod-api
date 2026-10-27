@@ -2178,10 +2178,13 @@ Each milestone is independently useful and independently verifiable.
        honest reason instead of a bare false, `FailSoft` with a per-subscriber
        throw budget, and `AnchorCheck`, which verifies the ten types the library
        intends to patch are present under the names the research recorded.
-4. [~] `GameSession` plus milestones, and **one** end-to-end event
-       (`Battle.Started` — easy to trigger, easy to verify) reaching a sample
-       mod. **Written and building; needs a live run to confirm.** Four patch
-       points cover every transition — postfixes on the three `Load*Scenario`
+4. [x] **`GameSession` plus milestones, and `Battle.Started` reaching a sample
+       mod.** Verified live: a standalone battle, a campaign, and a battle
+       launched from that campaign. All twelve milestones fired **in order and
+       exactly once each**, both session kinds raised only their own, the
+       campaign session ended before the battle session began with no overlap,
+       and `Battle.Started` reached `HelloWorldMod` through the public API.
+       Four patch points cover every transition — postfixes on the three `Load*Scenario`
        methods and a prefix on `RebuildScenes` — for the reasons now recorded
        in [03-scene-wiring](code-findings/03-scene-wiring.md), "Where to patch
        for session lifecycle". Milestones come from postfixes on
@@ -2199,9 +2202,34 @@ Each milestone is independently useful and independently verifiable.
          and a campaign no `BattleDeployed`, so the enum documents which kinds
          raise each value and a session raises only its own.
 
+       And two defects the live run found, both fixed:
+       - **A derived event outran the event it derives from.** `Battle.Started`
+         reached the mod *before* `MilestoneReached(BattleIdle)`, because the
+         runtime subscribes during bootstrap — before any mod exists — so its
+         handler ran first and raised the derived event from inside it. Order
+         was therefore a function of subscription order. The runtime's own
+         services now subscribe to internal `After*` hooks raised once every
+         public subscriber has run, and the ordering is a documented guarantee
+         rather than an accident.
+       - **Quitting the game ended no session.** The game's only
+         `Application.Quit()` is a bare call and nothing implements
+         `OnApplicationQuit` ([03-scene-wiring](code-findings/03-scene-wiring.md)),
+         so the last session of every play session never ended. Now hooked on
+         Unity's `Application.quitting`. **This is a constraint on Phase 4
+         persistence**: side-car saves must hook `SaveAll`, not session
+         teardown.
+
 **Exit criteria:** sample mod prints on battle start, from a clean install,
 booting into a fixed scenario without manual UI steps — and prints a correct
 capability report when run against a deliberately mismatched assembly.
+
+**Status: met, except for the two unattempted halves.** The sample prints on
+battle start and the capability report is correct against the known build. Not
+yet done: booting into a fixed scenario without UI steps (blocked on the
+`nations.dat` fixture above — the runs so far were clicked through by hand),
+and the mismatched-assembly check, which needs a modified copy of
+`Assembly-CSharp.dll` to probe against. Both belong with the test harness
+rather than with the feature work.
 
 ---
 

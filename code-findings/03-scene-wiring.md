@@ -213,6 +213,27 @@ battle → campaign   bo_rebuildscene → bo_loadcampaignscenario
 records the target; `SceneManagement.Update` sees that value and calls
 `LoadBattleScenarioFromCampaign`, which queues the first sequence above.
 
+Both sequences are confirmed on a live run: the campaign session ends before
+the battle session begins, with no overlap.
+
+### Quitting the game tears nothing down
+
+> **There is exactly one `Application.Quit()` in the assembly**
+> (`PanelHandler`, on the `036_Quit` button), it is a bare call, and
+> **nothing in the assembly implements `OnApplicationQuit`.** No
+> `RebuildScenes`, no `Exit*Scenario`, no `SaveAll`.
+
+So quitting from a live campaign or battle runs no teardown path whatsoever.
+Two consequences:
+
+- **A teardown hook on `RebuildScenes` never sees the last session of a play
+  session.** Confirmed on a live run — the log ended mid-battle with no
+  teardown. The fix is `Application.quitting`, Unity's own event, which fires
+  before the `OnDestroy` cascade so a subscriber still sees live objects.
+- **Anything a mod persists must not wait for a session to end.** For the
+  ModApi's side-car saves this means hooking `SceneManagement.SaveAll`, the
+  player's own explicit save, rather than session teardown.
+
 ## Open questions
 
 - Where `Policy.InitializeStatics` is called from in the load order, since

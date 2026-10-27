@@ -3,6 +3,7 @@ using System.Reflection;
 using GTCW.ModApi;
 using GTCW.ModApi.Runtime.Capabilities;
 using HarmonyLib;
+using UnityEngine;
 
 namespace GTCW.ModApi.Runtime.Lifecycle
 {
@@ -78,6 +79,14 @@ namespace GTCW.ModApi.Runtime.Lifecycle
                 postfix: nameof(AfterCampaignUpdate));
             Patch(harmony, "BattleController:Update",
                 postfix: nameof(AfterBattleUpdate));
+
+            // Quitting the game routes through no teardown at all: the only
+            // Application.Quit() in the assembly is a bare call from the quit
+            // button, and nothing implements OnApplicationQuit. So without this
+            // the last session of every play session never ends, which the
+            // first live run showed. Unity raises this before the OnDestroy
+            // cascade, so a subscriber still sees live objects.
+            Application.quitting += OnApplicationQuitting;
         }
 
         private static void Patch(
@@ -107,6 +116,11 @@ namespace GTCW.ModApi.Runtime.Lifecycle
             _service?.BeginSession(SessionKind.Battle);
 
         private static void BeforeRebuildScenes() =>
+            _service?.EndSession();
+
+        // EndSession is idempotent, so a quit that somehow follows a rebuild
+        // closes nothing twice.
+        private static void OnApplicationQuitting() =>
             _service?.EndSession();
 
         // --- boot milestones ----------------------------------------------------

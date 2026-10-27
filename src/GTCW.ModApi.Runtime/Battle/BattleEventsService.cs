@@ -18,11 +18,17 @@ namespace GTCW.ModApi.Runtime.Battle
     {
         private readonly IModApiLog _log;
 
-        public BattleEventsService(IModApiLog log, ILifecycle lifecycle)
+        /// <remarks>
+        /// Subscribes to the <c>After*</c> hooks rather than the public events,
+        /// so these derived events always reach a mod *after* the lifecycle
+        /// event they are concluded from. See
+        /// <see cref="Lifecycle.LifecycleService.AfterMilestoneReached"/>.
+        /// </remarks>
+        public BattleEventsService(IModApiLog log, Lifecycle.LifecycleService lifecycle)
         {
             _log = log;
 
-            lifecycle.MilestoneReached += (session, milestone) =>
+            lifecycle.AfterMilestoneReached += (session, milestone) =>
             {
                 if (milestone == Milestone.BattleIdle)
                 {
@@ -30,7 +36,7 @@ namespace GTCW.ModApi.Runtime.Battle
                 }
             };
 
-            lifecycle.SessionEnding += session =>
+            lifecycle.AfterSessionEnding += session =>
             {
                 if (session.Kind == SessionKind.Battle)
                 {

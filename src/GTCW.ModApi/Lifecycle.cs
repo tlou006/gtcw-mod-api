@@ -115,6 +115,11 @@ namespace GTCW.ModApi
         /// The scene is about to be torn down. Last chance to drop references;
         /// after this the session's objects are destroyed.
         /// </summary>
+        /// <remarks>
+        /// Also raised when the player quits the game, which the game itself
+        /// does without any teardown of its own, so this is the one reliable
+        /// signal that a session is over.
+        /// </remarks>
         event Action<IGameSession> SessionEnding;
 
         /// <summary>
@@ -122,6 +127,11 @@ namespace GTCW.ModApi
         /// session starts — a late subscriber does not receive milestones the
         /// current session has already passed.
         /// </summary>
+        /// <remarks>
+        /// Guaranteed to reach you <i>before</i> any event derived from the
+        /// same milestone, so <c>Battle.Started</c> always follows
+        /// <see cref="Milestone.BattleIdle"/> rather than racing it.
+        /// </remarks>
         event Action<IGameSession, Milestone> MilestoneReached;
     }
 }
