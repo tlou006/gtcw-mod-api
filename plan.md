@@ -2384,6 +2384,23 @@ itself resets.
       `supportinfluence` is `[10, 50]` and the game's own highest code is 41, so
       42–49 are free; all contributions share one code rather than taking one
       each, because eight slots would otherwise be exhausted by the ninth mod.
+
+      **Verified in game**, with the increments matching the arithmetic: a
+      73/year contribution moved one state's support in steps of ~10.7 points,
+      folding once per beat per side, and saturating against
+      `AdjustSupport`'s own 0–1 clamp.
+
+      > **And the run corrected the research.** The measured interval is
+      > `dt ≈ 0.00146` years, not the nominal `0.5/365 = 0.00137` — about 6 %
+      > longer, because an alliance is only visited once per eight-beat
+      > round-robin cycle, so the half-day threshold is satisfied at the ninth
+      > cycle rather than exactly on time
+      > ([summary-game-state](code-findings/summary-game-state.md)). Because the
+      > fold scales by the measured elapsed time, the annual total is right
+      > anyway. **Had the fold assumed the constant, every contribution in the
+      > ecosystem would have been ~6 % light, permanently and invisibly.** That
+      > is the whole argument for rate-correction, and it only showed up on a
+      > live run.
 - [ ] Scope by state is **by index, not by name** — `nation[].name` is rewritten
       at runtime when the active state set changes, so anything matching a state
       by string silently stops matching. A name→index lookup resolved while the

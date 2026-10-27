@@ -56,6 +56,20 @@ hours, so:
 > game hours**, with `dt ≈ 0.5/365` campaign years handed to every rate
 > integration in the pass.
 
+**Measured, the interval is about 6 % longer than that** — `dt ≈ 0.00146`
+rather than `0.00137`, observed over successive folds in a live campaign. The
+two gates compose by rounding, not by coinciding: an alliance is only *visited*
+once per round-robin cycle of eight beats, so the 0.5-day threshold
+(`0.0013699`) is satisfied at the **ninth** cycle, `9 × 0.00016 = 0.00144`,
+plus beat jitter. The effective rhythm is **≈ 0.53 game days**, and it is not
+exactly constant.
+
+> So **anything integrating a rate here must use the elapsed time the pass
+> measures, never the nominal 0.5 days.** A hook that assumed the constant
+> would run about 6 % light, permanently, with nothing to show it. This is the
+> concrete case for the ModApi's rate-correct contribution model
+> (`plan.md` Phase 4, the write path).
+
 That pins findings/22's "replayed every tick" to a number. The pass also
 drives `Policies.UpdatePolicyEffects`, `CheckAIPolicyChange`,
 `AICampaign.UpdateProjects/UpdateFinancialAI/UpdateInterventions/
