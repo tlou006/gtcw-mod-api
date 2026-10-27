@@ -68,6 +68,18 @@ namespace GTCW.ModApi
         /// bypassing <c>AdjustTreasury</c> would mean writing the field
         /// directly.
         /// </para>
+        /// <para>
+        /// <b>Above about 50 million, income becomes debt repayment rather than
+        /// cash.</b> The Treasury runs automatically twice a game day: below
+        /// zero it issues 25 million of bonds, and at or above 50 million it
+        /// buys 25 million back while any debt remains. That check runs
+        /// <i>earlier in the same pass</i> this fold happens in, so a positive
+        /// contribution large enough to cross the trigger is clawed back on the
+        /// following beat. The cash balance therefore oscillates in a band
+        /// rather than climbing, and a contribution's real effect while a side
+        /// is in debt is to retire that debt faster. It only accumulates as
+        /// cash once the debt reaches zero.
+        /// </para>
         /// </remarks>
         IAllianceRateModifiers Treasury { get; }
     }

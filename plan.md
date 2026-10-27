@@ -2413,9 +2413,19 @@ itself resets.
       42: `nationalmoraleinfluence` is `float[50]` and the game's highest own
       code is 34, so 35–49 are free.
 
-      Two inherited behaviours the API documents rather than hides:
+      Three inherited behaviours the API documents rather than hides:
       - **Treasury has no clamp.** It is allowed to go arbitrarily negative —
         that is debt — so a negative contribution has no floor.
+      - **Above ~50 M, treasury income becomes debt repayment, not cash.**
+        Observed on the live run as the balance repeatedly dipping, and it is
+        the game working as designed: `UpdateFinancialAI` issues 25 M of bonds
+        below zero and buys 25 M back at or above
+        `balancetriggerforredemption = 50 M` while debt remains
+        ([the-war-economy](mechanics-findings/the-war-economy.md) §6). That
+        check runs at `BattleUnits:3832`, **earlier in the same pass** our fold
+        postfixes, so a large positive contribution is clawed back on the next
+        beat. A treasury contribution therefore retires debt faster while a
+        side is in debt, and only accumulates as cash once the debt is gone.
       - **`AdjustTreasury` discounts the AI.** A negative adjustment for any
         alliance but the player's is reduced by the difficulty bonus, up to
         ~15 %. So a contribution draining an opponent drains less than it asks,
