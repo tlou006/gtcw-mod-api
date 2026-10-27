@@ -246,6 +246,12 @@ The two battlefield sublevels are unreachable: scenario discovery requires a
 what `GamePrefs.debug_loaddebugarmysetup` selects (`BattleController` ~61,
 `BattleUnits` ~1373) — so **that debug switch crashes on load in this build**.
 
+> **Confirmed by diff and repaired since.** See
+> [32-debug-army-setup](32-debug-army-setup.md) §3, with the fix in
+> `scripts/fix-debug-nations.ps1`. Two further files in that folder are stale
+> in their own ways, so the switch still does not load — [32](32-debug-army-setup.md)
+> §4 and §5.
+
 The same files also name alliance 7 *"Non War States"* rather than *"Neutral
 States"*, matching the vestigial `GameVars.allianceid_nonwar = 5`.
 

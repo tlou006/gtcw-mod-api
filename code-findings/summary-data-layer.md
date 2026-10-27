@@ -124,9 +124,15 @@ label" an unsafe move.
 - **A full sweep of `GetStringPartitions`/`GetIntPartitions` call sites** would
   settle every list field in every config file at once. Cheap, high value, not
   done.
-- **Culture handling.** `float.Parse` is called with no `CultureInfo`. If the
-  game does not force an invariant culture at startup, a comma-decimal locale
-  parses `1.5` as `15`. Unverified and important.
+- ~~**Culture handling.**~~ **Resolved — the game does force it.**
+  `GameVars.SetCultureInfo()` sets `DefaultThreadCurrentCulture` and
+  `DefaultThreadCurrentUICulture` to `InvariantCulture`, and runs from
+  `MainMenuControls.Awake()`, the first thing the game executes, plus
+  `loaddebugs`, `MainMenu` and `Options`. So a comma-decimal locale parses
+  `1.5` correctly. One consequence for the ModApi: a BepInEx plugin's `Awake`
+  can run *before* `MainMenuControls.Awake`, so the library must pass
+  `CultureInfo.InvariantCulture` explicitly rather than assume the game has
+  already set it ([32-debug-army-setup](32-debug-army-setup.md) §6).
 - Whether *every* pref file supports scenario override, or only the three with
   a confirmed fallback.
 - The dual-unit question (yd/m, lb/kg, ft/s–m/s) and localization ids — these

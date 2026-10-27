@@ -2133,29 +2133,63 @@ silently no-op.
 - [ ] Milestone events derived from the boot gates; frame numbers stay internal.
 - [ ] Registration deadline enforced with a clear exception message.
 
-### A deterministic test harness — with one correction
+### A deterministic test harness — half of it is real
 
-`debug.txt` can boot straight into a specific battle or campaign scenario at
-startup, and its "Debug Army Setup" mode loads the four ArmySetup files
-(`battledata.dat`, `groups.dat`, `nations.dat`, `regiments.dat`) from
-`Config/ArmySetup/` — exactly the files the ModdingTool emits. That is a
-developer-supported path to a reproducible scenario, which is normally the
-hardest part of testing game hooks.
+This section previously claimed `debug.txt` "can boot straight into a specific
+battle or campaign scenario at startup", on the strength of the file's own
+labels. **That is wrong for this build**, and the full reading is now in
+[32-debug-army-setup](code-findings/32-debug-army-setup.md).
 
-> **It is not free in this build.**
-> [23-game-state](code-findings/23-game-state.md) found
-> `Battlefields/DebugArmySetup/nations.dat` is still in the **legacy 40-line**
-> alliance format, and `import_nations` has no version gate for the two fields
-> it lacks — so `debug_loaddebugarmysetup` throws `FormatException` on load.
-> The fixture work starts with authoring a correct 42-line `nations.dat`.
+> **`loaddebugs()` reads the first seven lines of `debug.txt` into a throwaway
+> variable** and parses the eighth. So "Scene Management Operation at start",
+> the scenario id and the sub-level are consumed only to keep the line offsets
+> right — exactly what their `[deactivated]` tags say. The army-setup flag on
+> line 8 is live; **the scenario-at-start prefs are dead.**
 
-- [ ] Author a correct 42-line `nations.dat` for the debug army setup.
-- [ ] Author a minimal two-unit battle; boot directly into it via `debug.txt`.
-- [ ] Use it as the fixture for every hook test, so runs are comparable rather
-      than dependent on clicking through menus identically each time.
+So the flag replaces the *army data* of a scenario you load through the menus;
+it does not load the scenario. Which splits the harness in two:
 
-Many `debug.txt` flags are marked `[deactivated]`, so confirm which still work
-in the shipped build before relying on them.
+| Want | Status |
+| --- | --- |
+| Deterministic armies in a standalone battle | **available** via `debug_loaddebugarmysetup`, once its data files are current |
+| Booting without UI steps | **not available from `debug.txt`** — needs a patch on `SceneManagement.LoadBattleScenario`, which the library can do itself |
+
+The second one is no loss, as it turns out: we already patch that method for
+the lifecycle, so driving it is a few lines in a dev-only feature rather than a
+dependency on a dead pref.
+
+The debug folder's data files also ship stale, in three different ways:
+
+- [x] **`nations.dat` — fixed.** Was `8x40` alliance blocks against a current
+      format of `8x42`; the two missing fields are the last of each block,
+      `volunteersadj` and `contractlength`. `import_nations` reads a version but
+      gates only on `!foldername.Contains("Save")`, so a `Battlefields` path
+      always takes the branch and **no `version.dat` can rescue the file**.
+      Fixed by [`scripts/fix-debug-nations.ps1`](scripts/fix-debug-nations.ps1),
+      which merges the values out of a shipped reference, checks the alliance
+      names align first, and backs up the original. The repo tracks the
+      transformation, never the data.
+- [ ] **`regiments.dat` — one field short per regiment** (38 lines against 39).
+      Here a version gate *does* exist (`num >= 0.7802f`), but `num` falls back
+      to the **current game version** when `version.dat` is absent, which it is.
+      Two possible fixes, and the cheaper one is riskier — see
+      [32](code-findings/32-debug-army-setup.md) §4.
+- [ ] **`ships.dat` — absent**, and `ImportShips` opens it with no
+      `File.Exists` guard. A one-line file containing `0` is the obvious
+      inoculation; whether the path is reached for a land battle is unconfirmed.
+- [ ] Then: a minimal two-unit battle as the standing fixture, so runs are
+      comparable rather than dependent on clicking through menus identically.
+
+Both remaining items are needed before the flag loads at all, so the fixture is
+not usable yet.
+
+**And one open question closed on the way.** `float.Parse` with no
+`CultureInfo` was flagged as a possible correctness blocker for the whole
+override layer. It is not one: `GameVars.SetCultureInfo()` forces
+`InvariantCulture` from `MainMenuControls.Awake()`, the first thing the game
+runs. The one thing the library must still do is pass `InvariantCulture`
+explicitly in its own parsing, because a BepInEx plugin's `Awake` can run
+before the game's.
 
 ### Build out, in shippable order
 
@@ -2384,11 +2418,17 @@ pile of Harmony patches**: `parse → collect (each patch tagged with its mod id
       unparseable entries — so a typo'd id in a list field is invisible today,
       and our validator should **report** it instead; and entries that do not
       fill `partlen` exactly are dropped the same way.
-- [ ] **Settle the culture question first.** `float.Parse` is called with no
-      `CultureInfo` ([summary-data-layer](code-findings/summary-data-layer.md)).
-      If the game does not force an invariant culture at startup, a
-      comma-decimal locale parses `1.5` as `15` — which would make the override
-      layer locale-dependent. That is a correctness blocker, not a polish item.
+- [x] **The culture question is settled, and favourably.** It was carried as a
+      correctness blocker: `float.Parse` throughout the data layer is called
+      with no `CultureInfo`, so a comma-decimal locale would read `1.5` as `15`.
+      But `GameVars.SetCultureInfo()` forces `InvariantCulture` from
+      `MainMenuControls.Awake()`, the first thing the game runs
+      ([32-debug-army-setup](code-findings/32-debug-army-setup.md) §6).
+- [ ] **Pass `InvariantCulture` explicitly in our own parsing anyway.** A
+      BepInEx plugin's `Awake` can run *before* `MainMenuControls.Awake`, so the
+      library cannot assume the game has set the culture by the time it parses
+      anything. Cheap to do, and the failure it prevents is locale-dependent and
+      therefore nearly unreportable.
 
 ### Effect registration — the capability nothing else provides
 
