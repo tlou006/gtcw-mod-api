@@ -48,6 +48,7 @@ namespace GTCW.ModApi.Runtime.Lifecycle
     internal static class LifecyclePatches
     {
         private static LifecycleService? _service;
+        private static IModApiLog? _log;
 
         /// <summary>
         /// Probes the four patch targets and the frame counter. String-based on
@@ -56,6 +57,7 @@ namespace GTCW.ModApi.Runtime.Lifecycle
         /// </summary>
         public static ProbeResult Probe() => GameProbe.All(
             () => GameProbe.RequireField("GameVars", "frame"),
+            () => GameProbe.RequireField("GamePrefs", "debug_loaddebugarmysetup"),
             () => GameProbe.RequireMethod("SceneManagement", "LoadCampaignScenario"),
             () => GameProbe.RequireMethod("SceneManagement", "LoadBattleScenario"),
             () => GameProbe.RequireMethod("SceneManagement", "LoadCampaignBattleScenario"),
@@ -63,9 +65,10 @@ namespace GTCW.ModApi.Runtime.Lifecycle
             () => GameProbe.RequireMethod("CampaignController", "Update"),
             () => GameProbe.RequireMethod("BattleController", "Update"));
 
-        public static void Apply(Harmony harmony, LifecycleService service)
+        public static void Apply(Harmony harmony, LifecycleService service, IModApiLog log)
         {
             _service = service;
+            _log = log;
 
             Patch(harmony, "SceneManagement:LoadCampaignScenario",
                 postfix: nameof(AfterLoadCampaign));
@@ -109,8 +112,45 @@ namespace GTCW.ModApi.Runtime.Lifecycle
 
         // --- session boundaries -------------------------------------------------
 
-        private static void AfterLoadCampaign() =>
+        private static void AfterLoadCampaign()
+        {
+            WarnIfDebugArmySetupWillCrash();
             _service?.BeginSession(SessionKind.Campaign);
+        }
+
+        /// <summary>
+        /// The debug army setup flag is battle-only, and loading a campaign with
+        /// it on takes the game down hard.
+        /// </summary>
+        /// <remarks>
+        /// <c>CampaignController.Awake</c> resolves its data folder to
+        /// <c>Campaigns/DebugArmySetup</c> when the flag is set, and no such
+        /// folder ships. <c>import_nations</c> then throws inside <c>Awake</c>,
+        /// the controller never finishes initialising, and the process dies
+        /// shortly after with a native access violation — with nothing in any
+        /// log to say why. The game offers no diagnostic at all, so this is
+        /// worth one patch-free check on a path we already hook.
+        /// <para>
+        /// Warn rather than override: silently clearing a flag the developer set
+        /// by hand would be its own kind of confusing. The message names the
+        /// file, the line and the fix.
+        /// </para>
+        /// </remarks>
+        private static void WarnIfDebugArmySetupWillCrash()
+        {
+            IModApiLog? log = _log;
+            if (log == null || !GamePrefs.debug_loaddebugarmysetup)
+            {
+                return;
+            }
+
+            log.Error(
+                "debug_loaddebugarmysetup is ON and a campaign is loading. This will crash: " +
+                "CampaignController.Awake resolves its data folder to 'Campaigns/DebugArmySetup', " +
+                "which does not ship, so import_nations throws during Awake and the process dies " +
+                "soon after with a native access violation. The flag only works for a standalone " +
+                "battle. Set line 8 of Config/debug.txt back to 'false' before loading a campaign.");
+        }
 
         private static void AfterLoadBattle() =>
             _service?.BeginSession(SessionKind.Battle);

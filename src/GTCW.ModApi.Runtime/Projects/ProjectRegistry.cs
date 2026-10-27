@@ -41,11 +41,24 @@ namespace GTCW.ModApi.Runtime.Projects
         private readonly Dictionary<int, ProjectDefinition> _byId =
             new Dictionary<int, ProjectDefinition>();
 
+        /// <summary>
+        /// How many <c>PLACEHOLDER</c> slots the shipped table carries: ids
+        /// 20-29 and 42-87. Used as the prior before the table has been read,
+        /// because registration happens at plugin load and the real count is
+        /// not known until the first campaign load.
+        /// </summary>
+        private const int ExpectedFreeSlots = 56;
+
         /// <summary>Set once the game has read its table and ids are fixed.</summary>
         private bool _closed;
 
-        /// <summary>Free slots found in the shipped table, in id order.</summary>
-        private int _freeSlots;
+        /// <summary>
+        /// Free slots actually found, or <see cref="ExpectedFreeSlots"/> until
+        /// measured. Reporting 0 before measurement made
+        /// <see cref="RemainingSlots"/> read as "the pool is full" to a mod that
+        /// had just successfully registered.
+        /// </summary>
+        private int _freeSlots = ExpectedFreeSlots;
 
         public ProjectRegistry(IModApiLog log) => _log = log;
 
@@ -94,7 +107,17 @@ namespace GTCW.ModApi.Runtime.Projects
             _byKey.Values.OrderBy(d => d.Key, StringComparer.Ordinal);
 
         /// <summary>Called by the import patch once it knows the real slot count.</summary>
-        public void NoteFreeSlots(int count) => _freeSlots = count;
+        public void NoteFreeSlots(int count)
+        {
+            if (count != _freeSlots)
+            {
+                _log.Info(
+                    $"Project slots available: {count} (expected {ExpectedFreeSlots} from the " +
+                    "shipped table; a game patch or another mod may have changed the pool).");
+            }
+
+            _freeSlots = count;
+        }
 
         /// <summary>Records the slot a definition was given.</summary>
         public void AssignId(ProjectDefinition def, int id)

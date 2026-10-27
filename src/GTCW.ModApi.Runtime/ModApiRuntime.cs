@@ -98,7 +98,7 @@ namespace GTCW.ModApi.Runtime
                 Capability.Lifecycle,
                 "scene-scoped sessions and the boot milestones",
                 LifecyclePatches.Probe,
-                () => LifecyclePatches.Apply(_harmony, _lifecycle)));
+                () => LifecyclePatches.Apply(_harmony, _lifecycle, Log)));
 
             // Derived from Lifecycle rather than patched separately, so it is
             // available exactly when the lifecycle is.

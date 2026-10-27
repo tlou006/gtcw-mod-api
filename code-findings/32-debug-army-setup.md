@@ -187,6 +187,37 @@ not in the install, not anywhere. So the flag would fail on the first file it
 touched. `debug_loaddebugarmysetup` is effectively **battle-only**, whatever its
 `debug.txt` label implies.
 
+### Loading a campaign with the flag on kills the process
+
+Not a graceful failure. Confirmed live, and worth spelling out because the game
+gives **no diagnostic whatsoever**.
+
+`CampaignController.Awake()` resolves its data folder before anything else:
+
+```csharp
+string foldername = (!GamePrefs.debug_loaddebugarmysetup)
+    ? ("Campaigns/" + GamePrefs.leveltoload + "/" + GamePrefs.subleveltoload)
+    : "Campaigns/DebugArmySetup";
+...
+GameVars.import_nations(foldername);
+```
+
+`import_nations` opens a `StreamReader` on a path that does not exist, so it
+throws **inside `Awake`**. The controller never finishes initialising, the
+scene proceeds with a half-built hierarchy, and the process dies shortly after
+with a native access violation (`c0000005`, faulting module `ntdll.dll`) —
+a Windows crash dump, not a managed stack trace.
+
+The symptom to recognise: **the boot sequence produces no frame-gated work at
+all.** `CampaignController.Update` throws every frame from the same missing
+state, so nothing downstream of frame 3 ever happens. In ModApi terms, not even
+`MapReady` fires.
+
+The ModApi now logs a precise error on campaign load when the flag is set
+(`LifecyclePatches.WarnIfDebugArmySetupWillCrash`). It warns rather than
+clearing the flag, since silently undoing something a developer set by hand is
+its own trap.
+
 ## 6. Resolved: the game forces invariant culture at startup
 
 [summary-data-layer](summary-data-layer.md) listed this as open and
