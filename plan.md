@@ -2354,9 +2354,45 @@ ranks: `Nation.AdjustSupport`, `Alliance.AdjustNationalMorale`,
 pure-function set, and `BattleUnits.UpdateAllianceData` for anything the pass
 itself resets.
 
-- [ ] Contribution registry with mod attribution and a documented fold order.
-- [ ] One chokepoint end to end — **`AdjustSupport` is the cleanest** (single
-      writer, already clamp-then-recompute).
+- [x] **Contribution registry**, keyed per mod, insertion-ordered so the fold
+      order is stable and explainable. Re-adding under a key replaces in place.
+- [x] **First chokepoint built: `Nation.AdjustSupport`.** Public surface is
+      `ModApi.Modifiers.Support.Add(key, side, ratePerYear)`. Contributions are
+      rates per game year, folded through the game's own writer so its 0–1 clamp
+      and recomputed delta apply exactly as they do to the game's own effects.
+
+      **The fold point is `BattleUnits.UpdateAllianceData`**, the campaign
+      heartbeat: one alliance per beat, round-robin, refusing to advance until
+      half a game day has passed for that alliance. That per-alliance half-day
+      rhythm is exactly the cadence a rate wants.
+
+      Three things that pass needed care about, none of them obvious:
+      - **The elapsed time is a local**, so a postfix cannot read it, and the
+        method overwrites `lastalliancedataupdate` *and* advances
+        `alliancerunthrough` before returning. A prefix captures the index and
+        the previous timestamp; the postfix reconstructs the interval.
+      - **A postfix runs on the early return too.** The method bails when the
+        half-day has not elapsed, so folding unconditionally would apply
+        contributions at frame rate. The single assignment to
+        `lastalliancedataupdate` in the body is the signal that it ran.
+      - **Fold only on the beat belonging to the contribution's side.** Support
+        exists for the two belligerents, but the pass visits all eight
+        alliances; folding a Union contribution on Britain's beat would apply it
+        several times per half-day.
+
+      Contributions are credited to **support-breakdown reason code 42**.
+      `supportinfluence` is `[10, 50]` and the game's own highest code is 41, so
+      42–49 are free; all contributions share one code rather than taking one
+      each, because eight slots would otherwise be exhausted by the ninth mod.
+- [ ] Scope by state is **by index, not by name** — `nation[].name` is rewritten
+      at runtime when the active state set changes, so anything matching a state
+      by string silently stops matching. A name→index lookup resolved while the
+      names are still the authored ones would be a friendlier surface and is not
+      built.
+- [ ] More chokepoints: `AdjustNationalMorale`, `AddTradeWarfare`,
+      `AdjustTreasury`, and the pure-function set (`GetSubsidyFactor`,
+      `GetCurrentTaxValuePa`, `GetAdminCost`, `GetBalance`) which wants a
+      multiply/offset shape rather than a rate.
 - [ ] `ModApi.Unsafe.*` for direct mutation, documented as unsupported, with
       the double-buffered and reset-then-accumulate fields named in the XML
       docs so the warning reaches IntelliSense rather than only a guide.

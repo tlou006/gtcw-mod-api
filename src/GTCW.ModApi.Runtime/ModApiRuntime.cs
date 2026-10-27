@@ -2,6 +2,7 @@ using GTCW.ModApi;
 using GTCW.ModApi.Runtime.Battle;
 using GTCW.ModApi.Runtime.Capabilities;
 using GTCW.ModApi.Runtime.Lifecycle;
+using GTCW.ModApi.Runtime.Modifiers;
 using GTCW.ModApi.Runtime.Projects;
 using HarmonyLib;
 
@@ -23,6 +24,7 @@ namespace GTCW.ModApi.Runtime
         private readonly LifecycleService _lifecycle;
         private readonly BattleEventsService _battle;
         private readonly ProjectRegistry _projects;
+        private readonly ModifierRegistry _modifiers;
         private readonly Harmony _harmony;
 
         private ModApiRuntime(IModApiLog log)
@@ -32,6 +34,7 @@ namespace GTCW.ModApi.Runtime
             _lifecycle = new LifecycleService(log);
             _battle = new BattleEventsService(log, _lifecycle);
             _projects = new ProjectRegistry(log);
+            _modifiers = new ModifierRegistry(log);
             _harmony = new Harmony(HarmonyId);
         }
 
@@ -42,6 +45,8 @@ namespace GTCW.ModApi.Runtime
         public IBattleEvents Battle => _battle;
 
         public IProjectRegistry Projects => _projects;
+
+        public IModifierRegistry Modifiers => _modifiers;
 
         public IModApiLog Log { get; }
 
@@ -120,10 +125,11 @@ namespace GTCW.ModApi.Runtime
                 "post-parse additive overrides with per-mod attribution",
                 "plan.md Phase 4, layered config overrides"));
 
-            _capabilities.Add(Feature.Planned(
+            _capabilities.Add(new Feature(
                 Capability.Modifiers,
                 "declarative contributions folded into the game's own passes",
-                "plan.md Phase 4, the write path"));
+                ModifierPatches.Probe,
+                () => ModifierPatches.Apply(_harmony, _modifiers, _lifecycle, Log)));
 
             _capabilities.Add(new Feature(
                 Capability.ProjectRegistration,

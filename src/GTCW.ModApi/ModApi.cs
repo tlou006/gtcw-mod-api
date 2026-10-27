@@ -50,6 +50,12 @@ namespace GTCW.ModApi
         public static IProjectRegistry Projects => Host.Projects;
 
         /// <summary>
+        /// The write path: contributions the library folds into the game's own
+        /// passes. Prefer this to writing game state directly.
+        /// </summary>
+        public static IModifierRegistry Modifiers => Host.Modifiers;
+
+        /// <summary>
         /// The library's own log. Mods should prefer their BepInEx logger; this
         /// is for reporting through the ModApi's channel so capability and
         /// conflict messages stay together.
@@ -67,6 +73,7 @@ namespace GTCW.ModApi
         ILifecycle Lifecycle { get; }
         IBattleEvents Battle { get; }
         IProjectRegistry Projects { get; }
+        IModifierRegistry Modifiers { get; }
         IModApiLog Log { get; }
     }
 

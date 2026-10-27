@@ -68,6 +68,26 @@ namespace HelloWorldMod
                     p.Completed += ctx =>
                         Logger.LogInfo($"Project appointed by {ctx.Side} (level {ctx.Level}).");
 
+                    // What makes the project worth having: appointing it buys a
+                    // standing support contribution. Registered on completion,
+                    // so it exists only for a side that actually appointed it.
+                    p.Completed += ctx =>
+                    {
+                        if (!ModApi.Capabilities.Has(Capability.Modifiers))
+                        {
+                            return;
+                        }
+
+                        // Half a percentage point of support per game year, in
+                        // every state, for the side that appointed it.
+                        ModApi.Modifiers.Support.Add(
+                            $"helloworld.rifles.{ctx.Side}",
+                            ctx.Side,
+                            _ => 0.005f);
+
+                        Logger.LogInfo($"Support contribution registered for {ctx.Side}.");
+                    };
+
                     // Replayed on load and on every appointment, so this must
                     // not accumulate anything.
                     p.Refreshed += ctx =>
