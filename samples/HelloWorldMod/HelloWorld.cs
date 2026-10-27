@@ -46,17 +46,27 @@ namespace HelloWorldMod
 
             if (ModApi.Capabilities.Has(Capability.ProjectRegistration))
             {
-                ModApi.Projects.Register("helloworld.repeating-rifles", p =>
+                ModApi.Projects.Register("helloworld.testing-project", p =>
                 {
-                    p.Name = "Repeating Rifles";
+                    p.Name = "Testing Project";
                     p.Sides = Side.Both;
-                    p.Category = ProjectCategory.Industry;
-                    p.FirstLevelCost = 500_000f;
-                    p.Repeating = false;
+                    p.Category = ProjectCategory.Politics;
+
+                    // Free and repeatable on purpose. This is a test fixture:
+                    // it should be appointable the moment a campaign starts,
+                    // without waiting for a subsidy pot to fill, and again
+                    // afterwards so the level path can be exercised.
+                    p.FirstLevelCost = 0f;
+                    p.Repeating = true;
+
+                    p.Scenarios.Add("001");
+                    p.Scenarios.Add("002");
+
                     p.Description =
-                        "A sample project added by a mod, through GTCW.ModApi. " +
-                        "It costs industrial subsidy and logs when appointed.";
-                    p.EffectText = "Proves a mod can add a project.";
+                        "GTCW.ModApi test fixture. Free, repeatable, and on appointment it " +
+                        "grants a deliberately enormous support contribution so the write path " +
+                        "can be seen working in seconds. Not a balanced project.";
+                    p.EffectText = "+10 support per half game day, in every state.";
 
                     // Points at a sprite the game already has loaded, in the
                     // same form its own records use ("folder/name"). Left unset,
@@ -78,12 +88,33 @@ namespace HelloWorldMod
                             return;
                         }
 
-                        // Half a percentage point of support per game year, in
-                        // every state, for the side that appointed it.
+                        // Deliberately absurd, and the number is derived rather
+                        // than guessed. The fold runs once per half game day
+                        // per side, so dt = 0.5/365 years; a rate of 73/year is
+                        // therefore exactly 0.1 of support per fold -- ten
+                        // percentage points. Support saturates from zero in ten
+                        // folds, which at top campaign speed (a game day is
+                        // ~3 real seconds) is about fifteen seconds.
+                        //
+                        // A real mod would use something nearer 0.005f.
                         ModApi.Modifiers.Support.Add(
-                            $"helloworld.rifles.{ctx.Side}",
+                            $"helloworld.testing.{ctx.Side}",
                             ctx.Side,
-                            _ => 0.005f);
+                            c =>
+                            {
+                                // One line per fold, not per state: the rate
+                                // callback runs once for every state, so
+                                // logging unconditionally would be ~50 lines a
+                                // beat. State 0 stands in for the pass.
+                                if (c.StateIndex == 0)
+                                {
+                                    Logger.LogInfo(
+                                        $"fold: {c.Side} support in state 0 = " +
+                                        $"{c.CurrentSupport:P1} (dt {c.DeltaYears:F5} yr)");
+                                }
+
+                                return 73f;
+                            });
 
                         Logger.LogInfo($"Support contribution registered for {ctx.Side}.");
                     };
