@@ -2435,13 +2435,23 @@ itself resets.
       Both sets are scoped to the two belligerents. The game keeps these fields
       for all eight alliances, but `Side` has no name for Britain or France, so
       contributing to a foreign power is not offered.
-- [ ] **`AddTradeWarfare` deliberately not exposed.** The mechanism fits, but
-      `tradewarfare` is `float[10]` with only types 1, 2 and 3 in use and their
-      meanings are not established — the four call sites span a trade node, a
-      building twice and a regiment's resource cost. Shipping
-      `TradeWarfare.Category2` would be an API over a guess. It also has **no
-      guard and no clamp**: the two orphaned statements at the top of the method
-      are where a magnitude check used to be.
+- [x] **`AddTradeWarfare` will not be exposed, and the reason is now
+      established** rather than cautionary:
+      [33-trade-warfare](code-findings/33-trade-warfare.md). The categories do
+      have names — the game labels them in its own panel code as
+      *1 blockades and privateering*, *2 raids*, *3 repairs*, with 0 a
+      recomputed total — so the original objection (unnameable categories) is
+      answered. The real objection is worse: **nothing in the simulation reads
+      `tradewarfare[]`.** It is a ledger for the commerce-war panel, and the
+      damage it records is applied where it is computed. A contribution there
+      would make the panel misreport a war it does not affect.
+
+      That pass also found a defect worth having: **category 2 is written with
+      both signs.** `Regiment.UpdateRaids` adds an unnegated positive where
+      `CBuilding` negates, so raiding an enemy trade node *reduces* the
+      victim's displayed raid losses, corrupts slot 0 (recomputed as the sum)
+      and therefore the commerce-war slider. A candidate for the opt-in
+      game-fixes feature alongside the support-breakdown NaN bug.
 - [x] **The pure-function set is built**: `GetAdminCost`, `GetSubsidyCost`,
       `GetSubsidyFactor`, `GetCurrentTaxValuePa` and `GetBalance`, as
       `ModApi.Modifiers.AdminCost` and friends. A second mechanism rather than

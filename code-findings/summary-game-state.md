@@ -192,8 +192,16 @@ ignoring the two flags four call sites bother to pass.
 
 ## Mod seams, ranked
 
-1. `Nation.AdjustSupport` / `Alliance.AdjustNationalMorale` / `AddTradeWarfare`
-   — single chokepoints, already clamp-and-recompute.
+1. `Nation.AdjustSupport` / `Alliance.AdjustNationalMorale` — single
+   chokepoints, already clamp-and-recompute. **Both are now built**
+   (`plan.md` Phase 4, the write path).
+
+   > **`AddTradeWarfare` is struck from this tier.** It was listed here because
+   > it is structurally identical to the other two, and it is — but
+   > [33-trade-warfare](33-trade-warfare.md) establishes that **nothing in the
+   > simulation reads `tradewarfare[]`.** It is a ledger for the commerce-war
+   > panel, so writing to it changes the player's accounting of the war without
+   > changing the war. The other two move state; this one moves a display.
 2. `Alliance.AdjustTreasury` — the only intended treasury writer; one prefix
    line removes the AI finance handicap.
 3. `Alliance.GetSubsidyFactor` / `GetSubsidyCost` / `GetCurrentTaxValuePa` /

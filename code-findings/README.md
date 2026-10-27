@@ -124,6 +124,7 @@ the evidence than in a central list.
 | File | Contents |
 | --- | --- |
 | [18-economy](18-economy.md) | `IIP` nodes as local markets, S-curve pricing, boolean production recipes, the debt→rating→interest loop, and policies keyed to scene object names |
+| [33-trade-warfare](33-trade-warfare.md) | **`tradewarfare[]` is a ledger, not a mechanic** — nothing in the simulation reads it; the damage it records is applied where it is computed. The categories named out of the game's own panel code (1 blockades and privateering, 2 raids, 3 repairs, 0 a recomputed total, 4–9 unused), and the negative-means-cost convention. **The defect: category 2 is written with both signs** — `Regiment.UpdateRaids` adds an unnegated positive where `CBuilding` negates, so raiding an enemy trade node *reduces* the victim's displayed raid losses, corrupts the recomputed total and therefore the commerce-war slider. Plus a second gap in the same method: it never mirrors into the node's own `lossestradewarfare`, so the map tooltip omits regiment raids. Why this strikes `AddTradeWarfare` from the top tier of mod seams, and which upstream terms to use instead |
 
 ### Commanders — [summary](summary-commanders.md)
 
