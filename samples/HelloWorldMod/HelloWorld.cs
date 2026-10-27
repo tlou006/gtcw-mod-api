@@ -153,8 +153,29 @@ namespace HelloWorldMod
                                 return 73f;
                             });
 
+                        // A value modifier rather than a rate: admin cost is a
+                        // function of state, not a stored field. Admin cost is
+                        // returned negative, so halving the magnitude means
+                        // government is half price.
+                        ModApi.Modifiers.AdminCost.Multiply(
+                            $"helloworld.testing.admin.{ctx.Side}",
+                            ctx.Side,
+                            _ => 0.5f);
+
+                        // Tax revenue is positive, so this is a straight
+                        // doubling. Registering a multiplier on one component
+                        // also moves the financial balance, because the game
+                        // computes the balance by calling these functions --
+                        // which is why nothing is registered on the balance
+                        // itself here.
+                        ModApi.Modifiers.TaxRevenue.Multiply(
+                            $"helloworld.testing.tax.{ctx.Side}",
+                            ctx.Side,
+                            _ => 2f);
+
                         Logger.LogInfo(
-                            $"Contributions registered for {ctx.Side}: support, treasury, morale.");
+                            $"Contributions registered for {ctx.Side}: support, treasury, " +
+                            "morale, admin cost x0.5, tax revenue x2.");
                     };
 
                     // Replayed on load and on every appointment, so this must

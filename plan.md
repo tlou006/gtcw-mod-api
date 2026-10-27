@@ -2442,14 +2442,38 @@ itself resets.
       `TradeWarfare.Category2` would be an API over a guess. It also has **no
       guard and no clamp**: the two orphaned statements at the top of the method
       are where a magnitude check used to be.
-- [ ] The **pure-function set** (`GetSubsidyFactor`, `GetSubsidyCost`,
-      `GetCurrentTaxValuePa`, `GetAdminCost`, `GetBalance`) is the next
-      mechanism, not more of this one. These are functions of state rather than
-      writers, so the shape is a **multiply/offset applied to a return value**,
-      composed across mods in a documented order — closer to the config override
-      pipeline than to a rate. It is also the natural home for the ten dead
-      pref arrays from findings/22, which can be implemented here without
-      touching the 1,200-line policy switch.
+- [x] **The pure-function set is built**: `GetAdminCost`, `GetSubsidyCost`,
+      `GetSubsidyFactor`, `GetCurrentTaxValuePa` and `GetBalance`, as
+      `ModApi.Modifiers.AdminCost` and friends. A second mechanism rather than
+      more of the first, because these are functions of state, not writers.
+
+      **Composition is fixed and order-independent:**
+      `final = base × Π(multipliers) + Σ(offsets)`. Multipliers commute and
+      offsets commute, so the outcome does not depend on which mod registered
+      first — the one thing a pipeline of arbitrary transforms could not
+      promise. The price is that "offset then scale" is inexpressible; a mod
+      wanting that registers the scaled figure as its offset.
+
+      Four things worth knowing about these five:
+      - **Costs come back negative.** `GetAdminCost` and `GetSubsidyCost`
+        return `0 - value` so the balance can sum everything, and admin cost is
+        already clamped non-positive. A multiplier below 1 therefore makes
+        government cheaper, which reads correctly.
+      - **`GetBalance` composes the others**, so a modifier on tax, admin or
+        subsidy cost already moves the balance. A modifier on the balance
+        itself stacks *on top of* the modified components, so the docs steer
+        mods to the component they mean.
+      - **`GetSubsidyCost` is a name collision.** `Projects.LoadedProjects` has
+        a method of the same name meaning something unrelated — a project's
+        price at a level. All five targets are therefore resolved by fully
+        qualified name, never by bare method name.
+      - **`Alliance` carries no index of itself**, so the postfix resolves which
+        alliance it is by reference-scanning the eight-entry array. Only reached
+        once something is registered; the empty case costs a null check and a
+        count, which matters because these are called from UI and AI code.
+
+      This is also the place to implement findings/22's ten dead subsidy and tax
+      pref arrays, without touching the 1,200-line policy switch.
 - [ ] `ModApi.Unsafe.*` for direct mutation, documented as unsupported, with
       the double-buffered and reset-then-accumulate fields named in the XML
       docs so the warning reaches IntelliSense rather than only a guide.

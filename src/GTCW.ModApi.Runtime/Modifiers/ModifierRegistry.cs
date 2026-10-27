@@ -153,11 +153,23 @@ namespace GTCW.ModApi.Runtime.Modifiers
         private readonly AllianceRateSet _nationalMorale;
         private readonly AllianceRateSet _treasury;
 
+        private readonly ValueModifierSet _adminCost;
+        private readonly ValueModifierSet _subsidyCost;
+        private readonly ValueModifierSet _subsidyFactor;
+        private readonly ValueModifierSet _taxRevenue;
+        private readonly ValueModifierSet _financialBalance;
+
         public ModifierRegistry(IModApiLog log)
         {
             _log = log;
             _nationalMorale = new AllianceRateSet(log, "National morale");
             _treasury = new AllianceRateSet(log, "Treasury");
+
+            _adminCost = new ValueModifierSet(log, "admin cost");
+            _subsidyCost = new ValueModifierSet(log, "subsidy cost");
+            _subsidyFactor = new ValueModifierSet(log, "subsidy factor");
+            _taxRevenue = new ValueModifierSet(log, "tax revenue");
+            _financialBalance = new ValueModifierSet(log, "financial balance");
         }
 
         public ISupportModifiers Support => this;
@@ -166,9 +178,29 @@ namespace GTCW.ModApi.Runtime.Modifiers
 
         public IAllianceRateModifiers Treasury => _treasury;
 
+        public IValueModifiers AdminCost => _adminCost;
+
+        public IValueModifiers SubsidyCost => _subsidyCost;
+
+        public IValueModifiers SubsidyFactor => _subsidyFactor;
+
+        public IValueModifiers TaxRevenue => _taxRevenue;
+
+        public IValueModifiers FinancialBalance => _financialBalance;
+
         internal AllianceRateSet NationalMoraleSet => _nationalMorale;
 
         internal AllianceRateSet TreasurySet => _treasury;
+
+        internal ValueModifierSet AdminCostSet => _adminCost;
+
+        internal ValueModifierSet SubsidyCostSet => _subsidyCost;
+
+        internal ValueModifierSet SubsidyFactorSet => _subsidyFactor;
+
+        internal ValueModifierSet TaxRevenueSet => _taxRevenue;
+
+        internal ValueModifierSet FinancialBalanceSet => _financialBalance;
 
         /// <summary>True when anything at all is registered, for a cheap early out.</summary>
         internal bool HasAnything =>

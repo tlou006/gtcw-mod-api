@@ -82,6 +82,127 @@ namespace GTCW.ModApi
         /// </para>
         /// </remarks>
         IAllianceRateModifiers Treasury { get; }
+
+        /// <summary>
+        /// Administrative cost per year. A <b>negative</b> quantity: the game
+        /// returns costs as negatives so its balance can simply sum them, and
+        /// this one is already clamped so it can never come back positive. A
+        /// multiplier below 1 therefore makes government <i>cheaper</i>.
+        /// </summary>
+        IValueModifiers AdminCost { get; }
+
+        /// <summary>
+        /// Subsidy cost per year, also <b>negative</b>. The context's
+        /// <see cref="IValueContext.Index"/> is the subsidy category, or -1 when
+        /// the game is asking for the total across all of them.
+        /// </summary>
+        IValueModifiers SubsidyCost { get; }
+
+        /// <summary>
+        /// A subsidy category's effective factor — the slider times its
+        /// policy-unlocked ceiling. <see cref="IValueContext.Index"/> is the
+        /// category.
+        /// </summary>
+        IValueModifiers SubsidyFactor { get; }
+
+        /// <summary>
+        /// Tax revenue per year, a <b>positive</b> quantity.
+        /// <see cref="IValueContext.Index"/> is the tax type, or -1 for the
+        /// total.
+        /// </summary>
+        IValueModifiers TaxRevenue { get; }
+
+        /// <summary>
+        /// The net financial balance per year.
+        /// </summary>
+        /// <remarks>
+        /// <b>This one composes with the others, so mind the double count.</b>
+        /// The game computes the balance by calling the tax, admin and subsidy
+        /// functions above, so a modifier on any of those already shows up
+        /// here. A modifier registered on the balance itself applies
+        /// <i>on top of</i> the already-modified components. Modify the
+        /// component you actually mean, and reach for this only when you want
+        /// to move the bottom line irrespective of where it came from.
+        /// </remarks>
+        IValueModifiers FinancialBalance { get; }
+    }
+
+    /// <summary>
+    /// Contributions to a value the game computes on demand, rather than to a
+    /// field it stores.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// These are functions of state — admin cost, tax revenue, the financial
+    /// balance — so a rate per year makes no sense for them. What applies is a
+    /// multiplier, an offset, or both.
+    /// </para>
+    /// <para>
+    /// <b>Composition is fixed and order-independent:</b>
+    /// </para>
+    /// <code>
+    /// final = base * (every multiplier multiplied together)
+    ///              + (every offset added together)
+    /// </code>
+    /// <para>
+    /// Multipliers commute and offsets commute, so the result does not depend
+    /// on which mod registered first — unlike a pipeline of arbitrary
+    /// transforms, where it would. The cost of that guarantee is that you
+    /// cannot express "offset first, then scale"; register the scaled value as
+    /// your offset instead.
+    /// </para>
+    /// <para>
+    /// These functions are called from UI and AI code, potentially many times
+    /// per frame, so a callback here must be cheap. It must also be free of
+    /// side effects: the game may call the same function several times in one
+    /// frame, and nothing promises how often.
+    /// </para>
+    /// </remarks>
+    public interface IValueModifiers
+    {
+        /// <summary>
+        /// Scale the value. Returning 1 leaves it alone. Multipliers from
+        /// several mods multiply together.
+        /// </summary>
+        void Multiply(string key, Side side, Func<IValueContext, float> factor);
+
+        /// <summary>
+        /// Shift the value, in its own units, after all multipliers have
+        /// applied. Offsets from several mods add together.
+        /// </summary>
+        void Offset(string key, Side side, Func<IValueContext, float> amount);
+
+        /// <summary>
+        /// Removes whatever was registered under the key, multiplier or offset.
+        /// Returns false if the key was not registered.
+        /// </summary>
+        bool Remove(string key);
+
+        /// <summary>Registered keys, for diagnostics.</summary>
+        IReadOnlyCollection<string> Keys { get; }
+    }
+
+    /// <summary>What a value modifier is being asked about.</summary>
+    public interface IValueContext
+    {
+        /// <summary>Whose value this is.</summary>
+        Side Side { get; }
+
+        /// <summary>Raw alliance index, for callers that want the game's numbering.</summary>
+        int Alliance { get; }
+
+        /// <summary>
+        /// The value before any modifier applied. Always the game's own
+        /// result, never a partially modified one, so a callback cannot
+        /// accidentally depend on another mod's contribution.
+        /// </summary>
+        float BaseValue { get; }
+
+        /// <summary>
+        /// The category the game is asking about — a subsidy or tax id — or -1
+        /// when it wants a total or the function takes no category.
+        /// </summary>
+        int Index { get; }
     }
 
     /// <summary>

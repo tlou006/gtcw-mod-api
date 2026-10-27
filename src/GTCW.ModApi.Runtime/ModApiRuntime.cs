@@ -128,8 +128,12 @@ namespace GTCW.ModApi.Runtime
             _capabilities.Add(new Feature(
                 Capability.Modifiers,
                 "declarative contributions folded into the game's own passes",
-                ModifierPatches.Probe,
-                () => ModifierPatches.Apply(_harmony, _modifiers, _lifecycle, Log)));
+                () => GameProbe.All(ModifierPatches.Probe, ValueModifierPatches.Probe),
+                () =>
+                {
+                    ModifierPatches.Apply(_harmony, _modifiers, _lifecycle, Log);
+                    ValueModifierPatches.Apply(_harmony, _modifiers, Log);
+                }));
 
             _capabilities.Add(new Feature(
                 Capability.ProjectRegistration,
