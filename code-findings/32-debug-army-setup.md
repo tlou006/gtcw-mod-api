@@ -212,24 +212,42 @@ Two caveats worth keeping:
 
 ## 7. Where that leaves the fixture
 
+**`debug_loaddebugarmysetup` now loads.** Verified live: with the flag on and
+the 1st Manassas scenario selected from the menus, the battle came up carrying
+the debug folder's own order of battle — "1st Brigade", "U.S. Cavalry",
+"Patterson's Artillery" — with no exception in the log.
+
 | File | State |
 | --- | --- |
 | `nations.dat` | **fixed** — 1310 to 1326 lines (§3) |
 | `regiments.dat` | **fixed** — 799 to 820 lines (§4) |
 | `groups.dat` | already current — 32 lines per group, same as `000/A` |
 | `ships.dat` | not needed on the battle path (§5) |
-| `battledata.dat` | unverified (below) |
+| `battledata.dat` | **current after all** — see below |
 
 Both repairs keep CRLF, keep each file's own encoding, leave the original
-fields byte-identical, and back up what they replace. Whether the flag now
-loads is a live question for the next run.
+fields byte-identical, and back up what they replace.
+
+> **`battledata.dat` was never stale.** It had been the last suspect, on the
+> strength of a line count that differs from `000/A` (188 against 398). That
+> was never evidence: `import_battledata` has **no version gates at all** and
+> **four count-driven variable-length loops**, so two battles with different
+> numbers of objectives and zones legitimately differ in length. The successful
+> load settles it — `import_battledata`'s own redirect excludes only
+> `currentoperation` 3 and 6, and a standalone battle is 1, so the debug
+> folder's copy is what parsed.
+
+So the stale-file count in this folder was **two**, not the three or four the
+line-count survey suggested. The two that broke it were both findable by exact
+division against a record count; the two that looked suspicious but were fine
+were the two with no such invariant. Worth remembering as a method: on this
+format, *a line count that divides evenly is evidence, and a line count that
+merely differs is not.*
 
 ## Still open
 
 - What `num`'s `< 14` / `< 16` comparisons in `import_units` mean, given `num`
   is otherwise a version like `0.7802` or the current version.
-- Whether `battledata.dat`'s debug copy is current. Its line count differs from
-  `000/A` (188 vs 398), but it is not a count-prefixed record list like the
-  others — the first line is a battle name — so the comparison proves nothing
-  and the layout has not been checked. **This is the remaining candidate if the
-  flag still fails to load.**
+- Whether a Steam update restores the publisher's stale copies. Both scripts
+  are idempotent and take `-Verify`, so re-running them after a patch is the
+  cheap check.

@@ -2185,14 +2185,22 @@ The debug folder's data files also ship stale, in three different ways:
       battle — the only thing the flag applies to — never reads the file. No
       file added.
 - [x] `groups.dat` was already current: 32 lines per group, same as `000/A`.
-- [ ] Then: a minimal two-unit battle as the standing fixture, so runs are
-      comparable rather than dependent on clicking through menus identically.
+- [x] **`battledata.dat` needed nothing.** It was the last suspect on the
+      strength of a line count differing from `000/A`, which was never
+      evidence: `import_battledata` has no version gates and four count-driven
+      variable-length loops, so two battles legitimately differ in length.
+- [x] **The flag loads.** Verified live: 1st Manassas selected from the menus
+      came up with the debug folder's own order of battle — "1st Brigade",
+      "U.S. Cavalry", "Patterson's Artillery" — and a clean log. **So the
+      fixture is usable**, and the stale-file count was two, not four.
+- [ ] Optional refinement: author a *minimal* two-unit battle instead of the
+      shipped 21-regiment Bull Run setup. Faster to load and simpler to reason
+      about, but no longer blocking anything.
 
-**The data files are now current as far as the arithmetic can tell**, and
-whether the flag loads is a live question for the next run. One candidate
-remains if it does not: `battledata.dat` is not a count-prefixed record list
-like the others, so its line count cannot be checked the same way and its
-layout is unverified ([32](code-findings/32-debug-army-setup.md), still open).
+Method note worth keeping: on this format **a line count that divides evenly by
+a record count is evidence, and a line count that merely differs is not.** The
+two files that were broken were both caught by exact division; the two that
+looked suspicious and were fine were the two with no such invariant.
 
 A side note that narrows the flag's usefulness: every `IsCampaign` branch
 redirects to `Campaigns/DebugArmySetup`, and **no such folder ships**. So the
@@ -2272,13 +2280,23 @@ Each milestone is independently useful and independently verifiable.
 booting into a fixed scenario without manual UI steps — and prints a correct
 capability report when run against a deliberately mismatched assembly.
 
-**Status: met, except for the two unattempted halves.** The sample prints on
-battle start and the capability report is correct against the known build. Not
-yet done: booting into a fixed scenario without UI steps (blocked on the
-`nations.dat` fixture above — the runs so far were clicked through by hand),
-and the mismatched-assembly check, which needs a modified copy of
-`Assembly-CSharp.dll` to probe against. Both belong with the test harness
-rather than with the feature work.
+**Status: met, with one item deliberately left and one impossible as written.**
+
+- The sample prints on battle start, through the public API, verified live.
+- The capability report is correct against the known build.
+- **Reproducible armies: done.** `debug_loaddebugarmysetup` loads after the two
+  data-file repairs above, so every hook test can run against the same order of
+  battle instead of whatever the tester happened to click.
+- **"Without manual UI steps" is not achievable from `debug.txt`** — the
+  scenario-at-start prefs are dead (above). Reaching it means driving
+  `SceneManagement.LoadBattleScenario` from a dev-only feature of our own,
+  which is cheap because the lifecycle already patches that method. Not done,
+  and not blocking Phase 4.
+- **The mismatched-assembly check is not done.** It needs a deliberately
+  modified copy of `Assembly-CSharp.dll` to probe against, which is a
+  half-hour of work whose value is proving the degraded path behaves. Worth
+  doing before any public release, since that path is what every future game
+  patch will exercise.
 
 ---
 
