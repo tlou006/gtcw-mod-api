@@ -30,6 +30,97 @@ namespace GTCW.ModApi
     {
         /// <summary>Contributions to state support.</summary>
         ISupportModifiers Support { get; }
+
+        /// <summary>
+        /// Contributions to national morale — <b>the game's only loss
+        /// condition</b>.
+        /// </summary>
+        /// <remarks>
+        /// A side that reaches zero national morale loses the war; battles
+        /// move it by rounding errors next to towns and state support. So a
+        /// contribution here is the most consequential thing in this API, and a
+        /// careless sign or magnitude can decide a campaign. Folded through
+        /// <c>AdjustNationalMorale</c>, which clamps to 0–1 and recomputes the
+        /// delta, and credited to the morale breakdown.
+        /// </remarks>
+        IAllianceRateModifiers NationalMorale { get; }
+
+        /// <summary>
+        /// Contributions to an alliance's treasury, in currency per game year.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Folded through <c>Alliance.AdjustTreasury</c>, the only writer the
+        /// game intends, which means two of its behaviours come along:
+        /// </para>
+        /// <para>
+        /// <b>There is no clamp.</b> Treasury is allowed to go arbitrarily
+        /// negative — that is how debt works — so a negative contribution has
+        /// no floor and will not stop itself.
+        /// </para>
+        /// <para>
+        /// <b>The AI gets a discount.</b> A negative adjustment for any
+        /// alliance other than the player's is reduced by the campaign
+        /// difficulty bonus, up to about 15 % at maximum. So a contribution
+        /// that drains an opponent drains less than it asks, by a margin the
+        /// player's difficulty setting decides. This is the game's own
+        /// handicap, inherited deliberately rather than worked around, since
+        /// bypassing <c>AdjustTreasury</c> would mean writing the field
+        /// directly.
+        /// </para>
+        /// </remarks>
+        IAllianceRateModifiers Treasury { get; }
+    }
+
+    /// <summary>
+    /// Contributions to a quantity held per alliance rather than per state.
+    /// </summary>
+    /// <remarks>
+    /// Scoped to the two belligerents. The game keeps these fields for all
+    /// eight alliances, foreign powers included, but <see cref="Side"/> has no
+    /// name for Britain or France, so contributing to them is not offered here.
+    /// </remarks>
+    public interface IAllianceRateModifiers
+    {
+        /// <summary>
+        /// Contribute a rate per game year. Adding twice under one key replaces
+        /// the first.
+        /// </summary>
+        /// <param name="key">Your stable key, conventionally <c>"yourmod.something"</c>.</param>
+        /// <param name="side">Whose quantity to move. <see cref="Side.Both"/> moves each side's own.</param>
+        /// <param name="ratePerYear">
+        /// Change per game year, in the quantity's own units. Called once per
+        /// fold, so keep it cheap and free of side effects. May be negative.
+        /// </param>
+        void Add(string key, Side side, Func<IAllianceContext, float> ratePerYear);
+
+        /// <summary>Removes a contribution. Returns false if the key was not registered.</summary>
+        bool Remove(string key);
+
+        /// <summary>Registered keys, for diagnostics.</summary>
+        IReadOnlyCollection<string> Keys { get; }
+    }
+
+    /// <summary>What an alliance-scoped contribution is being asked about.</summary>
+    public interface IAllianceContext
+    {
+        /// <summary>Whose quantity this invocation concerns.</summary>
+        Side Side { get; }
+
+        /// <summary>Raw alliance index, for callers that want the game's numbering.</summary>
+        int Alliance { get; }
+
+        /// <summary>
+        /// The present value of the quantity being contributed to — national
+        /// morale as 0 to 1, treasury in currency.
+        /// </summary>
+        float CurrentValue { get; }
+
+        /// <summary>
+        /// Game years since this contribution was last folded. Already applied
+        /// to your returned rate.
+        /// </summary>
+        float DeltaYears { get; }
     }
 
     /// <summary>

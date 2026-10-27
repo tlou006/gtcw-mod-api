@@ -31,6 +31,112 @@ namespace GTCW.ModApi.Runtime.Modifiers
         public bool AppliesToAllStates => StateIndex < 0;
     }
 
+    /// <summary>One registered alliance-scoped contribution.</summary>
+    internal sealed class AllianceRateModifier
+    {
+        public AllianceRateModifier(string key, Side side, Func<IAllianceContext, float> ratePerYear)
+        {
+            Key = key;
+            Side = side;
+            RatePerYear = ratePerYear;
+        }
+
+        public string Key { get; }
+        public Side Side { get; }
+        public Func<IAllianceContext, float> RatePerYear { get; }
+    }
+
+    /// <summary>
+    /// A set of alliance-scoped contributions. One instance per quantity, so
+    /// national morale and treasury share the mechanism without sharing a list.
+    /// </summary>
+    internal sealed class AllianceRateSet : IAllianceRateModifiers
+    {
+        private readonly IModApiLog _log;
+        private readonly string _label;
+        private readonly List<AllianceRateModifier> _modifiers = new List<AllianceRateModifier>();
+
+        public AllianceRateSet(IModApiLog log, string label)
+        {
+            _log = log;
+            _label = label;
+        }
+
+        public IReadOnlyCollection<string> Keys
+        {
+            get
+            {
+                var keys = new List<string>(_modifiers.Count);
+                foreach (AllianceRateModifier m in _modifiers)
+                {
+                    keys.Add(m.Key);
+                }
+
+                return keys;
+            }
+        }
+
+        internal IReadOnlyList<AllianceRateModifier> Modifiers => _modifiers;
+
+        internal bool HasAny => _modifiers.Count > 0;
+
+        public void Add(string key, Side side, Func<IAllianceContext, float> ratePerYear)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                throw new ArgumentException("A contribution key is required.", nameof(key));
+            }
+
+            if (ratePerYear == null)
+            {
+                throw new ArgumentNullException(nameof(ratePerYear));
+            }
+
+            if (side == Side.None)
+            {
+                throw new ArgumentException(
+                    $"Contribution '{key}' names no side, so it would never apply.", nameof(side));
+            }
+
+            var modifier = new AllianceRateModifier(key, side, ratePerYear);
+
+            int existing = IndexOf(key);
+            if (existing >= 0)
+            {
+                _modifiers[existing] = modifier;
+                _log.Info($"{_label} contribution '{key}' replaced.");
+                return;
+            }
+
+            _modifiers.Add(modifier);
+        }
+
+        public bool Remove(string key)
+        {
+            int index = IndexOf(key);
+            if (index < 0)
+            {
+                return false;
+            }
+
+            _modifiers.RemoveAt(index);
+            return true;
+        }
+
+        private int IndexOf(string key)
+        {
+            for (int i = 0; i < _modifiers.Count; i++)
+            {
+                if (string.Equals(_modifiers[i].Key, key, StringComparison.Ordinal))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+    }
+
     /// <summary>
     /// Holds the registered contributions. Deliberately dumb: the folding and
     /// all the game knowledge live in the patches.
@@ -44,9 +150,29 @@ namespace GTCW.ModApi.Runtime.Modifiers
         // the end.
         private readonly List<SupportModifier> _support = new List<SupportModifier>();
 
-        public ModifierRegistry(IModApiLog log) => _log = log;
+        private readonly AllianceRateSet _nationalMorale;
+        private readonly AllianceRateSet _treasury;
+
+        public ModifierRegistry(IModApiLog log)
+        {
+            _log = log;
+            _nationalMorale = new AllianceRateSet(log, "National morale");
+            _treasury = new AllianceRateSet(log, "Treasury");
+        }
 
         public ISupportModifiers Support => this;
+
+        public IAllianceRateModifiers NationalMorale => _nationalMorale;
+
+        public IAllianceRateModifiers Treasury => _treasury;
+
+        internal AllianceRateSet NationalMoraleSet => _nationalMorale;
+
+        internal AllianceRateSet TreasurySet => _treasury;
+
+        /// <summary>True when anything at all is registered, for a cheap early out.</summary>
+        internal bool HasAnything =>
+            HasSupportModifiers || _nationalMorale.HasAny || _treasury.HasAny;
 
         public IReadOnlyCollection<string> Keys
         {
@@ -146,6 +272,15 @@ namespace GTCW.ModApi.Runtime.Modifiers
         public int Alliance { get; internal set; }
         public int StateIndex { get; internal set; }
         public float CurrentSupport { get; internal set; }
+        public float DeltaYears { get; internal set; }
+    }
+
+    /// <summary>Context handed to an alliance-scoped contribution.</summary>
+    internal sealed class AllianceContext : IAllianceContext
+    {
+        public Side Side { get; internal set; }
+        public int Alliance { get; internal set; }
+        public float CurrentValue { get; internal set; }
         public float DeltaYears { get; internal set; }
     }
 }

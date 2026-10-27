@@ -116,7 +116,24 @@ namespace HelloWorldMod
                                 return 73f;
                             });
 
-                        Logger.LogInfo($"Support contribution registered for {ctx.Side}.");
+                        // Treasury, in currency per game year. Large enough to
+                        // see in the finance panel within seconds.
+                        ModApi.Modifiers.Treasury.Add(
+                            $"helloworld.testing.treasury.{ctx.Side}",
+                            ctx.Side,
+                            _ => 100_000_000f);
+
+                        // National morale is the only loss condition, so this
+                        // one stays deliberately gentle even in a test fixture:
+                        // +1 point per game year, which is visible over a few
+                        // game months rather than seconds.
+                        ModApi.Modifiers.NationalMorale.Add(
+                            $"helloworld.testing.morale.{ctx.Side}",
+                            ctx.Side,
+                            _ => 0.01f);
+
+                        Logger.LogInfo(
+                            $"Contributions registered for {ctx.Side}: support, treasury, morale.");
                     };
 
                     // Replayed on load and on every appointment, so this must

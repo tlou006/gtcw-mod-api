@@ -63,7 +63,9 @@ namespace GTCW.ModApi.Runtime.Modifiers
             () => GameProbe.RequireField("GameVars", "nation"),
             () => GameProbe.RequireField("GameVars", "alliance"),
             () => GameProbe.RequireField("GameVars", "currenttimefromstart"),
-            () => GameProbe.RequireMethod("GameVars+Nation", "AdjustSupport"));
+            () => GameProbe.RequireMethod("GameVars+Nation", "AdjustSupport"),
+            () => GameProbe.RequireMethod("GameVars+Alliance", "AdjustNationalMorale"),
+            () => GameProbe.RequireMethod("GameVars+Alliance", "AdjustTreasury"));
 
         public static void Apply(
             Harmony harmony,
@@ -103,7 +105,7 @@ namespace GTCW.ModApi.Runtime.Modifiers
         private static void AfterPass(PassState __state)
         {
             ModifierRegistry? registry = _registry;
-            if (registry == null || !registry.HasSupportModifiers || __state.Alliance < 0)
+            if (registry == null || !registry.HasAnything || __state.Alliance < 0)
             {
                 return;
             }
@@ -137,18 +139,125 @@ namespace GTCW.ModApi.Runtime.Modifiers
             }
 
             FoldSupport(registry, __state.Alliance, dt);
+            FoldAllianceRates(registry, __state.Alliance, dt);
         }
+
+        /// <summary>
+        /// Folds the alliance-scoped sets. Simpler than support: one value per
+        /// alliance rather than one per state, and this beat belongs to exactly
+        /// one alliance.
+        /// </summary>
+        private static void FoldAllianceRates(ModifierRegistry registry, int allianceIndex, float dt)
+        {
+            IModApiLog log = _log!;
+
+            Side side = SideOf(allianceIndex);
+            if (side == Side.None)
+            {
+                return;
+            }
+
+            GameVars.Alliance alliance = GameVars.alliance[allianceIndex];
+            if (alliance == null)
+            {
+                return;
+            }
+
+            // National morale: clamped 0-1 by the game's writer, and credited
+            // to the morale breakdown under the same code support uses.
+            Apply(
+                log,
+                registry.NationalMoraleSet,
+                side,
+                allianceIndex,
+                dt,
+                current: alliance.nationalmorale,
+                write: amount => alliance.AdjustNationalMorale(ModReasonCode, amount),
+                label: "national morale");
+
+            // Treasury: no clamp, and negative amounts for a non-player
+            // alliance are discounted by the game's own AI finance handicap.
+            Apply(
+                log,
+                registry.TreasurySet,
+                side,
+                allianceIndex,
+                dt,
+                current: alliance.treasury,
+                write: amount => alliance.AdjustTreasury(amount),
+                label: "treasury");
+        }
+
+        private static void Apply(
+            IModApiLog log,
+            AllianceRateSet set,
+            Side side,
+            int allianceIndex,
+            float dt,
+            float current,
+            Action<float> write,
+            string label)
+        {
+            if (!set.HasAny)
+            {
+                return;
+            }
+
+            var ctx = new AllianceContext
+            {
+                Side = side,
+                Alliance = allianceIndex,
+                CurrentValue = current,
+                DeltaYears = dt,
+            };
+
+            foreach (AllianceRateModifier modifier in set.Modifiers)
+            {
+                if ((modifier.Side & side) == 0)
+                {
+                    continue;
+                }
+
+                string who = $"{modifier.Key} {label}";
+                if (FailSoft.IsBanned(who))
+                {
+                    continue;
+                }
+
+                float rate = 0f;
+                if (!FailSoft.Guard(log, who, () => rate = modifier.RatePerYear(ctx)))
+                {
+                    continue;
+                }
+
+                if (rate == 0f)
+                {
+                    continue;
+                }
+
+                if (float.IsNaN(rate) || float.IsInfinity(rate))
+                {
+                    log.Error($"{label} contribution '{modifier.Key}' returned {rate}; ignored.");
+                    continue;
+                }
+
+                float amount = rate * dt;
+                FailSoft.Guard(log, who, () => write(amount));
+            }
+        }
+
+        private static Side SideOf(int alliance) => alliance switch
+        {
+            0 => Side.Union,
+            1 => Side.Confederacy,
+            _ => Side.None,
+        };
 
         private static void FoldSupport(ModifierRegistry registry, int alliance, float dt)
         {
             IModApiLog log = _log!;
 
-            Side side = alliance switch
-            {
-                0 => Side.Union,
-                1 => Side.Confederacy,
-                _ => Side.None,
-            };
+            Side side = SideOf(alliance);
 
             // Support exists only for the two belligerents, and this beat
             // belongs to exactly one of them. Folding a Union contribution on

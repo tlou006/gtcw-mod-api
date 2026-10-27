@@ -2406,10 +2406,40 @@ itself resets.
       by string silently stops matching. A name→index lookup resolved while the
       names are still the authored ones would be a friendlier surface and is not
       built.
-- [ ] More chokepoints: `AdjustNationalMorale`, `AddTradeWarfare`,
-      `AdjustTreasury`, and the pure-function set (`GetSubsidyFactor`,
-      `GetCurrentTaxValuePa`, `GetAdminCost`, `GetBalance`) which wants a
-      multiply/offset shape rather than a rate.
+- [x] **`AdjustNationalMorale` and `AdjustTreasury`**, both alliance-scoped
+      rates folded in the same pass. `ModApi.Modifiers.NationalMorale` and
+      `.Treasury`, sharing an `IAllianceRateModifiers` shape, since neither has
+      the per-state dimension support does. Morale uses the same reason code
+      42: `nationalmoraleinfluence` is `float[50]` and the game's highest own
+      code is 34, so 35–49 are free.
+
+      Two inherited behaviours the API documents rather than hides:
+      - **Treasury has no clamp.** It is allowed to go arbitrarily negative —
+        that is debt — so a negative contribution has no floor.
+      - **`AdjustTreasury` discounts the AI.** A negative adjustment for any
+        alliance but the player's is reduced by the difficulty bonus, up to
+        ~15 %. So a contribution draining an opponent drains less than it asks,
+        by a margin the player's difficulty decides. Inherited deliberately:
+        avoiding it would mean bypassing the only writer the game intends.
+
+      Both sets are scoped to the two belligerents. The game keeps these fields
+      for all eight alliances, but `Side` has no name for Britain or France, so
+      contributing to a foreign power is not offered.
+- [ ] **`AddTradeWarfare` deliberately not exposed.** The mechanism fits, but
+      `tradewarfare` is `float[10]` with only types 1, 2 and 3 in use and their
+      meanings are not established — the four call sites span a trade node, a
+      building twice and a regiment's resource cost. Shipping
+      `TradeWarfare.Category2` would be an API over a guess. It also has **no
+      guard and no clamp**: the two orphaned statements at the top of the method
+      are where a magnitude check used to be.
+- [ ] The **pure-function set** (`GetSubsidyFactor`, `GetSubsidyCost`,
+      `GetCurrentTaxValuePa`, `GetAdminCost`, `GetBalance`) is the next
+      mechanism, not more of this one. These are functions of state rather than
+      writers, so the shape is a **multiply/offset applied to a return value**,
+      composed across mods in a documented order — closer to the config override
+      pipeline than to a rate. It is also the natural home for the ten dead
+      pref arrays from findings/22, which can be implemented here without
+      touching the 1,200-line policy switch.
 - [ ] `ModApi.Unsafe.*` for direct mutation, documented as unsupported, with
       the double-buffered and reset-then-accumulate fields named in the XML
       docs so the warning reaches IntelliSense rather than only a guide.
