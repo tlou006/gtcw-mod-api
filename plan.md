@@ -2523,10 +2523,48 @@ risk.
       one exception (project 5 Hall's Carbines uses literals). So project
       rebalancing is config work and belongs to the override layer, not to
       effect registration.
-- [ ] **Projects:** postfix `Import` to append records, and both
-      `UpdateOneTimeProjectsEffects` and `UpdateProjectEffects` for behaviour.
-      `Alliance.GetProjectLevel(int)` is the pull side — one postfix changes
-      every consumer at once.
+- [x] **Projects: built and verified in game.** A registered project appears in
+      the panel under its category filter, with its own name and description,
+      priced in its subsidy pot. Postfixes on `Import`,
+      `UpdateOneTimeProjectsEffects` and `UpdateProjectEffects`; the public
+      surface is `ModApi.Projects.Register(key, configure)`.
+
+      **Claim a `PLACEHOLDER` slot, do not append a record.** The shipped table
+      has `projectid == list index` for all 125 records and
+      `IsProjectAvailableInScenario` exploits it with a direct
+      `loadedprojects[projectid]` before falling back to a search, so an
+      appended id would make that fast path return the wrong record and an id
+      at or past `Count` would throw. Slots are found by the publisher's
+      `PLACEHOLDER` marker rather than a hardcoded range.
+
+      Three fields decide whether a project is real, and getting any wrong
+      yields one that looks registered and does nothing:
+      - **`alliances` must contain the player's alliance** or the panel never
+        builds an entry. Registration now rejects a definition naming no side.
+      - **`subsidytype` *is* the category** — the filter arms test
+        `subsidytype == n` against Politics…Diplomacy. One field, two jobs.
+      - **`usedgroup` is only the panel column** (`ContentFoldersLeftRight`;
+        shipped data uses 0 and 1).
+
+      And two things the live run settled that the code could not:
+      - **No `Tooltip.RegisterNewTooltip` is needed.** The panel reads
+        `prosadescr` and `effectsdescr` straight off the record.
+      - **An unset image is harmless.** `Resources.Load` returns null and a null
+        `Image.sprite` renders as nothing, so art is genuinely optional.
+
+      `datefrom` is deliberately left empty: a non-null date makes
+      `CheckProjectUnlocks` grant the project **free** at new-campaign setup
+      (frame 32, new campaigns only), which is not an availability gate and not
+      something a mod should get by accident.
+- [ ] Effect callbacks are wired but **thin until `Modifiers` lands**: a mod can
+      run code on appointment and on refresh, but the library gives it no
+      curated way to write game state yet. `Alliance.GetProjectLevel(int)` is
+      the pull side worth postfixing when it does — one patch changes every
+      consumer at once.
+- [ ] **Pin the ids.** Allocation is by key order, so it is stable for a fixed
+      mod set and not across changes to it. A save referencing a mod project
+      needs the mapping persisted beside it, which is the `Persistence`
+      capability. Until then the mapping is logged every load.
 - [ ] **Policies:** the registration surface stays **out of the public API**
       until three things are tested on a live build: whether the clone is
       discovered under `UI`; whether `ButtonTooltipRef` and the other outward

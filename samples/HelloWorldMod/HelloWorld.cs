@@ -58,6 +58,13 @@ namespace HelloWorldMod
                         "It costs industrial subsidy and logs when appointed.";
                     p.EffectText = "Proves a mod can add a project.";
 
+                    // Points at a sprite the game already has loaded, in the
+                    // same form its own records use ("folder/name"). Left unset,
+                    // the entry simply has no icon, which is harmless -- so this
+                    // line is what demonstrates the field, not what makes the
+                    // project work.
+                    p.ImagePathSmall = "UI/ProjectImages/0_s";
+
                     p.Completed += ctx =>
                         Logger.LogInfo($"Project appointed by {ctx.Side} (level {ctx.Level}).");
 
