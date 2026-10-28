@@ -1271,9 +1271,13 @@ wrong way.
   [policy-order](mechanics-findings/policy-order.md) §8.2.
 - Also priced for the player: **Close support delivers its whole ×2.0 canister
   bonus at level I**, **Skilled laying III is the only perk that grants an
-  immunity** (zero demoralization under artillery fire), **Mounted rifles takes
-  the mounted-fire penalty from ×0.75 to ×0.2**, and **Supply Colliers is the
-  only perk with a standing penalty** (−30 % fleet speed at level I).
+  immunity** (zero demoralization under artillery fire), and **Supply Colliers
+  is the only perk with a standing penalty** (−30 % fleet speed at level I).
+  The pass also claimed **Mounted rifles takes the mounted-fire penalty from
+  ×0.75 to ×0.2**; that was wrong — the pref is the share *recovered*, so the
+  perk is strongest at level I and weakens with each level (corrected in
+  [19](code-findings/19-commanders-and-perks.md) §1.6, with Deadly volley III
+  and Iron discipline II).
 - On the commander side, the numbers that change decisions: **leadership
   swings retreat losses from +6 % to +42 %**, **two years in grade alone
   promotes an AI officer** (`exp × 0.6 + fame × 0.525 + years × 0.5 > 1`),

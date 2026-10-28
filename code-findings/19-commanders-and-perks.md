@@ -44,25 +44,29 @@ PerksShownArtillerySingle = { 14,15,16,17,18 };
 
 | Id | Name | Effect prefs seen in code |
 | --- | --- | --- |
-| 0 | Engineering | `hasengineers`; engineering points ×2/3/4; the only perk fed by `IncreasePerksAllUnits` |
-| 1 | Sharpshooters | `perk_sharpshooters_accuracyfactor`, `perk_sharpshooters_rangefactor` |
-| 2 | Zouave | `isabletorun`, `perk_zouaves_fatiguefactor` |
-| 3 | Expert skirmishers | `perk_expertskirmishersreloadspeed`; level 2 suppresses the low-cohesion morale penalty |
-| 4 | Spirited charge | `perk_spiritedchargemeleefactor` (display only — see [12](12-melee.md)) |
-| 5 | Deadly volley | `perk_deadlyvolleylethalityfactor`, `perk_deadlyvolley_reductionmoralehit` |
+| 0 | Engineering | `hasengineers`; engineering points ×2/3/4; `perk_engineers_pontoonspeed` 1 / 1.25 / 2 (`Pontoons`); the only perk fed by `IncreasePerksAllUnits` |
+| 1 | Sharpshooters | `perk_sharpshooters_accuracyfactor`, `perk_sharpshooters_rangefactor`; in `Autocalc` it also receives **Zouave's** fatigue factor (§1.6) |
+| 2 | Zouave | `isabletorun`, `perk_zouaves_fatiguefactor` — manual battles only (§1.6) |
+| 3 | Expert skirmishers | `perk_expertskirmishersconcealment` +10/+25/+50 (`FogOfWar`), `perk_expertskirmishersreloadspeed`; **level III** (`GetPerkLevel(3) == 2`) suppresses the low-cohesion morale penalty |
+| 4 | Spirited charge | `perk_spiritedchargemeleefactor` (display only — see [12](12-melee.md)); at **level III**, adds to an opponent's "doubt their chances" melee term unless the opponent holds it at II+ (`Regiment` ~18311) |
+| 5 | Deadly volley | `perk_deadlyvolleylethalityfactor`; from **level II**, no enemy-in-cover morale penalty (~18132); at **level III**, `perk_deadlyvolley_reductionmoralehit` — **inverted**, see §1.6 |
 | 6 | Ace of Spade | `perk_aceofspadereloadbonusfactorbehindcover`, `perk_aceofspademoralebonusbehindcover` |
-| 7 | Iron discipline | `perk_irondisciplinecohesionrecovery`; levels 2 and 3 floor a morale term |
-| 8 | Expert scouts | `perk_expertscoutsperkexp`; its morale branch is **dead** (see §1.6) |
-| 9 | Cold steel | `perk_coldsteelmeleeeffectiveness`, `perk_coldsteelenemymoralemalus` |
-| 10 | Mounted rifles | `perk_mountedriflesmalusfactor` |
-| 11 | Stormers | `perk_stormersaccuracyfactor`; level 3 ignores enemy cover morale |
-| 12 | Vanguard | `perk_vanguardperkexp`; levels 1 and 2 gate morale terms |
+| 7 | Iron discipline | `perk_irondisciplinecohesionrecovery`; **level III** floors the "doubt their chances" term at 1 (~18329); from **level II**, zeroes the *recovery* of `friendlyroutednear` — see §1.6 |
+| 8 | Expert scouts | `perk_expertscoutsconcealment`, `perk_expertscoutsvisibilityrangefactor` (`FogOfWar`), `perk_expertscoutsperkexp`; its level III morale branch is **dead** (see §1.6) |
+| 9 | Cold steel | `perk_coldsteelmeleeeffectiveness` (display only), `perk_coldsteelenemymoralemalus` 1 / 2 / 2 |
+| 10 | Mounted rifles | `perk_mountedriflesmalusfactor` — **inverted**, see §1.6 |
+| 11 | Stormers | `perk_stormersaccuracyfactor`; level III ignores enemy cover morale |
+| 12 | Vanguard | `perk_vanguardperkexp`; **level II** zeroes the falling-back-under-fire morale term, **level III** the retreating-under-fire term (~18252, ~18269) |
 | 13 | Lightning brigade | `perk_lightningbrigadereloadfactor`, `perk_lightningbrigadecovervalue`, `perk_lightningbrigadecovermorale` |
-| 14 | Close support | `perk_closesupportreloadspeed`, `perk_closesupportmeleestrength` |
+| 14 | Close support | `perk_closesupportweaponstrength` ×2 (`Projectile`), `perk_closesupportreloadspeed`, `perk_closesupportmeleestrength` (display only) |
 | 15 | Skilled laying | `perk_skilledlayingcounterbatteryaccuracy`, `perk_skilledlayingartilleryfiredemoralization` |
 | 16 | Grand battery | `perk_grandbatterybombardmentaccuracy`, `perk_grandbatteryartillerymalus` |
-| 17 | Flying battery | `perk_flyingbatteryspeed` |
-| 18 | Sapper gunners | `perk_sappergunnersreloadspeed`, `perk_sappergunnerscovermoralefactor` |
+| 17 | Flying battery | `perk_flyingbatteryspeed`; the same level II / III retreat-morale gates as Vanguard (~18256, ~18273) |
+| 18 | Sapper gunners | `perk_sappergunnersreloadspeed` (no cover test at ~10012, despite its label), `perk_sappergunnerscovermoralefactor` |
+
+**Level gates are 0-based.** `GetPerkLevel` returns 0 for level I, so
+`>= 1` opens at level II and `>= 2` at level III. An earlier version of this
+table read several of these one level low.
 
 ### 1.2 Army campaign perks (18)
 
@@ -94,7 +98,7 @@ PerksShownArtillerySingle = { 14,15,16,17,18 };
 | 0 | Torpedoes | |
 | 1 | Mortar Boats | |
 | 2 | Supply Colliers | `speedadjustmentsupplycolliers`, `perkexpincreaseblockingfleetiips` |
-| 3 | Balloon Barge | `intelligencegatheringperkbaloonbarge`; level 2 suppresses the cohesion-alert morale term |
+| 3 | Balloon Barge | `intelligencegatheringperkbaloonbarge`, `siegeeffectivenessperkballoonbarge`. (An earlier version credited it with the `HasPerk(3)` cohesion-alert test at `Regiment` ~18352; that is battle perk 3 in fighting-unit morale, which fleets never run.) |
 | 4 | Limelights | |
 | 5 | Blockading Squadron | `perkexpincreaseblockingfleetiips` |
 | 6 | Sea Raiders | `searaidersperkexpinc` |
@@ -199,6 +203,11 @@ with battle perk 0, from pontoon and obstacle construction in `BattleUI`.
 | `SpottedEnemy.UpdateMarks` | `informationdelay` and `informationdelaybureauofmilitaryinformation` ship the **same** 1.0 / 0.75 / 0.5 and are applied with **opposite operators**, so one of the two is inverted — and the one that makes its holder easier to track is the intelligence perk (§1.7). |
 | `Regiment` ~4700 | `HasPerk(6)` with **no `unittyp == 17` guard**, so campaign perk 6 (Foot Cavalry) satisfies the fleet-only Sea Raiders clause. The `IIP` copy of the same test is guarded (§1.7). |
 | `CBuilding` ~1412 | The own-perk and parent-perk branches both **assign** `constructiontimer`, so Engineers & Mechanics does not stack from Army to Corps as every other paired site does (§1.7). |
+| `Regiment` ~9620, ~10004 (data) | **Mounted rifles is inverted.** Both sites compute `factor = (1 − base) × perk_mountedriflesmalusfactor[level] + base`, so the pref is the share of the mounted penalty *recovered* — but it ships **0.75 / 0.5 / 0.2**, labelled as a shrinking "malus factor". With `mountedaccuracyinfluencefactor` 0.6 and `mountedreloadinfluencefactor` 1.25, mounted accuracy is ×0.90 / 0.80 / 0.68 and reload time ×1.06 / 1.13 / 1.20 at levels I / II / III: **best at level I, weaker every level**, always better than no perk. |
+| `Regiment` ~18221 | **Deadly volley III is inverted.** The high-momentary-casualties term (`moraleeffectonhighmomentarycasualties` −0.6) is reduced by `term × GetTraining() × drillreductionfactorforhighmomentarycasualties (0.7) × num16`, and the perk sets `num16 = perk_deadlyvolley_reductionmoralehit` (0.5). That halves the **drill reduction**, not the term: no change at training 0, and at training 1 the term goes from −0.18 to **−0.39**. The label ("reduction of morale hit … (factor)") describes multiplying the term itself. |
+| `Regiment` ~17953 | **Iron discipline II+ freezes the nearby-rout penalty.** `num8 = 0` multiplies the *recovery* of `friendlyroutednear` (`routedunitrecovery` 0.3/h), not the impact (`impactownunitrouted` −0.075 per rout within `rangeroutedunits` 60). The term is applied per hour and only reset in `Initialize`, so from level II each nearby friendly rout costs −0.075/h for the rest of the battle, floored at −1. Presumably meant to zero the impact. |
+| `Autocalc` ~3349 | `HasPerk(1)` then `perk_zouaves_fatiguefactor[GetPerkLevel(1)]` — Zouave's fatigue factor gated and levelled on **perk 1, Sharpshooters**. In auto-resolve, Sharpshooters brigades get the fatigue cut and Zouaves get none. `Autocalc` ~3229 also tests `HasPerk(1)` beside a fatigue threshold and may be the same slip; not traced. |
+| `Regiment` ~16130–16138 | Spirited charge, Cold steel and Close support all multiply `meleestrength`, which is display-only ([12](12-melee.md) §3). Only Spirited charge was flagged as such in an earlier version of the mechanics translation. |
 
 ### 1.7 Shipped magnitudes — and the six "blank" campaign perks
 
@@ -308,7 +317,7 @@ operators**, so one of them is inverted:
 | | `siegeeffectivenessperkballoonbarge` | 1.00 / 1.00 / 1.05 |
 | 4 Limelights | `combatefficiencynighttime` | 1.25 / 1.50 / 2.00 — fort strength and every vessel's firing strength at night |
 | 5 Blockading Squadron | `blockadeefficiencyblockadingsquadron` | 1.1 / 1.25 / 1.50 |
-| 6 Sea Raiders | `priceincreasessearaiders` | 1.1 / 1.25 / 1.5 on prices at a blockaded **trade node** — plus the unlock itself, and `SetFamous()` at level III |
+| 6 Sea Raiders | `priceincreasessearaiders` | 1.1 / 1.25 / 1.5 on prices at a blockaded **trade node** — plus the unlock itself (the ordinary blockade clause in `IIP` ~660 excludes trade nodes), and `SetFamous()` at level III (~650) |
 | 7 Amphibious Attack | `fortoccupationprobamphibiousattacklev` | 1.00 / 1.10 / 1.50 |
 | 8 Blockade Busters | `fightingefficiencyblockadingfleetsblockadebusters` | 1.1 / 1.2 / 1.3 |
 | | `effectoonblockadewithinradius` | 0.9 / 0.8 / 0.7 on the blockade of **your own** ports in the fleet's radius; and **`ChoosePerk` calls `SetFamous()`** |

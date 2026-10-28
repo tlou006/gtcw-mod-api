@@ -34,6 +34,11 @@ policy-side couplings in [policy order](policy-order.md) §6.
 - **Two campaign perks are shipped broken.** **Balloon Corps lengthens your
   order delays** at every level, and **Bushwhackers gets worse as it levels
   up.**
+- **So are three battle perks.** **Mounted rifles weakens with every level**,
+  **Deadly volley III doubles the sudden-losses morale hit on drilled troops**,
+  and **Iron discipline II stops the nearby-rout penalty from ever fading**.
+  Three melee bonuses — Spirited charge, Cold steel and Close support — are
+  shown on the unit panel and never applied.
 - **`Veteran` does nothing. The engineer branch does nothing. The president
   does nothing.** Three visible, plausible-looking attributes with no consumer
   in the base game.
@@ -537,56 +542,93 @@ perk, level and experience; anything else spawns blank.
 One slot per fighting unit, for the whole campaign. Values are levels I / II /
 III; a perk starts at level I the moment it is chosen.
 
+A note on level gates: the code's perk level is **0-based**, so a test written
+`GetPerkLevel(n) >= 1` opens at **level II** and `>= 2` at **level III**. An
+earlier version of this section read several of them one level low.
+
 ### 9.1 Infantry (the only eight an infantry brigade may choose)
 
 | Perk | Effect at I / II / III |
 | --- | --- |
-| **Deadly volley** | casualties inflicted **×1.05 / 1.10 / 1.25**, plus a **×0.5** reduction in the morale hit from sudden losses |
 | **Sharpshooters** | accuracy **×1.1 / 1.25 / 1.5**; range ×1 / 1 / **1.25** |
 | **Ace of Spade** | cover value ×1.1 / 1.2 / **1.5**; morale behind cover ×1 / **2.0** / 2.0; reload behind cover ×1 / 1 / **1.25** |
-| **Iron discipline** | cohesion recovery **×1.25 / 1.50 / 2.00**; levels II–III floor a morale term |
-| **Zouave** | able to run; fatigue **×1 / 0.75 / 0.5** |
-| **Expert skirmishers** | reload ×1 / 1.05 / **1.1**; level II suppresses the low-cohesion morale penalty |
-| **Engineering** | engineering points **2 / 3 / 4**; the only perk other units can be given by construction work |
-| Spirited charge | melee bonus ×1.1 / 1.2 / 1.5 — **display only**, it does not reach the melee calculation ([12](../code-findings/12-melee.md)) |
+| **Deadly volley** | casualties inflicted **×1.05 / 1.10 / 1.25**; from **level II**, no "enemy in cover" morale penalty; **level III inverts the drill protection against sudden losses** — see below |
+| **Expert skirmishers** | concealment **+10 / +25 / +50**; reload ×1 / 1.05 / **1.1**; **level III** suppresses the low-cohesion morale penalty |
+| **Zouave** | able to run; fatigue **×1 / 0.75 / 0.5** — in manual battles only, see below |
+| **Engineering** | engineering points **2 / 3 / 4**; pontoon building ×1 / 1.25 / **2**; the only perk that gains experience from construction work |
+| **Iron discipline** | cohesion recovery **×1.25 / 1.50 / 2.00**; **level III** floors the "men doubt their chances" melee term; **from level II the nearby-rout penalty never decays** — see below |
+| Spirited charge | melee bonus ×1.1 / 1.2 / 1.5 — **display only** ([12](../code-findings/12-melee.md) §3); its one live effect is at **level III**, raising the "doubt their chances" melee penalty of an opponent without Spirited charge II+ |
 
-> **Deadly volley and Ace of Spade are the two that change a firefight.**
-> Deadly volley's second effect — halving the morale shock of sudden
-> casualties — is worth more than its casualty multiplier, because sudden
-> losses are the heaviest single morale term in the game
-> ([why units break](why-units-break.md) §2). Ace of Spade only pays behind
-> cover, but it pays three ways at once there.
->
-> **Spirited charge is a trap:** its multiplier is shown in the unit panel and
-> never applied. Choosing it spends your brigade's only slot on nothing.
+> **Ace of Spade and Sharpshooters are the clean firefight picks.** Ace of
+> Spade only pays behind cover, but it pays three ways at once there.
+> Deadly volley is good through level II — the cover-morale immunity is a
+> real second effect — and then turns against drilled troops.
+
+**Deadly volley III makes the sudden-losses hit worse.** The high-momentary-
+casualties term is `−0.6`, reduced by drill as
+`term −= term × training × 0.7 × f`, and Deadly volley III sets `f` to its
+`0.5` pref ("reduction of morale hit … (factor)"). So the perk halves the
+**drill's protection**, not the hit: an undrilled brigade is unaffected, while
+a fully drilled one goes from −0.18 to **−0.39**, **2.2× the hit** it takes
+without the perk. The label describes multiplying the term by 0.5.
+
+**Iron discipline II and III freeze the nearby-rout penalty.** Each friendly
+rout within 60 adds −0.075 to a per-hour morale term that normally recovers at
+0.3 an hour — gone in about fifteen minutes. From level II the recovery is
+multiplied by zero, so **the penalty stays for the rest of the battle**, and
+each further rout nearby adds to it (to a floor of −1 per hour), before the
+3-to-5× amplification of morale losses
+([why units break](why-units-break.md) §2). The intent was presumably to zero
+the *impact*, not the recovery.
+
+**Zouave's fatigue cut does not reach auto-resolve.** `Autocalc` ~3349 tests
+`HasPerk(1)` — Sharpshooters — and then reads `perk_zouaves_fatiguefactor` at
+perk 1's level, so in auto-resolve **Sharpshooters** brigades get Zouave's
+fatigue reduction and Zouaves get none.
+
+> **Spirited charge is close to a trap:** its multiplier is shown in the unit
+> panel and never applied, and its only live effect waits for level III.
 
 ### 9.2 Cavalry (six)
 
 | Perk | Effect at I / II / III |
 | --- | --- |
-| **Mounted rifles** | the mounted-fire penalty shrinks from ×0.75 to **×0.5** to **×0.2** |
-| **Cold steel** | melee ×1.1 / 1.2 / **1.5**; enemy morale malus when charged ×1 / **2.0** / 2.0 |
+| **Mounted rifles** | recovers **75 % / 50 % / 20 %** of the mounted-fire penalty — **weakest at level III**, see below |
+| **Cold steel** | from **level II**, ×2.0 on the morale hit enemies take from its charge; melee ×1.1 / 1.2 / 1.5 is **display only** ([12](../code-findings/12-melee.md) §3) |
 | **Expert scouts** | concealment **+10 / +25 / +50**; visibility range ×1 / 1.25 / **1.5** |
 | **Lightning brigade** | cover ×1.1 / 1.2 / **1.5**; morale in cover ×1 / **2.0** / 2.0; reload in cover ×1 / 1 / 1.25 |
 | Stormers | loose-formation accuracy ×1 / 1.1 / **1.25**; level III ignores enemy cover morale |
-| Vanguard | gates two morale terms at levels I and II; no multiplier of its own |
+| Vanguard | from **level II**, no falling-back-under-fire morale penalty; at **level III**, no retreating-under-fire penalty either; no multiplier of its own |
 
-> **Mounted rifles is the largest single number in the battle list** — it
-> takes the mounted-fire penalty from a 25 % loss to an 80 % recovery, which
-> turns a cavalry brigade into a unit that can fight without dismounting.
-> **Expert scouts III is unreachable**: the morale branch that would pay for it
-> tests perk 8 and then reads perk **9's** level, and a fighting unit has only
-> one slot, so the condition can never both hold.
+**Mounted rifles points the wrong way.** Both sites compute
+`factor = (1 − base) × pref + base`, so the pref is the share of the penalty
+*recovered*, and it ships 0.75 / 0.5 / 0.2 — values labelled as a shrinking
+"malus factor". With the shipped bases (accuracy ×0.6, reload time ×1.25):
+
+| Level | Accuracy when mounted | Reload time when mounted |
+| --- | --- | --- |
+| No perk | ×0.60 | ×1.25 |
+| I | **×0.90** | **×1.06** |
+| II | ×0.80 | ×1.13 |
+| III | ×0.68 | ×1.20 |
+
+> It is always better than no perk, and level I is genuinely strong — but every
+> level up takes some of it away. An earlier version of this section called it
+> "the largest single number in the battle list" at level III.
+
+**Expert scouts' level III morale branch is unreachable**: it tests perk 8 and
+then reads perk **9's** level, and a fighting unit has only one slot, so the
+condition can never both hold. Its concealment and visibility range work.
 
 ### 9.3 Artillery (five)
 
 | Perk | Effect at I / II / III |
 | --- | --- |
 | **Skilled laying** | counter-battery accuracy ×1.1 / 1.2 / **1.5**; demoralization under artillery fire ×1 / 0.5 / **0.0 — complete immunity** |
-| **Close support** | canister weapon strength **×2.0 at every level**; canister reload ×1 / 1.1 / 1.2; melee ×1 / 1.25 / 1.5 |
+| **Close support** | canister weapon strength **×2.0 at every level**; reload ×1 / 1.1 / 1.2; melee ×1 / 1.25 / 1.5 is **display only** ([12](../code-findings/12-melee.md) §3) |
 | **Grand battery** | bombardment accuracy ×1.1 / 1.2 / 1.3; enemy morale malus ×1 / 1.5 / **2.0** |
-| Flying battery | unit speed ×1.15 / 1.3 / **1.5** |
-| Sapper gunners | cover ×1.1 / 1.2 / **1.5**; morale in cover ×1 / 2.0 / 2.0; reload in cover ×1 / 1 / 1.25 |
+| Flying battery | unit speed ×1.15 / 1.3 / **1.5**; from **level II**, no falling-back morale penalty; at **level III**, no retreating penalty |
+| Sapper gunners | cover ×1.1 / 1.2 / **1.5**; morale in cover ×1 / 2.0 / 2.0; reload ×1 / 1 / 1.25 — labelled "in cover", but `Regiment` ~10012 has no cover test |
 
 > **Close support is the strongest perk in the game at level I.** Its ×2.0 on
 > canister weapon strength applies at *every* level, so you get the whole
@@ -615,14 +657,18 @@ project could not find prefs for.
 | **Land Torpedoes** | enemy movement in command range ×0.9 / 0.8 / **0.7**; skirmish ×1.05 / 1.10 / 1.20 |
 | **Bushwhackers** | enemy state-support drop from raiding ×1.1 / 1.25 / **1.50**; skirmishing **×1.25 / 1.20 / 1.10 — see below** |
 | **Balloon Corps** | intelligence when stationary ×1.25 / 1.25 / 1.50; siege ×1.05 / 1.10 / 1.15; **order delays ×1.25 / 1.10 / 1.10 — see below** |
-| Skilled cartographers | intelligence gathering and movement speed |
-| Flying Column | movement speed |
-| Foot Cavalry | forced-march speed |
-| Ambulance Corps | reduces the speed penalty from disabled soldiers |
-| Pontoon train | movement cost of crossings |
-| Expert Scouts | intelligence gathering |
-| Bureau of Military Information | scouting perk experience |
-| Embedded reporters | **a multiplier on the fame your commander earns from battles** — Corps and above only |
+| **Expert Scouts** | intelligence gathering ×1.25 / 1.50 / **2.00** |
+| **Ambulance Corps** | wounded-to-killed rate ×0.9 / 0.75 / **0.5**; speed penalty from disabled soldiers ×0.75 / 0.50 / 0.25 |
+| Skilled cartographers | intelligence gathering and movement speed, both ×1.05 / 1.10 / 1.20 |
+| Flying Column | movement ×1.1 / 1.1 / 1.25; supply consumption ÷1.5 / ÷2.0 / **÷2.5** |
+| Foot Cavalry | forced-march speed ×1.1 / 1.2 / 1.3; forced-march attrition ×0.9 / 0.8 / 0.7 |
+| Pontoon train | creek-crossing movement cost ×0.75 / 0.5 / 0.25; supply speed ×1.1 / 1.2 / 1.3 |
+| Bureau of Military Information | intelligence gathering ×1.1 / 1.25 / 1.5; information delay ÷1.0 / ÷0.75 / ÷0.5 — inert (§10.3) |
+| Embedded reporters | **fame from battles ×1.25 / 1.50 / 2.00** — Corps and above only |
+
+> **Corrected:** the six rows above were first published with no magnitudes,
+> and the Bureau's as "scouting perk experience" only. Its intelligence
+> multiplier is live (`Regiment` ~10945); values are from `campaignprefs.txt`.
 
 ### 10.1 Balloon Corps makes your orders slower
 
@@ -679,7 +725,8 @@ its 90 % ceiling after roughly **eight game hours** whichever way a perk pushes
 it.
 
 > **So Field Telegraph is an order-delay perk and nothing else**, and the
-> Bureau of Military Information's headline effect is inert. Take Field
+> Bureau of Military Information is an intelligence-gathering perk whose
+> tracking half is inert. Take Field
 > Telegraph for the ×0.7 on order delays, which is real and large
 > ([fighting the AI](fighting-the-ai.md) §4.4 for the full arithmetic).
 >
@@ -697,11 +744,17 @@ it.
 | **Limelights** | night combat **×1.25 / 1.50 / 2.00** |
 | **Blockading Squadron** | blockade efficiency ×1.1 / 1.25 / **1.50** |
 | **Supply Colliers** | supply consumption ×0.85 / 0.70 / **0.50** — but fleet speed **×0.7 / 0.8 / 0.9** |
-| Balloon Barge | intelligence ×1.25 / 1.35 / 1.50; siege ×1.0 / 1.0 / 1.05; level II suppresses the cohesion-alert morale term |
+| Balloon Barge | intelligence ×1.25 / 1.35 / 1.50; siege ×1.0 / 1.0 / 1.05 |
 | Mortar Boats | siege bombardment ×1.05 / 1.10 / 1.25 |
-| Blockade Busters | fighting efficiency against blockaders ×1.1 / 1.2 / 1.3; **choosing it immediately makes the commander famous** |
+| Blockade Busters | fighting efficiency against blockaders ×1.1 / 1.2 / 1.3; enemy blockade of **your own** ports within its radius ×0.9 / 0.8 / 0.7; **choosing it immediately makes the commander famous** |
 | Amphibious Attack | fort occupation probability ×1.00 / 1.10 / **1.50** |
-| **Sea Raiders** | lets the fleet raid **neutral trade nodes**, not just enemy-owned ones — a binary unlock with no magnitude |
+| **Sea Raiders** | lets the fleet blockade **trade nodes**, neutral ones included; prices there ×1.1 / 1.25 / 1.5; **at level III the commander becomes famous** |
+
+> **Corrected:** Balloon Barge was first listed with a level II morale effect.
+> That test (`Regiment` ~18352) is battle perk 3, Expert skirmishers, in the
+> fighting-unit morale code, which a fleet never runs. Sea Raiders was listed
+> as a binary unlock and Blockade Busters without its own-port effect; both
+> magnitudes are live in `IIP` (~649, ~673).
 
 Three things to take from the list.
 
@@ -711,10 +764,10 @@ have to reach level III before the speed cost falls to 10 % and the
 consumption saving reaches half. Take it on a blockading squadron that does not
 need to move, never on a raider.
 
-**Blockade Busters makes its commander famous the moment you select it** —
-the only perk in any of the three lists with a side effect on the commander.
-Fame is ×1.4 on everything it touches, so this is a free attribute boost
-attached to a mediocre combat multiplier.
+**Two perks make their commander famous**: Blockade Busters the moment you
+select it, and Sea Raiders on reaching level III (`IIP` ~650). Fame is ×1.4 on
+everything it touches, so this is a free attribute boost attached to a modest
+combat multiplier.
 
 **Battery Runner and Port Defender are the two ×2.00s**, and they are exact
 mirrors: one for attacking forts, one for defending your own harbours. Decide
@@ -789,12 +842,14 @@ round-robin and then zeroes the accumulator.
 9. **Avoid chains of succession.** Every promotion in the cascade costs every
    attached unit 10 points of readiness, and readiness decides which orders you
    may give.
-10. **Take Close support on artillery and Deadly volley or Ace of Spade on
-    infantry.** Close support delivers its whole ×2.0 canister bonus at level I;
-    Deadly volley's morale half is worth more than its casualty half.
-11. **Never take Spirited charge** — the multiplier is displayed and never
-    applied — and never take **Balloon Corps** expecting faster orders, which
-    it makes slower.
+10. **Take Close support on artillery and Sharpshooters or Ace of Spade on
+    infantry.** Close support delivers its whole ×2.0 canister bonus at level I.
+    Deadly volley is sound through level II, and then its level III morale
+    effect turns against drilled troops.
+11. **Never take Spirited charge or Iron discipline** — the first's multiplier
+    is displayed and never applied, the second freezes the nearby-rout penalty
+    from level II — and never take **Balloon Corps** expecting faster orders,
+    which it makes slower.
 12. **Take Field Telegraph as a formation's first perk** if you intend to
     manoeuvre. Slots unlock in order, so the first choice is the one that
     compounds, and 30 % off order delays at level III is the largest
@@ -833,3 +888,8 @@ round-robin and then zeroes the accumulator.
    **Untested** — a new 1861 campaign in which Sherman (historically famous
    from September 1864) wins a major battle would settle it
    ([19](../code-findings/19-commanders-and-perks.md) §4.2).
+7. **The three inverted battle perks in play.** Mounted rifles, Deadly volley
+   III and Iron discipline II (§9) are derived from the code and the shipped
+   prefs, not watched. **Untested** — the cleanest checks are a mounted
+   brigade's accuracy readout at levels I and III, and an Iron discipline II
+   brigade's morale breakdown for an hour after a neighbour routs.
