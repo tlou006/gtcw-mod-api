@@ -232,11 +232,12 @@ set that [19-commanders-and-perks](19-commanders-and-perks.md) left open:
 `fametrigger = {0.025, 0.02, 0.03, 0.04}` and
 `defamedtrigger = {−0.0018, −0.0027, −0.0016, −0.0015}`, alongside
 `famefactorleveladjustment` = {brigade 0.005, division 0.0065, corps 0.009,
-army 0.013}. Reading them: it is *easier* to become famous in a minor victory
-than a major one, and *harder* to escape being defamed in a major victory than
-in a major defeat — the thresholds scale to the number of candidates, not the
-glory. The matching victory thresholds are vp ratio ≥ 0.7 / ≥ 0.8 / ≤ 0.3 /
-≤ 0.2.
+army 0.013}. Reading them against their tests (`score > fametrigger`,
+`score < defamedtrigger`): fame is *easiest* after a major victory and
+hardest after a major defeat, and defame the reverse — the obvious direction,
+indexed by the **player's** result for both sides' commanders. (First
+published backwards; corrected.) The matching victory thresholds are vp ratio
+≥ 0.7 / ≥ 0.8 / ≤ 0.3 / ≤ 0.2.
 
 **`movementmode`, `formation` and `oobunitsymbolid`** are now fully resolved
 and recorded in [16-enumerations](16-enumerations.md). The notable one:

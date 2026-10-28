@@ -1280,8 +1280,11 @@ wrong way.
   **every commander change costs 10 points of readiness to every attached
   unit**, **a feud is an hourly `|Δinitiative| + Δfame − 0.3`** so any visible
   gap makes one certain, invented replacement commanders roll **[0.1, 0.7]**
-  where European ones roll **[0.5, 0.9]**, and it is **easier to become famous
-  in a minor victory than a major one**.
+  where European ones roll **[0.5, 0.9]**, and **fame is easiest to win after
+  a major victory and defame easiest after a major defeat** (first published
+  backwards; corrected in [19](code-findings/19-commanders-and-perks.md) §4,
+  [21](code-findings/21-ai-battle.md) §14.2 and
+  [commanders-worth-having](mechanics-findings/commanders-worth-having.md) §5).
 - And a duplicate row for findings/19 in `code-findings/README.md` — two
   entries for the same file, the older one superseded — removed.
 

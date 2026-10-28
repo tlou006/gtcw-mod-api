@@ -264,36 +264,66 @@ exp × 0.6  +  fame × 0.525  +  years in grade × 0.5  >  1
 
 ## 5. Fame, defame, and the one-a-battle rule
 
-After every battle the game scores every commander who was on the field — a
-performance term **minus the fraction of his subordinates that routed** —
-scales it by his echelon, by his wounded status, by your printing works and by
-the Embedded Reporters perk, and then:
+After every battle the game scores every commander who was on the field:
+
+- his **kill ratio** — casualties inflicted over losses taken, capped at
+  **5 : 1**, and counted as **1 : 1** if his men inflicted none at all;
+- **plus** the experience he gained in the battle;
+- **minus the fraction of his subordinates that routed**.
+
+It then scales the score by his echelon (brigade **0.005**, division 0.0065,
+corps 0.009, army **0.013**), by **×1.2** if he was wounded and the score is
+positive, by your printing works and by the Embedded Reporters perk. **Every
+commander's fame moves by that score** — a brigade commander trading 2 : 1
+gains about one point of fame, an army commander about 2.6. Then:
 
 - the **single best** scorer becomes **famous**, if he clears the threshold;
 - the **single worst** becomes **defamed**, if he falls below it.
 
-The thresholds depend on how the battle ended, and they are not monotonic:
+The thresholds depend on how the battle ended **for the player** — the same
+row is applied to both sides' commanders:
 
-| Battle result | Famous above | Defamed below |
+| Battle result for the player | Famous above | Defamed below |
 | --- | --- | --- |
-| Minor victory | **0.025** | −0.0018 |
-| Major victory | 0.020 | **−0.0027** |
+| Minor victory | 0.025 | −0.0018 |
+| Major victory | **0.020** — the lowest bar | **−0.0027** — the deepest floor |
 | Minor defeat | 0.030 | −0.0016 |
-| Major defeat | 0.040 | −0.0015 |
+| Major defeat | **0.040** — the highest bar | **−0.0015** — the shallowest floor |
 
-> Read the columns, not the rows. **It is easier to become famous in a minor
-> victory than a major one**, and **easier to be defamed in a major victory
-> than in a major defeat** — the "someone must have let the side down" effect.
-> A crushing win is the most dangerous battle for your second-rate corps
-> commanders' reputations.
+> **Both columns run the obvious way.** Fame is easiest to win after a major
+> victory and hardest after a major defeat; defame is the reverse. Because the
+> echelon factor is applied first, the bar is really a kill ratio that depends
+> on the command: an army commander needs about **1.5 : 1** to become famous in
+> a major victory and 3.1 : 1 in a major defeat, while a brigade commander
+> needs **4 : 1** in a major victory and cannot clear either defeat bar on kill
+> ratio alone. And because the row is chosen by the *player's* result, the
+> enemy's generals in a battle you won big are judged against the same
+> easy-fame, hard-defame bar as yours.
+>
+> **Corrected.** An earlier version of this section read the thresholds
+> backwards — "easier to become famous in a minor victory than a major one,
+> easier to be defamed in a major victory than a major defeat". The comparisons
+> are `score > famous threshold` and `score < defamed threshold`, so the lower
+> famous bar and the deeper defamed floor of a major victory make fame easier
+> and defame harder there, not the other way round.
+
+To be defamed at all, the score must be **negative**, which takes both a kill
+ratio below 1 : 1 *and* a large share of routed subordinates. A commander whose
+men inflicted nothing is scored as an even trade, so it takes repeated routs to
+defame him.
 
 What fame and defame are worth:
 
 | State | Effect |
 | --- | --- |
-| Famous | **× 1.4** on his fame everywhere it is read |
+| Famous | **× 1.4** on his fame |
 | Defamed | **× 0.7** |
-| Both at once | impossible — becoming famous clears a past defame |
+| Famous, then defamed | × 0.7 while the defame lasts; the × 1.4 returns when it clears |
+
+**Famous is permanent and once only.** Nothing ever clears it, and a
+commander who is already famous cannot be made famous again — and if the best
+scorer of a battle is already famous, **nobody** becomes famous from that
+battle. Becoming famous clears a past defame.
 
 **Rehabilitation is almost immediate.** A defamed commander rolls for
 rehabilitation in the commander tick with a threshold that opens after
@@ -301,11 +331,20 @@ rehabilitation in the commander tick with a threshold that opens after
 multiplies the **random draw** instead of the threshold, where every sibling
 check in the same method multiplies the threshold. Because the elapsed slice is
 a tiny fraction of a year, the draw is almost always under the threshold as
-soon as it rises at all.
+soon as it rises at all. The roll is only made while he is **on duty**, so a
+wounded or captured commander stays defamed until he returns.
 
 > **In practice: defame lasts about five months and then clears.** The
 > `commanderehabilitationmax` pref — misspelled in the game, with no `r` — is
 > very nearly inert.
+
+**And it never comes back.** Rehabilitation, and becoming famous, both clear
+the defame by writing a far-future sentinel date rather than zeroing it — and
+both the battle defame and the over-rank defame (§4) are gated on that date
+being *unset*. So **once a commander's defame has cleared he can never be
+defamed again** by a battle or an appointment. Only the scripted first-major-
+victory milestones, which defame the losing general unconditionally, still
+can.
 
 The famous-commander guard in the same block compares a **commander id**
 against a **fame score**, so the check that was meant to stop one man being
@@ -785,3 +824,12 @@ round-robin and then zeroes the accumulator.
 5. **The Army Group promotion path.** Army Groups bypass the normal
    appointment search entirely and have their own promotion routine, which was
    not followed.
+6. **Whether historical commanders can be famous at all.** The shipped data
+   gives 87 commanders a historical fame date and 76 a defame date, and a new
+   campaign pushes those dates to the same far-future marker that makes
+   rehabilitation permanent (§5) — locking each one it touches out of that
+   state for the whole campaign. Whether it touches only the dates after the
+   scenario start, or all of them, depends on load order.
+   **Untested** — a new 1861 campaign in which Sherman (historically famous
+   from September 1864) wins a major battle would settle it
+   ([19](../code-findings/19-commanders-and-perks.md) §4.2).

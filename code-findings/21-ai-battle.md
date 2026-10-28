@@ -1211,10 +1211,17 @@ corresponding victory-condition thresholds in the same file are vp ratio
 ≥ 0.7 (minor victory), ≥ 0.8 (major victory), ≤ 0.3 (minor defeat),
 ≤ 0.2 (major defeat), with `critical losses` above 0.4.
 
-Reading the arrays: it is *easier* to become famous in a minor victory
-(0.025) than a major one (0.02), and *harder* to avoid being defamed in a
-major victory (−0.0027) than in a major defeat (−0.0015) — the thresholds are
-scaled to the number of candidates, not to the glory.
+Reading the arrays against their tests — `score > fametrigger`,
+`score < defamedtrigger` — both run the obvious way: fame is *easiest* after a
+major victory (0.02) and hardest after a major defeat (0.04), and defame is
+*hardest* after a major victory (−0.0027) and easiest after a major defeat
+(−0.0015). The result index is the **player's** result, applied to both sides'
+commanders ([19](19-commanders-and-perks.md) §4.1).
+
+> **Corrected.** An earlier version read both arrays backwards — easier fame
+> in a minor victory, harder to avoid defame in a major one — and explained the
+> inversion as scaling "to the number of candidates". There is no inversion to
+> explain.
 
 ### 14.3 Battle difficulty
 

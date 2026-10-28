@@ -829,8 +829,17 @@ discounting the challenger's score by `GetExpEffectOfPromotion`.
 
 ### 4.1 One famous and one defamed man per battle per side
 
-`BattleUnits` scores every commander on the field — a performance term minus
-the fraction of his subordinates that routed — then:
+`BattleUnits.CalculateCommanderFame(resulttype, …)` (~5872) scores every
+commander on the field:
+
+```
+ratio = Σ inflictedcasualtiesperunittype / max(grouplosses, 1)
+        → 1 if it is exactly 0, capped at 5
+score = ratio + (exp − expbeforebattle) − numberofrouts / max(allattachedunits.Length, 1)
+```
+
+— a kill ratio, plus the experience gained in the battle, minus the routed
+share — then:
 
 ```
 score × famefactorleveladjustment[clamp(unittyp,13,16) − 13]
@@ -842,6 +851,17 @@ score × fameadjustmentembeddedreporters[level]                    if unittyp >=
 
 then the **best** scorer becomes famous if `score > fametrigger[resulttype]`,
 and the **worst** becomes defamed if `score < defamedtrigger[resulttype]`.
+
+`resulttype` is `battleResult.victorytypeforplayer` — `GetBattleResultType()`
+read from the **player's** side (0 minor victory, 1 major victory, 2 minor
+defeat, 3 major defeat) — and the one value is used for **both** sides'
+commanders. The worst-score slot starts at 0, so only a **negative** score can
+be defamed, which needs a kill ratio below the routed share. Shipped values
+and the reading are in open question 9.
+
+> **Every commander's fame moves by his score** (`AdjustFame(score, 2)`), not
+> only the two who are named. `woundedinfluencemodifier` ships **1.2** — its
+> label reads *"[>1]"* — so a wound earns 20 % more fame from a good battle.
 
 > **`Alliance.printingworksvalue` boosts commander fame** —
 > `printingworksvalue ^ exp × lin`. Together with
@@ -870,6 +890,29 @@ best-of-battle award only lands once) and clears a *past* defame.
 `ClearDefamedStartup()` pushes any *future*-dated fame or defame out to the
 same sentinel when a scenario loads.
 
+> **The sentinel makes both states once-only.** Nothing ever clears
+> `dateoffame`, and `SetFamous()` refuses whenever `dateoffame.yearfraction > 0`
+> — so famous is permanent, and if a battle's best scorer is already famous,
+> nobody is made famous from that battle. The defame side is worse: both
+> `SetDefamed()` call sites that can fire in ordinary play — the battle pick
+> (`BattleUnits` ~5933) and the over-rank appointment (`GameVars` ~1714) — are
+> gated on `dateofdefame.yearfraction <= 0f`, which the 1880 sentinel fails. So
+> **once a commander's defame has been cleared, by rehabilitation or by
+> becoming famous, he can never be defamed again.** Only the
+> first-major-victory monuments in `ImportExportUnitData` (~3043–3069) call
+> `SetDefamed()` without that guard.
+>
+> **Untested:** the same sentinel is what `ClearDefamedStartup()` writes, and
+> the shipped `commanders.txt` authors a fame date for **87** commanders and a
+> defame date for **76**. Each one it clears is locked out of the matching
+> state for the whole campaign. It runs from `Load(resetexp: true)`, which a
+> new campaign uses (`CampaignController` ~72). Which dates it clears depends
+> on whether `GetCampaignFloatingDateSep()` already returns the scenario date
+> at that point: if so, only historically later fame and defame dates are
+> locked out; if it returns `(0,0,0)`, **every** authored date is. A new 1861
+> campaign that checks whether Sherman (authored famous 2 Sep 1864) can ever be
+> made famous would settle it.
+
 Other `SetFamous()` triggers: fleet perk 8, a naval or raiding action in `IIP`,
 and the scripted battle monuments in `ImportExportUnitData`.
 
@@ -894,6 +937,9 @@ misspelled in the game — "ehabilitation", no `r` — joining
 > practical effect is that **rehabilitation happens almost immediately once
 > `commanderehabilitationmin` has passed, and `commanderehabilitationmax` is
 > nearly inert.**
+
+The roll is gated on `status == 0` (`BattleUnits` ~2270), so a wounded or
+captured commander stays defamed until he returns to duty.
 
 ---
 
@@ -1434,9 +1480,15 @@ superior-influence factor.
    `defamedtrigger = {−0.0018, −0.0027, −0.0016, −0.0015}`, and
    `famefactorleveladjustment = {brigade 0.005, division 0.0065, corps 0.009,
    army 0.013}`. The matching victory thresholds are vp ratio ≥ 0.7 / ≥ 0.8 /
-   ≤ 0.3 / ≤ 0.2. It is therefore *easier* to become famous in a minor victory
-   than a major one, and *harder* to escape defame in a major victory than in a
-   major defeat.
+   ≤ 0.3 / ≤ 0.2. Since the tests are `score > fametrigger` and
+   `score < defamedtrigger` (§4.1), both arrays run the obvious way: fame is
+   **easiest after a major victory** (0.02) and hardest after a major defeat
+   (0.04), and defame is **hardest after a major victory** (−0.0027) and
+   easiest after a major defeat (−0.0015). After the echelon factor, the
+   famous bar is a kill ratio of about 1.5 : 1 for an army commander in a
+   major victory and 4 : 1 for a brigade commander, and a brigade commander
+   cannot clear either defeat bar on kill ratio alone (the cap is 5).
+   **Corrected:** this entry first read both arrays backwards.
 10. **`PerksShownGroup` and `PerksShownFleet` are prefab arrays**, so the
     campaign and fleet perk availability lists could not be read from the
     assembly. They need an asset dump (or a runtime probe) to confirm all 18
