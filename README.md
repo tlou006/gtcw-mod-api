@@ -3,9 +3,11 @@
 Reverse-engineering notes and tooling for a Unity game, for research and
 interoperability purposes.
 
-**Goals:** document the game's mechanics from its code, and ship a C# hook
-library so other modders can extend the game without reversing it themselves.
-See [`plan.md`](plan.md) for the phased approach, and
+**Goals:** document the game's mechanics from its code, ship a C# hook library
+so other modders can extend the game without reversing it themselves, and
+repair the game's own defects in an opt-in mod built on that library.
+See [`plan.md`](plan.md) for the phased approach,
+[`defect-register.md`](defect-register.md) for the defects found so far, and
 [`code-findings/00-build-provenance.md`](code-findings/00-build-provenance.md) for which build
 the findings apply to.
 
@@ -66,6 +68,7 @@ copyrighted by the publisher and are excluded by `.gitignore`.
 | `src/` | yes | The BepInEx hook library — see [`src/README.md`](src/README.md) |
 | `samples/` | yes | Sample mods, written against the public API only |
 | `scripts/` | yes | Parsers and analysis tooling written here |
+| `defect-register.md` | yes | Every defect and manual deviation found, one stable id per row |
 | `game/` | **no** (README only) | A copy of the game install — see `game/README.md` |
 | `decompiled/`, `extracted/` | no | Decompiler and asset-extractor output |
 | `tools/` | no (README only) | Third-party tools, downloaded locally |
@@ -83,6 +86,7 @@ decompile-gtcw/
 ├── src/                # the hook library (GTCW.ModApi + Runtime/Schemas/Plugin)
 ├── samples/            # sample mods, public API only
 ├── scripts/            # analysis / parsing tooling
+├── defect-register.md  # defects found, by stable id
 ├── tools/              # (ignored) IL2CPP dumpers, AssetRipper, dnSpy, ILSpy, ...
 ├── game/               # (ignored) local copy of the game
 └── decompiled/         # (ignored) generated output

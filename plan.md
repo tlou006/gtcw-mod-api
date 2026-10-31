@@ -7,10 +7,16 @@
 2. **Ship a hook library** — a C# DLL that lets other modders subscribe to
    game events and change behavior, without each of them having to reverse
    the game themselves.
+3. **Ship a bug-fixing mod** — repair the defects Goal 1 turns up, as a
+   separate opt-in mod built on Goal 2. Tracked in
+   [`defect-register.md`](defect-register.md); designed in
+   [Phase 4b](#phase-4b--the-defect-register-and-the-bug-fixing-mod).
 
-The two goals feed each other: Goal 1 produces the map, Goal 2 turns the map
-into a stable surface other people can build on. Goal 1 output lives in
-`code-findings/`; Goal 2 output lives in `src/`.
+The first two goals feed each other: Goal 1 produces the map, Goal 2 turns the
+map into a stable surface other people can build on. Goal 3 is where they meet
+— it is the first real client of the library, and the defects it cannot reach
+are the library's own backlog. Goal 1 output lives in `code-findings/` and
+`mechanics-findings/`; Goal 2 output lives in `src/`.
 
 ---
 
@@ -2788,6 +2794,146 @@ anything appended to a game save file is fatal.
 
 ---
 
+## Phase 4b — The defect register and the bug-fixing mod
+
+Goal 1 has produced, as a by-product, a large catalogue of things the game gets
+wrong: arithmetic that contradicts its own intent, shipped data that
+contradicts its own config comment, and behaviour that contradicts the manual.
+It is currently scattered across three places — the "Defects worth fixing" and
+"Traps" sections of the `code-findings` summaries,
+[`ui-vs-simulation`](mechanics-findings/ui-vs-simulation.md), and all six parts
+of [`manual-vs-code`](mechanics-findings/manual-vs-code.md).
+
+Two things follow. The catalogue needs a **register**, because a defect
+mentioned in a paragraph is not something anyone can work through. And the
+register needs a **place to be fixed**, which is a separate mod — not this
+library.
+
+### The library does not fix the game
+
+**`GTCW.ModApi` never changes game behaviour on its own.** The fixes go in
+`GTCW.BugFixes`, a separate plugin, separately versioned, separately installed,
+with every fix individually toggleable. Three reasons, and the first is the one
+that matters:
+
+- **A mod that compensated for the bug breaks.** If the library silently
+  repairs the Confiscation Act's inverted supply sign, every mod built on it
+  inherits an invisible behaviour change, and the mod that worked around the
+  bug now double-corrects. A hook library's one job is to be a predictable
+  surface.
+- **Saves acquire a trajectory that depends on the library version**, and the
+  resulting bug reports all point at the API.
+- **"Bug" is a judgement in several of these cases.** The library must stay
+  neutral on judgements; a mod is free to be opinionated, because the player
+  chose to install it.
+
+The split is also what lets the fix mod ship on its own schedule. It is a
+consumer of the public API like any other mod, and it carries its own
+signature-manifest entries for the methods it patches.
+
+### The register
+
+A single tracked file, `defect-register.md`, at the repo root alongside
+`plan.md` — it indexes both findings folders, so it belongs to neither.
+
+- [x] Create the register with its schema, classes and status ladder, seeded
+      from what the summaries already state precisely.
+- [ ] **Stable ids, `GTCW-NNN`, never reused.** Config toggles and release
+      notes cite them, so a renumbering is a breaking change.
+- [ ] **A row is a pointer, not an account.** The prose stays in the findings
+      file that established it; the row carries the claim in one line, the
+      citation, the class, the fix mechanism and the status. No row without a
+      citation — that is what keeps the register from drifting into folklore,
+      exactly as the `mechanics-findings` convention does.
+- [ ] **Every row records a repro and a confirm**: how to see the defect in
+      game, and how to see the fix working. A fix with no in-game observation
+      is a hypothesis.
+
+### Seven classes, and four of them are not bugs
+
+Classifying is not bookkeeping. It is how the fix mod stays a fix mod:
+
+| Class | What it means | Fixable here? |
+| --- | --- | --- |
+| **C** Code defect | The code contradicts its own evident intent — a sign, a dead clamp, an assignment where accumulation was meant, `== float.NaN` | **Yes** |
+| **D** Data defect | A shipped value contradicts its own config comment, or a field is authored in a form the reader rejects | **Yes**, as a config override |
+| **M** Manual deviation, code wrong | Manual, config comment and appendix agree on the intent; the code does something else | **Yes** |
+| **S** Manual stale | The code *is* the design; the manual documents cut or changed content | **No** — fix the manual |
+| **U** Display defect | The simulation is right and the readout lies | **Blocked** on UI injection |
+| **B** Deliberate asymmetry | AI handicaps, difficulty discounts, intervention shortcuts | **No** — a separate balance mod |
+| **X** Unfinished, not broken | Dead prefs, the removed Transportation subsidy, unreachable projects | **No** — a separate restoration mod |
+
+> **The moment the bug-fix mod changes balance it stops being a bug-fix mod**,
+> and nobody installs a mod they cannot predict. Classes S, B and X are how
+> that line is held. Class U is the awkward one: it is the largest group by
+> count and the least reachable, so expect the register to carry deferred rows
+> for a long time — and do not let that pressure a U row into being patched in
+> the simulation instead. Moving the number to match the label is the wrong
+> direction.
+
+### Four fix mechanisms, ranked by honesty
+
+1. **Config override** (class D). A field-level delta against whatever the
+   player already has — the fix mod cannot ship a `.dat`, per the
+   [distribution boundary](#distribution-boundary). This makes the fix mod the
+   **first real client of the layered override system**, which is a far better
+   test of that design than a synthetic sample.
+2. **Harmony patch on the defective method** (classes C and M). Needs the game
+   assemblies, which is the second reason these live in the mod rather than the
+   library: `GTCW.ModApi` stays free of `Assembly-CSharp` entirely.
+3. **Repair-on-load**, for state a running save has already corrupted — the
+   `occupiedby` latch is the clear case, since patching the setter does nothing
+   about a flag already set. A different thing from a patch: it must be
+   idempotent, it must be able to decline, and it must say what it changed.
+4. **A compensating contribution** through the public modifier model. This
+   *masks* rather than fixes, and it is last for that reason. Legitimate only
+   where the chokepoint genuinely is the right place for the correction.
+
+### The fix mod is the API's first real client
+
+This is the part worth sequencing deliberately. Every defect that **cannot** be
+fixed through the API names a concrete gap in it, and that is a better backlog
+than guessing what modders will want:
+
+- [ ] When a fix is blocked, record the missing capability on the register row
+      rather than working around it. The blocked set becomes the Phase 4
+      priority order.
+- [ ] Expect the class U rows to produce the UI-injection requirement, and the
+      class D rows to produce the override requirement — already the plan's
+      "feature worth building".
+
+### Toggles, defaults and release discipline
+
+- [ ] One config entry per register id, so the shipped config is auditable
+      against the register line by line.
+- [ ] **Default on only for class C where the intent is unambiguous.**
+      Everything else ships off, including every M row — the manual is strong
+      evidence of intent, not proof of it.
+- [ ] Group the toggles so a player can take "arithmetic only" without opting
+      into anything that moves a number they may have learned to play around.
+- [ ] Release notes cite ids, and every id states whether the fix is
+      save-compatible in both directions.
+
+### Build out, in order
+
+- [ ] Sweep the `code-findings` summaries' "Defects worth fixing" and "Traps"
+      sections into the register. Mostly class C; the fastest pass.
+- [ ] Sweep `manual-vs-code` parts I–VI, **classifying M against S per item.**
+      This is the pass that needs judgement and cannot be delegated to a
+      keyword search: the same paragraph shape covers "the code has the sign
+      inverted" and "the manual documents a feature that was cut".
+- [ ] Sweep `ui-vs-simulation` into class U, and
+      [29-dead-prefs-audit](code-findings/29-dead-prefs-audit.md) into class X.
+- [ ] Scaffold `src/GTCW.BugFixes/` — `UsesGameAssemblies`, hard dependency on
+      `gtcw.modapi`, one file per fix, named for its register id.
+- [ ] Start with the five highest-confidence class C/M items already seeded:
+      the 1864 election's double charge (which turns a −20 setback into an
+      instant loss), the support-breakdown NaN, the Confiscation Act's inverted
+      sign, naval rate of fire's `Mathf.Max`, and the raid ledger's sign.
+- [ ] Confirm each one in game before it counts as fixed, using the harness.
+
+---
+
 ## Phase 5 — Release
 
 - [ ] XML doc comments on every public member; generate API reference.
@@ -2832,6 +2978,8 @@ day analysis started. Mitigations, in order of value:
 | Mutation events let mods corrupt saves | Medium | Notification-first; mutation events documented as unsafe; test save round-trips |
 | Mod conflicts on the same hook | Medium | Priority ordering + conflict reporting |
 | Public API ossifies too early | Medium | Mark unstable areas `[Experimental]` until Phase 2 covers them |
+| Bug-fix mod drifts into a balance mod | Medium | Classes S/B/X on the register exclude by construction; every fix toggleable, cited and default-off unless unambiguous |
+| A "fix" is actually the design | Medium | No register row without a citation; M rows ship off by default, because the manual is evidence of intent, not proof |
 | Decompiled code leaks into the repo | Low but serious | `.gitignore` covers it; notes describe findings rather than pasting source |
 | Game assembly swept into a release artifact | Low but serious | `Private="false"` on all game references; release-packaging filename check |
 
