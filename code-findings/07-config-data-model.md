@@ -129,13 +129,17 @@ edited**: `Unit types`, `Unit perks`, `Ammunition`, `Weather`,
 Four files — `regiments.dat`, `groups.dat`, `battledata.dat`, `nations.dat` —
 are **not** global config. They belong to a scenario or battle folder, and
 `debug.txt` names exactly this quartet for its "Debug Army Setup" mode
-(`Config/ArmySetup/`). `debug.txt` also notes that a scenario folder may carry
+(`Config/ArmySetup/`; the code actually reads `Battlefields/DebugArmySetup/`,
+see [32](32-debug-army-setup.md)). `debug.txt` also notes that a scenario folder may carry
 its own `battleprefs`/`unitprefs` subfiles, which then **override** the global
 ones in `Config/`.
 
 The guide confirms and sharpens this: any `Config/` preference file may be
 copied into a scenario folder, and the scenario copy "is then loaded instead
-of" the global one.
+of" the global one. The code is narrower than "any": four files take a
+scenario copy (`unitprefs.txt`, `battleprefs.txt`, `campaignprefs.txt`,
+`dlcwl_config.dat`), and `battleprefs.txt` only in standalone battles
+([05](05-config-paths-and-overrides.md)).
 
 **Correction to an earlier assumption — since verified in code**
 ([05-config-paths-and-overrides](05-config-paths-and-overrides.md)). *Instead of* means
@@ -169,11 +173,16 @@ Neither is an absolute physical quantity in the simulation: the same weapon
 behaves differently on a 4-mile map than an 8-mile one, and differently for a
 regiment than a brigade. Any mod that changes map size or unit echelon must
 retune both files, and any note about weapon numbers is meaningless without
-stating which scale it assumed. Worth confirming in the parser early.
+stating which scale it assumed. Confirmed in code: Wilson's Creek is
+`Battlefields/014/A`, which ships both files, and both load for a standalone
+battle there. A campaign battle on the same map uses neither: it takes
+`battleprefs.txt` from `Config/` and `unitprefs.txt` from the campaign folder
+([05](05-config-paths-and-overrides.md)).
 
 ### Which prefs are actually wired: a full sweep of `GamePrefs`
 
-`GamePrefs` declares **1,972 static fields**, nearly all of them loaded from
+`GamePrefs` declares **2,215 static fields** (an earlier version said 1,972;
+see [29](29-dead-prefs-audit.md) §1), nearly all of them loaded from
 `Config/battleprefs.txt`, `Config/unitprefs.txt` or `Config/campaignprefs.txt`
 by position. Because the files are label/value pairs and the loader reads them
 in a fixed order, any field whose name a modder can read in a config label is
@@ -208,11 +217,11 @@ Confirmed by hand so far, all with their shipped values:
 | `cohesioninfantryfire` | Cohesion increase by enemy infantry fire | 0.001 |
 | `cohesionartilleryfire` | Cohesion increase by enemy artillery fire | 0.01 |
 | `cohesioncavalryshock` | Cohesion increase by enemy cavalry shock | 0.15 |
-| `weaponaccuracydistlin`, `weaponaccuracydistexp` | linear and exponential accuracy-over-distance terms | — |
+| `weaponaccuracydistlin`, `weaponaccuracydistexp` | linear and exponential accuracy-over-distance terms | 10 / 0.8 |
 | `probabilitycommanderdeadfirefight` | Probability of commander dead if hit on group was detected | 0.005 |
 | `probabilitycommanderwoundedfirefight` | Probability of commander wounded if hit on group was detected | 0.02 |
 | `nomicroaichargeifunitisoutflanked` | No micro ai charge if unit is outflanked or receiving flanking fire (true/false) | true |
-| `perk_sharpshooters_rangefrom` | sharpshooter perk range band | — |
+| `perk_sharpshooters_rangefrom` | sharpshooter perk range band | 0.75 |
 
 Each of those was verified individually: the field's complete reference set in
 the assembly is its declaration plus its loader line, nothing else. The first
@@ -243,8 +252,10 @@ that generalize:
 range in yards *and* metres, calibre in inches *and* mm, weight in lb *and*
 kg, muzzle velocity in ft/s *and* m/s. Almost certainly one member of each
 pair is a convenience formula for the author and only one is serialized.
-*Open question:* which unit reaches `weapons.txt`. Resolve by reading the
-parser, since guessing wrong scales every ballistic value incorrectly.
+~~*Open question:* which unit reaches `weapons.txt`.~~ **Resolved** in
+[11](11-combat-resolution.md) §2: both do. `weapons.txt` carries each pair as
+two parsed fields, and different code paths read different members of a
+pair.
 
 **Derived/ID-like numerics in header rows.** Several header cells hold bare
 numbers (e.g. in `Weapons`, `Policies`, `BuildingTypes`) where labels would be
@@ -381,7 +392,8 @@ The workbook leaks real implementation detail:
 
 ## Open questions
 
-- Which unit of each dual-unit pair is serialized?
+- ~~Which unit of each dual-unit pair is serialized?~~ Both — see
+  [11](11-combat-resolution.md) §2.
 - Are the bare numerics in header rows localization IDs?
 - Does the VBA actually write all these files, or do some sheets only feed
   others? `xl/vbaProject.bin` (218 KB, single `Module1`) holds the export
@@ -397,8 +409,12 @@ The workbook leaks real implementation detail:
 - Are the stated ceilings (uniform colors, menu map images) genuinely
   unreachable, or only unsupported through data files? Runtime patching may
   reach what the ModdingTool cannot.
-- Where is the v1.08 external-PNG import implemented? Best-known example of
-  the game loading arbitrary external files.
+- ~~Where is the v1.08 external-PNG import implemented?~~ `Tools.LoadTexture`
+  and `Tools.LoadSprite` (`Tools.cs` ~4015–4040, `File.ReadAllBytes` then a
+  texture load). Battle flags reach them from `Flag.cs:219` (ids ≥ 1000) and
+  `PerkFlag.cs:85`, which also lists `Modding/BattleFlags/<alliance>/*.png`;
+  scenario images from `MainMenu.cs:813` through an Inspector-set
+  `ModdingFolder`; portraits from `Avatar/` (`GameVars.cs:836`).
 - What sits above battle AI and campaign AI, given the `Macro AI` sheet?
 - `historicalevents.dat`, `campaignobjectives.dat`, the tutorials and the
   FieldBook files postdate guide v1.08 and are undocumented — these need the

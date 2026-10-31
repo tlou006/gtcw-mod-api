@@ -23,11 +23,20 @@ injected or only existing ones intercepted.
 
 | System | Method | Shape |
 | --- | --- | --- |
-| Policies, one-shot | `Policies.LaunchPolicyEffect(Policy policy, int alliance, float timediff = 0f, bool startupset = false)` | ~1,200-line `switch` on `policy.UniquePolicyID`, **117 `case` labels** |
-| Policies, teardown | `Policies.DeactivatePolicyEffect(Policy policy, int alliance)` | mirror of the above |
-| Policies, recurring | `Policies.UpdatePolicyEffects(int alliance, float timediff = 0f, bool startsetup = false)` | per-tick application |
+| Policies, per effect | `Policies.LaunchPolicyEffect(Policy policy, int alliance, float timediff = 0f, bool startupset = false)` | ~1,200-line `switch` on `policy.UniquePolicyID`, **117 `case` labels** |
+| Policies, the update | `Policies.UpdatePolicyEffects(int alliance, float timediff = 0f, bool startsetup = false)` | resets thirteen policy-owned accumulators, then calls `LaunchPolicyEffect` for **every** researched policy and act |
+| Policies, teardown | `Policies.DeactivatePolicyEffect(Policy policy, int alliance)` | **one** `case` (131); not a mirror |
 | Projects, one-shot | `Projects.UpdateOneTimeProjectsEffects(int projectid, int alliance)` | `switch (projectid)`, **12 arms** |
 | Projects, recurring | `Projects.UpdateProjectEffects()` | `switch` on project id **inside** an alliance loop |
+
+So `LaunchPolicyEffect` is not one-shot: it is replayed for every held policy
+on each `UpdatePolicyEffects` pass (once per 12 game hours per alliance), and
+the arms that must fire once guard themselves with
+`alreadyactivatedacts.Contains(policy)`. The only other callers are two
+chapter changes in `Policy.CheckForChapterUpdate` (`Policy.cs:484`, `:512`).
+[22](22-policy-and-project-catalogue.md) §6 has the full contract. An earlier
+version of this table called `LaunchPolicyEffect` one-shot and
+`DeactivatePolicyEffect` its mirror.
 
 Each `LaunchPolicyEffect` arm hardcodes its policy's effect: adjusting subsidy
 factors, unlocking content, shifting national support, setting trade-node
@@ -48,7 +57,8 @@ policy in `GameVars.alliance[alliance].alreadyactivatedacts` and log it.
 ### Why this is the key structural fact
 
 A **Harmony postfix** on `LaunchPolicyEffect` receives
-`(policy, alliance, timediff, startupset)` and runs *after* the game's switch.
+`(policy, alliance, timediff, startupset)` and runs *after* the game's switch,
+on every replay, so a one-time effect must test `alreadyactivatedacts` itself.
 Effects registered against unused ids therefore **compose** with the game's own
 dispatch instead of fighting it:
 
@@ -92,8 +102,8 @@ All static, all hookable:
 
 | Member | Purpose |
 | --- | --- |
-| `DeactivatePolicyEffect(Policy, int alliance)` | The teardown mirror. **A registered effect needs a path here too**, or it will persist after the policy is removed. |
-| `UpdatePolicyEffects(int alliance, float timediff, bool startsetup)` | Recurring per-tick application, distinct from the one-shot launch. Registration needs both. |
+| `DeactivatePolicyEffect(Policy, int alliance)` | Called by `UpdatePolicyEffects` for each act no longer held. Handles only policy 131. Accumulator effects vanish through the per-update reset; **anything else a registered effect changes persists** unless the mod undoes it here. |
+| `UpdatePolicyEffects(int alliance, float timediff, bool startsetup)` | The reset-and-replay pass above. Called from `BattleUnits.cs:3804` (round-robin alliance data), `CampaignController.cs:265` (frame 8, `startsetup: true`) and `CampaignMainPanel.cs:3593`. |
 | `CanBeActivated(int alliance, Policy policy)` | Gating — the hook point for custom prerequisites. |
 | `UpdateAllTooltips(int activatedpolicies = -1)` | Appends research-speed text to each policy's tooltip. **Not** an id → effect map — the description lives in the prefab's `Tooltip` field and the mechanics only in `LaunchPolicyEffect`. Corrected in [22](22-policy-and-project-catalogue.md) §3.1. |
 | `AddResearch` / `RemoveResearch` / `UpdatePolicyResearch` / `UpdateCounter` | Research progress plumbing. |
@@ -189,10 +199,11 @@ itself. See [22](22-policy-and-project-catalogue.md) §3.1 and §12.3.
    every effect writes to, and therefore the ModApi's core data surface.
    `AdjustSubsidyFactor(int type, float value)` and
    `AdjustSupport(int alliance, float value, int reason)` are the two mutators
-   seen so far; the third argument of `AdjustSupport` looks like a reason code
-   worth enumerating.
-5. **Does the AI need teaching?** `CheckAIPolicyChange` decides AI policy
-   selection; a mod-added policy is presumably invisible to it.
-6. **Grand strategies** (`grandpolicies`, `markedasgrandpolicy`,
-   `UpdateGrandStrategies`) are a distinct tier of policy that is not yet
-   understood.
+   seen so far. The reason codes are now enumerated in
+   [17](17-politics-and-support.md) and [16](16-enumerations.md).
+5. ~~**Does the AI need teaching?**~~ **Answered** in
+   [22](22-policy-and-project-catalogue.md) §13.2: `CheckAIPolicyChange` picks
+   from the personality's lists, so a mod-added policy is invisible to the AI
+   until a personality names it.
+6. ~~**Grand strategies.**~~ **Answered** in
+   [22](22-policy-and-project-catalogue.md) §13.1.

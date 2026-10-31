@@ -23,9 +23,9 @@ tolerance** rather than by stable id.
 
 | | Finding | Consequence |
 | --- | --- | --- |
-| 1 | **Paths are relative literals** (`Config/resources.dat`, `Config/unitprefs.txt`, …), resolved against the install root. Only two sites touch `Application.dataPath`, none in config loading. | Interception needs no Unity-specific machinery. `Config/` is **not** read-only — `Filter` writes `Config/Filters.dat`. |
-| 2 | **Override = whole-file replacement.** The idiom is: build the scenario path; if absent, reassign to `Config/`. One path wins entirely. | **Additive field-level overrides are new capability.** Two mods cannot both change one field of `unitprefs.txt` today. |
-| 3 | **The format is fully decoded**, including an exact 18-line schema for `projects.dat` verified against the shipped file. Three `Tools` helpers encode every list field. | Typed models can be generated from the parsers. Where the ModdingTool workbook and the parser disagree, **the parser wins**. |
+| 1 | **Paths are relative literals** (`Config/resources.dat`, `Config/unitprefs.txt`, …), resolved against the install root. Nothing reads `Application.dataPath`; the only absolute paths are three `streamingAssetsPath` asset-bundle loads, none in config loading. | Interception needs no Unity-specific machinery. `Config/` is **not** read-only — `Filter` writes `Config/Filters.dat`. |
+| 2 | **Override = whole-file replacement.** The idiom is: build the scenario path; if absent, reassign to `Config/`. One path wins entirely. Four files take it: `unitprefs.txt`, `battleprefs.txt` (standalone battles only), `campaignprefs.txt` and `dlcwl_config.dat`. | **Additive field-level overrides are new capability.** Two mods cannot both change one field of `unitprefs.txt` today. |
+| 3 | **The format is fully decoded**, including an exact 18-line schema for `projects.dat` verified against the shipped file. Three `Tools` helpers encode most list fields; some parsers loop inline with `int.Parse`. | Typed models can be generated from the parsers. Where the ModdingTool workbook and the parser disagree, **the parser wins**. |
 | 4 | **Saves reconcile by position**, with helpers like `GetGameObjectFromPosition(..., float accuracy = 0.5f)`. | Anything the ModApi persists must carry **its own identifier**. Side-car files are the right default; appending to game files is fatal. |
 
 ## The format, compactly
@@ -59,7 +59,8 @@ Two important exceptions to the hard-fail rule:
 - **`Tools.Date` clamps and zeroes** rather than throwing, so a malformed date
   degrades to "no date".
 
-Entries that do not fill `partlen` exactly are also silently dropped.
+An entry that does not fill `partlen` shifts every entry after it, so in an
+int list the rest of the list fails `TryParse` and disappears.
 
 ## For the ModApi
 

@@ -232,8 +232,11 @@ campaign starts**.
 | 79 | Union Pacific Railroad | 179 | Southern Pacific |
 
 `GamePrefs.chooseablegrandpolicies = 3`. `Policies.UpdateGrandStrategies`
-(~216) runs only in the main menu (`currentoperation == 0`): the player's three
-come from the menu; **the AI's three are the first three entries of its
+(~216) has one caller, campaign frame 30 (`CampaignController.cs:402`), and
+returns unless `currentoperation == 0`, so it runs once, on the first load of
+a new campaign; a loaded save (6 or 5) skips it, and its
+`overwritescenecheck` argument is never read. An earlier version said it runs
+in the main menu. The player's three come from the menu; **the AI's three are the first three entries of its
 personality's `prewarpolicies` list** (§13.1). Both sets are then
 `ResearchPolicy`'d to completion and the staging lists cleared.
 

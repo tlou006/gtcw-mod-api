@@ -1,8 +1,8 @@
 # 05 — Config paths and the override mechanism
 
 **Build:** see [00-build-provenance](00-build-provenance.md)
-**Source:** `Assembly-CSharp.dll` — `GamePrefs`, and the ~121 `StreamReader`
-sites across 39 types
+**Source:** `Assembly-CSharp.dll` — `GamePrefs`, and the 121 `new StreamReader`
+sites across 40 types
 **Summary:** [summary-data-layer](summary-data-layer.md)
 
 This confirms from code what [07-config-data-model](07-config-data-model.md)
@@ -31,11 +31,14 @@ Confirmed literals:
 | `Config/unitprefs.txt`, `Config/battleprefs.txt`, `Config/campaignprefs.txt` | `GamePrefs` |
 | `Config/debug.txt` | `GamePrefs` |
 | `Config/questionnaire.dat`, `Config/tooltips_dlcwl.txt`, `Config/dlcwl_config.dat` | `DLC_WL` (existence-checked) |
-| `Config/` (commanders) | `GameVars.import_commanders("Config/")`, called from `BattleController` |
+| `Config/` (commanders) | `GameVars.import_commanders("Config/")`, called from `BattleController` and `MainMenu` |
 | `Config/<DataFile>` | `GameGuide`, filename from a field |
 
-Only two sites touch `Application.dataPath` at all (`BattlefieldSetup`,
-`VideoScreen`), and none of the config loading does.
+Nothing reads `Application.dataPath`. The only absolute paths are three
+`Application.streamingAssetsPath` asset-bundle loads (`BattlefieldSetup` for
+the campaign and battle maps, `VideoScreen` for videos), and none of the
+config loading uses them. An earlier version said two sites used
+`Application.dataPath`.
 
 > **This is good news for modding.** The data layer is plain `System.IO`
 > against relative paths. It is interceptable with ordinary Harmony hooks on
@@ -65,6 +68,25 @@ Confirmed instances:
 | `GamePrefs.loadcampaigncontrols(string folder)` | `{folder}/campaignprefs.txt` | `Config/campaignprefs.txt` |
 | `GamePrefs.loadunitprefs(string folder = "")` | `{folder}/unitprefs.txt` | `Config/unitprefs.txt` |
 | `GamePrefs.loadcontrols()` | `Battlefields/{leveltoload}/{subleveltoload}/battleprefs.txt` | `Config/battleprefs.txt` |
+| `GamePrefs.LoadDLCWLConfig(string folder = "")` | `{folder}/dlcwl_config.dat` | `Config/dlcwl_config.dat` |
+
+An earlier version listed only the first three. The `folder` comes from the
+caller:
+
+| Caller | `folder` passed to `loadunitprefs` / `LoadDLCWLConfig` (and `loadcampaigncontrols`) |
+| --- | --- |
+| `MainMenu` (`MainMenu.cs:306–312`) | none, so `Config/`; when a scenario is selected, `LoadDLCWLConfig` alone gets that scenario's folder (`:773`) |
+| `CampaignController.Awake` (`:63–66`) | `Campaigns/{leveltoload}/{subleveltoload}` |
+| `BattleController` (`:61–71`), standalone battle | `Battlefields/{leveltoload}/{subleveltoload}`, or `Battlefields/DebugArmySetup` with `debug_loaddebugarmysetup` |
+| `BattleController`, campaign battle (`currentoperation` 3 or 8) | `Campaigns/{currentcampaignscenario}` |
+
+So `unitprefs.txt` and `dlcwl_config.dat` follow the battle into the
+campaign folder in a campaign battle, while `battleprefs.txt` (below) drops
+to `Config/`. No campaign folder ships any of the four files. Seven
+battlefields ship `unitprefs.txt` (000/C, 009/A, 014/A, 020/A, 021/A, 022/A,
+027/A; see [34](34-perks.md) §1.1) and five ship `battleprefs.txt` (009/A,
+014/A, 021/A, 022/A, 027/A), not counting `Backup/` and `prefs/` copies the
+loaders never open.
 
 ```
 Config/<file>   ◄── replaced wholesale by ──   <scenario>/<file>
@@ -105,11 +127,10 @@ rule: *the effective value, whatever its source.*
 
 ## Open questions
 
-- The scenario-folder path conventions are only partly pinned down here
-  (`Battlefields/{level}/{sublevel}/` for battles; the campaign `folder`
-  argument's origin is not traced).
-- `GamePrefs` has 9 reader sites and more pref files than the three with a
-  confirmed fallback. Whether *every* pref file supports scenario override, or
-  only those three, is unverified — it matters for documenting what modders can
-  override.
+- ~~The campaign `folder` argument's origin.~~ **Resolved** — see the caller
+  table above.
+- ~~Whether every `GamePrefs` file supports scenario override.~~ **Resolved:**
+  of its nine reader sites, four take an override (the table above) and five
+  are fixed `Config/` literals: `debug.txt`, `ui.txt`, `ui_battle.txt`,
+  `avatar.dat` and `armygroupcols.dat`.
 - Whether any loader writes back to `Config/` beyond `Filter`.

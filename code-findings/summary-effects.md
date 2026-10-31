@@ -21,9 +21,9 @@ prefab is now the gating question.
 
 | System | Method | Shape |
 | --- | --- | --- |
-| Policies, one-shot | `Policies.LaunchPolicyEffect(Policy, int alliance, float timediff, bool startupset)` | `switch` on `UniquePolicyID`, **117 arms, ~1,200 lines** |
-| Policies, teardown | `Policies.DeactivatePolicyEffect(Policy, int alliance)` | mirror |
-| Policies, recurring | `Policies.UpdatePolicyEffects(int alliance, float timediff, bool startsetup)` | per-tick |
+| Policies, per effect | `Policies.LaunchPolicyEffect(Policy, int alliance, float timediff, bool startupset)` | `switch` on `UniquePolicyID`, **117 arms, ~1,200 lines**; replayed for every held policy on each update |
+| Policies, the update | `Policies.UpdatePolicyEffects(int alliance, float timediff, bool startsetup)` | resets 13 accumulators, then replays `LaunchPolicyEffect`; once per 12 game hours per alliance |
+| Policies, teardown | `Policies.DeactivatePolicyEffect(Policy, int alliance)` | one case (131), not a mirror |
 | Projects, one-shot | `Projects.UpdateOneTimeProjectsEffects(int projectid, int alliance)` | `switch`, 12 arms |
 | Projects, recurring | `Projects.UpdateProjectEffects()` | `switch` inside an alliance loop |
 
@@ -53,9 +53,14 @@ worth building.
    code that then indexes `GameVars.alliance[alliance]`. A registered effect
    must cover both blocks or key off `alliance`. `requiredpolicyids` is 3 chars
    wide, so there is numeric room above 199 for mod ids.
-2. **Teardown and recurrence are separate methods.** Registration needs
-   `DeactivatePolicyEffect` (or the effect persists after removal) and
-   `UpdatePolicyEffects` (for continuous effects), not just the launch path.
+2. **Effects are reset and replayed, not launched once.** `UpdatePolicyEffects`
+   zeroes thirteen policy-owned accumulators and replays `LaunchPolicyEffect`
+   for every held policy, so a postfix runs on every update: guard one-time
+   work with `alreadyactivatedacts`, and scale rates by `timediff`. Anything
+   outside those accumulators persists after removal unless the mod undoes it
+   in `DeactivatePolicyEffect`, which the game itself uses for only one
+   policy ([22](22-policy-and-project-catalogue.md) §6). An earlier version
+   described `DeactivatePolicyEffect` as a mirror of the launch.
 3. **`Policy` is prefab-authored.** It carries `TextMeshProUGUI` / `Image`
    references alongside its data, with static registries built by
    `Policy.InitializeStatics`. Policies are **not** purely data-driven.

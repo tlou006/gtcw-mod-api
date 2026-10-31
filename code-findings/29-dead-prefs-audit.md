@@ -50,9 +50,11 @@ Four steps, the last two by hand:
 | **Declared, never loaded, never read** | **4** | Orphan fields |
 
 For the mirror case — *read but never loaded*, where a formula consumes a field
-that holds `0f` forever — [07](07-config-data-model.md) found five, of which
-`fatigueinfluenceonreloading` is the only one with gameplay consequence. That
-result stands; this audit did not change it.
+that holds `0f` forever — [07](07-config-data-model.md) found five fields with
+no assignment at all. Two are read: `fatigueinfluenceonreloading`, the only
+one with gameplay consequence, and `patternsizedeploymentzone`. The other
+three are the first three orphans below. That result stands; this audit did
+not change it.
 
 ### 1.1 The four orphans
 

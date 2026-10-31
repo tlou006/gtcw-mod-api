@@ -38,7 +38,8 @@ BOM) will break the first line it touches.
 
 ## List-valued fields: fixed-width, semicolon-separated
 
-Three `Tools` helpers encode the entire convention:
+Three `Tools` helpers encode most of the convention (some parsers loop over
+the string inline instead; see `projects.dat` below):
 
 ```csharp
 public static List<string> GetStringPartitions(string strvar, int partlen = 3, bool usecomma = true)
@@ -51,14 +52,21 @@ public static string       TransformToLineBreaks(string textbeforebreaks)
   shipped files is **`;`**. So the default `partlen = 3` produces `001;002;`.
 - `usecomma` is a misnomer: the helpers only *skip one character*, they never
   check which. Any single-character separator parses identically.
-- Entries are **zero-padded to the full width**. An entry that does not fill
-  `partlen` exactly is **silently dropped**, not an error.
+- Entries are **zero-padded to the full width**, and the helpers step by
+  `partlen + 1` without looking at the separator, so **a short entry shifts
+  every entry after it.** With `partlen = 3`, `001;02;003;` reads as `001`,
+  `02;`, `03;`: `GetStringPartitions` returns those garbled strings, and
+  `GetIntPartitions` keeps only `1`, because the shifted entries fail
+  `int.TryParse`. A short *last* entry with no trailing separator is kept
+  (the width shrinks to fit the tail). An earlier version said a short entry
+  was simply dropped.
 - `TransformToLineBreaks` decodes `\n` and `\t` escapes inside a single-line
   string field. That is how multi-line prose survives a line-oriented format.
 - An empty line is a legitimate empty list.
 
 > **`GetIntPartitions` uses `int.TryParse` and silently skips anything
-> unparseable.** This is the one place the data layer does *not* hard-fail,
+> unparseable.** This is one of the few places the data layer does *not*
+> hard-fail (the `Tools.Date` constructor below is another),
 > which makes a typo'd id in a list field **invisible** rather than loud. Worth
 > remembering when debugging a mod that "does nothing" — and worth our
 > validator reporting rather than copying.
@@ -73,8 +81,8 @@ two image paths each consume two lines.
 | --- | --- | --- | --- |
 | 1 | `projectid` | int | `0` |
 | 2 | `projectname` | string | `Austrian Rifles` |
-| 3 | `alliances` | width 1 + `;` | `0;1;` |
-| 4 | `requiredpolicyids` | width 3 + `;` | *(empty)* |
+| 3 | `alliances` | width 1 + `;`, inline `int.Parse` loop | `0;1;` |
+| 4 | `requiredpolicyids` | width 3 + `;`, inline `int.Parse` loop | *(empty)* |
 | 5 | `subsidytype` | int | `5` |
 | 6 | `subsidycostfirstlevel` | float | `2500000` |
 | 7 | `repeating` | `bool.Parse` | `false` |
@@ -83,13 +91,19 @@ two image paths each consume two lines.
 | 11–12 | `imagepath_small` | **two** lines, joined with `/` | `UI/ProjectImages` + `0_s` |
 | 13 | `prosadescr` | string, escapes decoded | *(flavour text)* |
 | 14 | `effectsdescr` | string, escapes decoded | *(effect summary)* |
-| 15 | `datefrom[0]` | `dd-mm-yyyy`, offsets (0,2)(3,2)(6,4) | `01-01-1862` |
+| 15 | `datefrom[0]` | `dd-mm-yyyy`, offsets (0,2)(3,2)(6,4); **skipped if < 10 chars** | `01-01-1862` |
 | 16 | `datefrom[1]` | same; **skipped if < 10 chars** | *(empty)* |
 | 17 | `applicablescenarios` | width 3 + `;` | `001;002;` |
 | 18 | `requireddlcids` | width 2 + `;` | *(empty)* |
 
 Verified line-by-line against the shipped `Config/projects.dat` (125 records).
 The split image path is an easy off-by-two when hand-editing.
+
+Lines 3 and 4 do not use the `Tools` helpers: `Import` takes
+`floor(length / 2)` and `floor(length / 4)` entries and `int.Parse`s each,
+so a typo there throws instead of being skipped. Lines 17 and 18 use
+`GetStringPartitions` and `GetIntPartitions(text, 2)`. An earlier version
+marked only `datefrom[1]` as skipped when short; both date lines are.
 
 `subsidytype` indexes the subsidy categories; `GetSubsidyCost(int level)` turns
 `subsidycostfirstlevel` into a per-level cost, so the file stores only the
@@ -139,10 +153,14 @@ explained. Consequences for the ModApi:
   (1, 2, 3). A full sweep of `GetStringPartitions`/`GetIntPartitions` call
   sites would settle every list field in every file at once — **cheap, high
   value, not yet done.**
-- The dual-unit question (yd/m, lb/kg, ft/s–m/s) is still open; it lives in the
-  ModdingTool's export macros, not in the game's reader. See
-  [07-config-data-model](07-config-data-model.md).
-- `float.Parse` with no `CultureInfo` argument uses the current culture, so a
-  comma-decimal locale would parse `2500000` fine but `1.5` as `15`. Whether
-  the game forces an invariant culture at startup is **unverified and
-  important** — it would explain locale-specific modding bugs.
+- ~~The dual-unit question (yd/m, lb/kg, ft/s–m/s).~~ **Resolved** in
+  [11](11-combat-resolution.md) §2: `weapons.txt` stores both members of each
+  pair and the reader parses both.
+- ~~Whether the game forces an invariant culture at startup.~~ **It does:**
+  `GameVars.SetCultureInfo()` sets `CultureInfo.DefaultThreadCurrentCulture`
+  and `DefaultThreadCurrentUICulture` to `InvariantCulture`, called from
+  `MainMenuControls.Awake`, `GamePrefs.loaddebugs`, `MainMenu` and `Options`.
+  **Untested:** that sets the *default* for threads; whether Unity's Mono
+  applies it to the main thread if that thread's culture was already read
+  is a runtime question. If it does not, a comma-decimal locale would still
+  parse `1.5` as `15`.

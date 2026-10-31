@@ -10,11 +10,17 @@ decompiled with `ilspycmd -p`
 | | Types | Lines |
 | --- | --- | --- |
 | `Assembly-CSharp`, global namespace | 251 | 216,659 |
-| `Assembly-CSharp`, namespaced | 225 | 31,354 |
-| `Assembly-CSharp-firstpass` | 108 | ~15,000 |
+| `Assembly-CSharp`, namespaced | 224 | 31,349 |
+| `Assembly-CSharp-firstpass` | 105 | 9,603 |
 
 **Game code is ~207k lines**, after subtracting ~9.4k lines of third-party
 code that also sits in the global namespace.
+
+Counts are of the `ilspycmd -p` output: one `.cs` file per top-level type,
+not counting `Properties/AssemblyInfo.cs`. An earlier version counted that
+file as a namespaced type (225 types, 31,354 lines) and gave the firstpass
+row as 108 types and ~15,000 lines; firstpass has 105 type files in 9,603
+lines (154 type declarations counting nested types).
 
 ## The partition rule
 
@@ -53,9 +59,9 @@ UniStorm, so they are game code. Do not confuse them with the asset.
 
 ## `Assembly-CSharp-firstpass` is irrelevant
 
-108 types, entirely Unity Standard Assets (`UnityStandardAssets.*`:
-FirstPerson/ThirdPerson characters, CrossPlatformInput, ImageEffects, Water,
-Vehicles.Ball) plus two UI helpers (`AlphaButtonClickMask`,
+105 types, entirely Unity Standard Assets (`UnityStandardAssets.*`:
+FirstPerson/ThirdPerson characters, CrossPlatformInput, Effects, ImageEffects,
+Utility, Water, Vehicles.Ball) plus two UI helpers (`AlphaButtonClickMask`,
 `EventSystemChecker`). **Nothing game-specific.** It was exported for
 completeness and can be ignored; no other finding references it.
 
@@ -75,4 +81,4 @@ a normal codebase. Output goes to `decompiled/`, which is gitignored.
   simulation / UI / data / AI / glue. The top ~18 are
   ([02-type-inventory](02-type-inventory.md)).
 - Whether any *game* type was given a namespace (the rule assumes not; not
-  exhaustively checked against the 225 namespaced types).
+  exhaustively checked against the 224 namespaced types).

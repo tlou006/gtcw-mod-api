@@ -13,15 +13,16 @@ generates a fresh file — one pair per subsystem, almost all taking a single
 ## The subsystem pairs
 
 `ShipTypeData`, `WeaponsData`, `TechnologyData`, `NationsData`
-(`Save`/`Overwrite`), `ScenarioFile` (`Save`/`Load`), `UnitFiles`
-(`Create`/`Overwrite`), `AdditionalUnitData`, `AdditionalCommanderInfo`,
-`GarrisonReferences`, `Buildings`, `Commanders`, `Spottings`, `RailroadData`,
+(`Save`/`Overwrite`), `ScenarioFile` (`Save`/`Load`), units
+(`CreateUnitFiles`/`OverwriteUnits`), `AdditionalUnitData`, `AdditionalCommanderInfo`,
+`GarrisonReferences`, `Buildings`, `Commanders` (save only: commanders load
+through `GameVars.import_commanders`), `Spottings`, `RailroadData`,
 `IIPAndTownData`, `ChartDatabases`, `BattleObjectives`, `BattleEntryPoints`,
 `Pontoons`, `BattleBuildings`, `FrontlineData`, `Obstacles`, `BattleUnitData`,
 `Artillery`, `BattleSideInfo`, `LastGamePlayed`.
 
-The `Save`/`Overwrite` rather than `Save`/`Load` naming on `NationsData` and
-`UnitFiles` is a hint: those paths mutate existing live objects in place
+The `Overwrite` rather than `Load` naming on `OverwriteNationsData` and
+`OverwriteUnits` is a hint: those paths mutate existing live objects in place
 instead of constructing new ones, which is a different and more fragile
 operation to hook.
 
@@ -30,13 +31,13 @@ operation to hook.
 | Member | Why it matters |
 | --- | --- |
 | `CheckFileIntegrity(string loadname)` | **The game's own validator.** Read before writing ours — it defines what the game considers a loadable file. |
-| `CreateVersionFile(string folder)` / `GetVersionFromFile(string folder)` | Save-data versioning, as a `float`. Note this is the *save format* version, **not** the game build version — see [04-version-identification](04-version-identification.md). |
+| `CreateVersionFile(string folder)` / `GetVersionFromFile(string folder)` | Save-data versioning, as a `float` in the save folder's `version.dat`. The number written is `MainMenuControls.currentversion`, the game version, so the save-format version and the game build version are the same number; loaders gate format changes on it. An earlier version of this row said they were different numbers. See [04-version-identification](04-version-identification.md). |
 | `ImportWeaponStock(string path)` | Takes an explicit path rather than a `folder`, consistent with `weaponstock.dat` being a campaign-scenario file rather than a `Config/` file — the retiering recorded in [07-config-data-model](07-config-data-model.md). |
 | `LoadAdditionalUnitData(string folder, int mode = 0, bool skipworkdownstoredpaths = false)` | A `mode` parameter worth decoding; `skipworkdownstoredpaths` suggests pathfinding data is replayed on load. |
 | `GetAllianceFromScenarioFile(string loadname)` | Reads one field without a full load — a cheap probe. |
 | `LoadScenarioFile(string loadname, bool updaterealismoptions = false)` | Returns a `string`; the realism-options flag is a migration path. |
 | `LoadBattleSideInfo`, `GrabRegimentFromFile(StreamReader file)` | The unit-level read primitives. |
-| `ExportBattleResultData(...)` | A 40-parameter method — the full battle outcome record. An excellent map of *what the game considers a battle result*: casualties by side and state, morale and supply averages, commander fame/defamed/KIA/WIA lists, captured weapons, sunken ships by name, top units, hours fought, days passed. |
+| `ExportBattleResultData(...)` | A 32-parameter method (an earlier version said 40) — the full battle outcome record. An excellent map of *what the game considers a battle result*: casualties by side and by state, morale and supply averages, commander fame/defamed/KIA/WIA lists, captured weapons, sunken ships by name, top units, hours fought, days passed. |
 
 `ExportBattleResultData`'s parameter list is worth reading as documentation in
 its own right — it enumerates every quantity the game tracks about a battle,
@@ -97,8 +98,9 @@ Three distinct hooking strategies, in increasing risk:
 - What `CheckFileIntegrity` actually checks — field counts, parse success, or
   cross-references. Determines how much validation we must add ourselves.
 - The `mode` parameter of `LoadAdditionalUnitData`.
-- Whether save files carry the game build version anywhere, or only the float
-  save-format version. Affects whether a save made with a mod can be detected
-  as such.
+- ~~Whether save files carry the game build version anywhere.~~ **Resolved:**
+  `version.dat` holds it (see the table above and
+  [04](04-version-identification.md)). Nothing in it marks a save as made
+  with a mod; a side-car file would have to.
 - Save-folder layout and naming (autosave vs. manual, campaign vs. battle) —
   needed before side-car files can be placed correctly.

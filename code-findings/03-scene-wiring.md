@@ -29,9 +29,15 @@ By call-site count — a rough measure of how central each one is:
 | `BattleUI` | 35 |
 | `Economy` | 7 |
 | `SpottedEnemy` | 4 |
+| `FallenLayer2` | 3 |
 | `Smoke` | 1 |
+| `Smoke2` | 1 |
 | `FogOfWar` | 1 |
 | `AIBattle` | 1 |
+| *(the `GameObject` itself, no `GetComponent` on the same call)* | 29 |
+
+An earlier version of this table left out `FallenLayer2`, `Smoke2` and the
+29 sites that keep the object, so its rows did not add up to 202.
 
 ### Other scene anchors
 
@@ -47,6 +53,11 @@ By call-site count — a rough measure of how central each one is:
 | `PreloadedModels` | 6 | |
 | `UICampaign` | 5 | Campaign-layer UI root; also holds `VersionID` ([04](04-version-identification.md)) |
 | `LeftGuns` | 5 | |
+
+These count `Find` calls on the bare name, as literal strings. Path lookups
+add more: 109 under `UI/…`, 8 under `UICampaign/…`, and 96 under
+`Battlemap/…` (the map root: `Battlemap/Units` 24 times, `Battlemap/Map/Entry Points`, `Battlemap/Map/Pontoons`), which
+this table used to leave out entirely; `PaperMap/…` adds 11.
 
 ## Implications for the hook library
 
@@ -111,9 +122,9 @@ assignment site accounted for:
 | Value | Meaning | Set by |
 | --- | --- | --- |
 | 0 | Idle / main menu | `ExitBattleScenario`, `ExitCampaignScenario` (when `resetsceneoperation`) |
-| 1 | Standalone battle, fresh | `LoadBattleScenario` |
+| 1 | Standalone battle, fresh | `LoadBattleScenario`; `BattleController` (7 → 1 once a loaded battle is set up) |
 | 2 | **Campaign running** (steady state) | `CampaignController`, frame 30 |
-| 3 | Campaign battle, fresh | `LoadCampaignBattleScenario`, `BattleController` |
+| 3 | Campaign battle, fresh | `LoadCampaignBattleScenario`; `BattleController` (8 → 3 once a loaded battle is set up) |
 | 4 | Campaign → battle transition in progress | `PrepareLaunchingBattleFromCampaign`, only from 2 |
 | 5 | Returning from a campaign battle | `ExitCampaignBattleAndRebuildCampaign` |
 | 6 | Campaign loaded from save | `PanelHandler`, `Saving` |
@@ -184,7 +195,7 @@ Two facts make that set complete, and both needed reading rather than
 searching:
 
 1. **`RebuildScenes()` has exactly one caller** — `UpdateBatchOperations`, on
-   `bo_rebuildscene` — which **fifteen** sites across `MainMenu`,
+   `bo_rebuildscene` — which **sixteen** sites (an earlier version said fifteen) across `MainMenu`,
    `PanelHandler`, `Saving`, `ImportExportUnitData`, `BattleController`,
    `CampaignController` and `SceneManagement` itself queue. So it is a single
    chokepoint by construction, not merely by convention.
@@ -236,10 +247,14 @@ Two consequences:
 
 ## Open questions
 
-- Where `Policy.InitializeStatics` is called from in the load order, since
-  registering a policy has to happen before it. The campaign boot sequence
-  ([10-simulation-tick](10-simulation-tick.md)) applies policy effects at
-  frame 8, so initialization is earlier than that.
+- ~~Where `Policy.InitializeStatics` is called from in the load order.~~
+  **Resolved:** `CampaignController.Awake` resets `Policy.staticsinitialized`
+  and calls `InitializeStatics()` (`CampaignController.cs:138`) right after
+  loading the battlefield scene, before frame 0 — well before the frame-8
+  policy effects in [10-simulation-tick](10-simulation-tick.md). Each
+  `Policy` component also calls it from `Awake` and `Update` if it has not
+  run yet (`Policy.cs:92`, `:110`), and `MainMenu.Enable` calls it with
+  `skiplevelcheck: true` when `currentoperation` is 0 (`MainMenu.cs:341`).
 - Whether the per-battlefield additive scene can be reloaded without a full
   rebuild (it is loaded by `BattlefieldSetup`, not `SceneManagement`, which
   hints at a different lifecycle).

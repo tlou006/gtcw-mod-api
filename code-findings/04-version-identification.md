@@ -65,8 +65,16 @@ Design notes:
   here; if the developers' CI rebuilds without changes, MVID would churn while
   behaviour did not. The SHA-256 of the file has the same property. This is why
   the manifest matters more than the identity.
-- Whether a version string also exists in a `Config/` file or in
-  `ImportExportUnitData.CreateVersionFile`'s output
-  ([08-save-load-surface](08-save-load-surface.md) notes a float save-data
-  version, which is a *different* version number — save format, not game
-  build). Worth confirming the two are not conflated anywhere.
+- Whether a version string also exists in a `Config/` file.
+- ~~Whether `ImportExportUnitData.CreateVersionFile` writes a different,
+  save-format version.~~ **Resolved: it is the same number.**
+  `CreateVersionFile` (`ImportExportUnitData.cs:5785`) writes
+  `MainMenuControls.currentversion` to the save folder's `version.dat`, and
+  `GetVersionFromFile` reads it back for the loaders' version gates (ten
+  callers, e.g. `BattlefieldSetup.cs:1067`, `GameVars.cs:7106`); a missing
+  file reads as 0, which several callers replace with `currentversion`. So a
+  save records the game version that wrote it, and the save-format version
+  *is* the game version. The six `version.dat` files shipped under `game/`
+  (scenario and battlefield saves) hold 0.9103, 1.0302, 1.12 and 1.142. An
+  earlier version of this note, and of [08](08-save-load-surface.md), called
+  them different numbers.

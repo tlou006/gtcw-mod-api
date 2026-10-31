@@ -30,9 +30,13 @@ UI. The top four hold most of the game's behaviour.
 | `Policies` | 1,926 | **Policy effect dispatch.** See [09-policy-and-project-effects](09-policy-and-project-effects.md). |
 | `Projects` | 1,042 | **Project effect dispatch and the `projects.dat` parser.** See [09](09-policy-and-project-effects.md) and [06](06-config-file-format.md). |
 
-`Regiment` is almost certainly the class behind the `>b__887_0` compiler lambda
-name noted during the obfuscation check — an index that high implies ~900
-methods in one type.
+`Regiment` is the class behind the `>b__887_0` compiler lambda name noted
+during the obfuscation check: the assembly metadata names it
+`<GetAttachedUnitsReg>b__887_0`, and `GetAttachedUnitsReg` is declared at
+`Regiment.cs:10198`. The 887 is the compiler's member ordinal, which counts
+fields and properties as well as methods. An earlier version read it as
+"~900 methods in one type"; `Regiment` has about 400 methods, still the
+most of any type (`BattleUnits` is next with about 290).
 
 ## Classification of the 211 game types
 
@@ -45,7 +49,7 @@ Classified by evidence rather than by name: counting references to UI types
 | --- | --- | --- |
 | **UI-dominant** | ~67 | The largest group, as expected for a Unity game. Mostly `*Panel`, `*List`, `*Button`, `Tooltip`, `PanelHandler`, `MainMenu*`. |
 | **Rendering / glue-dominant** | ~26 | `Projectile`, `Smoke`, `Flag`, `FireArc`, `OrderMark`, `RangeMark`, `*Textures`, `ModelAnimator`, `SpriteAnimator`, `Heatmap`, `ConnectionLine`. |
-| **Has file IO** | 50 | Overlaps the others — see [08-save-load-surface](08-save-load-surface.md). Concentrated in `ImportExportUnitData` (66 sites), `DLC_WL` (43), `GameVars` (22), `Autocalc` (10), `GamePrefs` (9). |
+| **Has file IO** | 52 | Game types whose source mentions `StreamReader` or `StreamWriter` (an earlier version said 50). Overlaps the others — see [08-save-load-surface](08-save-load-surface.md). Concentrated in `ImportExportUnitData` (66 sites), `DLC_WL` (43), `GameVars` (22), `Autocalc` (10), `GamePrefs` (9). |
 | **Simulation / AI** | ~20 | `Regiment`, `BattleUnits`, `Autocalc`, `AICampaign`, `AIBattle`, `AI_Manager`, `AI_Unit`, `Economy`, `Frontline`/`Frontline2`, `Retreat`, `SeaInvasion`, `BattleFront`, `FogOfWar`, `Camp`. |
 
 > **The buckets overlap heavily, and that is the finding.** The codebase does
@@ -111,10 +115,12 @@ contract — three fields, three lines, via `Load(StreamReader)` /
   [10-simulation-tick](10-simulation-tick.md). `BattleUnits.Update` is the
   subsystem driver, `Regiment.Update` the per-entity tick, and the controllers'
   `Update` methods are boot state machines rather than simulation.
-- `Autocalc` (auto-resolve) and the live battle model presumably share
-  parameters. Whether they share *code* is unknown, and matters: a mod that
-  changes combat must change both or players will see auto-resolve diverge
-  from manual battles. `Autocalc` has 10 file-IO sites, which is unexpected for
-  a pure calculation and worth a look.
+- ~~Whether `Autocalc` and the live battle model share code.~~ **Resolved** —
+  see [11-combat-resolution](11-combat-resolution.md) §1: the firing models
+  are separate, and `Regiment.SufferCasualties` is the only shared code, so a
+  mod that changes combat must change both. `Autocalc`'s 10 file-IO sites are
+  not config reads: they are `Load`/`Save` methods that write in-progress
+  battles, their status icons and the battle log into the save
+  (`BattlefieldSetup.cs:1081` calls `Autocalc.Load`).
 - `DLC_WL`'s boundary with the base game — it has its own config files and
   reader set, so it may be cleanly separable or may be entangled.
