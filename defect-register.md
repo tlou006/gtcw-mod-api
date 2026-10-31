@@ -36,7 +36,8 @@ against.
 | **Class** | One of the seven below. The class decides whether it is ours to fix. |
 | **Source** | The findings file and section that established it. **No row without one.** |
 | **Fix** | `patch`, `override`, `repair-on-load`, `contribution`, or `none`. **Never a file rewrite.** |
-| **Default** | `on` only where the fix cannot change a tuned outcome — crashes, NaNs, dead code, latches, display-only. Everything else `off`, however certain the defect. |
+| **Default** | `on` only where the fix cannot change a tuned outcome — crashes, NaNs, dead guards, anything that only feeds a readout. Everything else `off`, however certain the defect. |
+| **How** | The patch target, technique, repro and confirm for each id live in [`mods/GTCW.BugFixes/IMPLEMENTATION.md`](mods/GTCW.BugFixes/IMPLEMENTATION.md). |
 | **Status** | The ladder below. |
 
 ### Classes
@@ -82,7 +83,7 @@ Ordered by what a fix is worth, not by id.
 | GTCW-013 | **`GetActivatedPolicies(researchedonly: true)` counts policies still in research**, ignoring the flags four call sites bother to pass. | C | [summary-game-state](code-findings/summary-game-state.md) § Defects | patch | recorded |
 | GTCW-014 | **`Regiment.UpdateRaids` writes `tradewarfare[2]` with the wrong sign.** All three factors are strictly positive against a negative-cost convention, so raiding an enemy trade node *reduces* the victim's displayed raid losses, corrupts the recomputed total in slot 0 and therefore the commerce-war slider. Ledger only — nothing in the simulation reads the array. | C | [33](code-findings/33-trade-warfare.md) §3 | patch | recorded |
 | GTCW-015 | **`Regiment.UpdateRaids` never mirrors into the node's own `lossestradewarfare`**, which `IIP` and `CBuilding` both do, so a raided trade node's map tooltip omits regiment raids entirely. | C | [33](code-findings/33-trade-warfare.md) §3 | patch | recorded |
-| GTCW-016 | **`nation[].name` is mutated at runtime** by `statesetname`, so everything that matches a state by string silently stops matching — `SearchNationByName` and policy 30's five-state volunteer bonus among them. Escapes being live only because the territorial names belong to state-sets that precede every shipped campaign start. | C | [summary-game-state](code-findings/summary-game-state.md) § Traps | patch (match by index) | recorded |
+| GTCW-016 | **`nation[].name` is mutated at runtime** by `statesetname`, so everything that matches a state by string silently stops matching — `SearchNationByName` and policy 30's five-state volunteer bonus among them. Escapes being live only because the territorial names belong to state-sets that precede every shipped campaign start. | C | [summary-game-state](code-findings/summary-game-state.md) § Traps | **none** — the rename is intended and no consumer is reachable; see IMPLEMENTATION.md §6 | wontfix |
 | GTCW-017 | **The 1862 midterms penalty has a two-day window.** Objective 9's chapter list is `{1}` and chapter 2 begins 6 Nov 1862, so a config label describing −0.01 Union morale *per week* is worth −0.3 points in total. Whether that is a deliberate token or a chapter-boundary accident is unresolved — **so this one ships off** even if fixed. | C | [manual-vs-code §32.1](mechanics-findings/manual-vs-code.md) | patch | recorded |
 
 ### Defaults for the rows above
@@ -93,10 +94,15 @@ Applying "certainty decides whether we fix it, reach decides whether it is on",
 | Default | Rows | Why |
 | --- | --- | --- |
 | **on** | GTCW-001 | Nobody balances around a campaign that ends on a fixed date, and both tooltips already promise the single charge |
-| | GTCW-002, GTCW-011, GTCW-014, GTCW-015 | All four only feed a readout — a poisoned display tracker, an average of a cumulative counter, a ledger with no simulation reader, a missing tooltip mirror |
-| | GTCW-016 | No observable effect in shipped data; it is a guard for a **scenario mod** that moves a state-set date, which is the compatibility boundary working in the other direction |
-| **off** | GTCW-003, GTCW-004, GTCW-005, GTCW-006, GTCW-007, GTCW-009, GTCW-010, GTCW-012, GTCW-013, GTCW-017 | Each moves a combat, supply or economy quantity that `Config/` exposes and data mods tune against. Certain or not, the player opts in |
-| **off, pending** | GTCW-008 | Needs its consumer identified first: if `GetCurrentTaxValuePa(-1)` feeds actual revenue rather than a readout, the fix changes income |
+| | GTCW-002, GTCW-011, GTCW-012, GTCW-014, GTCW-015 | All five only feed a readout — a poisoned display tracker, an average of a cumulative counter, a trend line that resets for 1000 frames after every load, a ledger with no simulation reader, a missing tooltip mirror. Each one's full reader set was checked, not assumed |
+| **off** | GTCW-003, GTCW-004, GTCW-005, GTCW-006, GTCW-007, GTCW-008, GTCW-009, GTCW-010, GTCW-013, GTCW-017 | Each moves a combat, supply or economy quantity that `Config/` exposes and data mods tune against. Certain or not, the player opts in |
+| **not fixed** | GTCW-016 | **No reachable consumer.** The rename is intended, `SearchNationByName` has no callers, and `Policies.cs:726`'s seven state names are all permanent ones. See IMPLEMENTATION.md §6 |
+
+Two of these changed once the targets were read in the decompile, which is the
+argument for reading them before promising anything. **GTCW-012** moved to
+default-on: its only readers are a panel and the save file. **GTCW-008** is no
+longer pending — the no-argument form feeds `Economy`'s `surplus` and
+`Alliance.GetBalance()`, so it is real money and stays off.
 
 ## Class U — display defects, blocked on UI injection
 
@@ -129,7 +135,7 @@ a presentation one: GTCW-002, which is *why* the support-loss list is empty.
 
 | Class | Rows | Of which actionable |
 | --- | --- | --- |
-| C | 17 | 16 — GTCW-021 has no behavioural effect |
+| C | 17 | 15 — GTCW-021 has no behavioural effect, GTCW-016 no reachable consumer |
 | M | 1 | 1 |
 | U | ~50, unitemised | 0 — blocked on UI injection |
 | D | 0 so far | — |

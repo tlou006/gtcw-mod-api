@@ -78,6 +78,7 @@ copyrighted by the publisher and are excluded by `.gitignore`.
 | `mechanics-findings/` | yes | What that behavior means as gameplay, sourced back to `code-findings/` |
 | `src/` | yes | The BepInEx hook library — see [`src/README.md`](src/README.md) |
 | `samples/` | yes | Sample mods, written against the public API only |
+| `mods/` | yes | Separate products built on the library — see [`mods/README.md`](mods/README.md) |
 | `scripts/` | yes | Parsers and analysis tooling written here |
 | `defect-register.md` | yes | Every defect and manual deviation found, one stable id per row |
 | `game/` | **no** (README only) | A copy of the game install — see `game/README.md` |
@@ -96,6 +97,7 @@ decompile-gtcw/
 ├── mechanics-findings/ # what that means as gameplay
 ├── src/                # the hook library (GTCW.ModApi + Runtime/Schemas/Plugin)
 ├── samples/            # sample mods, public API only
+├── mods/               # products built on the library (GTCW.BugFixes)
 ├── scripts/            # analysis / parsing tooling
 ├── defect-register.md  # defects found, by stable id
 ├── tools/              # (ignored) IL2CPP dumpers, AssetRipper, dnSpy, ILSpy, ...

@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The bug-fix mod: an opt-in consumer of GTCW.ModApi, versioned and shipped
+    on its own. See ../README.md for why this is not part of the library.
+
+    Note what is referenced and what is not. GTCW.ModApi, yes — this is a mod
+    and it uses the public API. Assembly-CSharp, yes — repairing arithmetic
+    inside a game method needs the game's types, and a real mod often does.
+    GTCW.ModApi.Runtime, NEVER: the library's internals are not an API, and
+    anything this project needs from them is a gap in the public surface rather
+    than a reason to reach in.
+  -->
+
+  <PropertyGroup>
+    <AssemblyName>GTCW.BugFixes</AssemblyName>
+    <RootNamespace>GTCW.BugFixes</RootNamespace>
+    <UsesGameAssemblies>true</UsesGameAssemblies>
+
+    <!-- Its own identity and its own version line. The library's version in
+         Directory.Build.props says nothing about this mod, and a fix release
+         must not imply an API release or the reverse. -->
+    <Product>GTCW Bug Fixes</Product>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <Version>0.1.0-alpha</Version>
+
+    <!-- CS0436: Krafs.Publicizer and MonoMod.Utils (via HarmonyX) each define
+         IgnoresAccessChecksToAttribute. Same reason as GTCW.ModApi.Runtime. -->
+    <NoWarn>$(NoWarn);CS0436</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The public API only. A real external mod would reference the NuGet
+         package; the project reference is here because this ships in-repo. -->
+    <ProjectReference Include="..\..\src\GTCW.ModApi\GTCW.ModApi.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BepInEx.Core" Version="5.4.21" PrivateAssets="all" ExcludeAssets="runtime" />
+
+    <!-- Several fixes read private game state to recompute a value the game
+         got wrong: powcamps for GTCW-007, CampaignObjective.lastupdate for
+         GTCW-001. Publicized output is a local artifact in obj/ and never
+         ships. -->
+    <PackageReference Include="Krafs.Publicizer" Version="2.2.1" PrivateAssets="all" />
+    <Publicize Include="Assembly-CSharp" />
+  </ItemGroup>
+
+</Project>

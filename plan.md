@@ -2919,6 +2919,15 @@ than guessing what modders will want:
 - [ ] When a fix is blocked, record the missing capability on the register row
       rather than working around it. The blocked set becomes the Phase 4
       priority order.
+- [x] **It works: three gaps appeared from scaffolding alone**, before a single
+      fix was written. Build probing (`GameProbe`/`ProbeResult`), the fail-soft
+      guard and build identity are all `internal` to `GTCW.ModApi.Runtime`, so
+      the fix mod reimplemented the first two and cannot do the third. All three
+      are the same shape — machinery any *game-aware* mod needs, currently
+      visible only to the library — and they want one small public surface:
+      `ModApi.Build` for identity, `ModApi.Diagnostics` for probing and
+      guarding. A concrete requirement instead of a guess about what modders
+      want, which is the whole argument for building this mod first.
 - [ ] Expect the class U rows to produce the UI-injection requirement, and the
       class D rows to produce the override requirement — already the plan's
       "feature worth building".
@@ -2945,8 +2954,18 @@ than guessing what modders will want:
       inverted" and "the manual documents a feature that was cut".
 - [ ] Sweep `ui-vs-simulation` into class U, and
       [29-dead-prefs-audit](code-findings/29-dead-prefs-audit.md) into class X.
-- [ ] Scaffold `src/GTCW.BugFixes/` — `UsesGameAssemblies`, hard dependency on
-      `gtcw.modapi`, one file per fix, named for its register id.
+- [x] Scaffold **`mods/GTCW.BugFixes/`** — not `src/`, which is the library.
+      `mods/` is for products built on the API, and the layout now says so:
+      `UsesGameAssemblies`, hard dependency on `gtcw.modapi`, a reference to
+      `GTCW.ModApi` and **never** to `GTCW.ModApi.Runtime`, its own `Product`
+      and version line, one file per fix named for its register id.
+- [x] Write the per-row implementation plan:
+      [`mods/GTCW.BugFixes/IMPLEMENTATION.md`](mods/GTCW.BugFixes/IMPLEMENTATION.md).
+      Every patch target read and verified in the decompile first, which paid
+      for itself immediately: **sixteen of the seventeen actionable fixes need
+      no transpiler**, four of them share one method with the ModApi's own
+      patches, two share another, and one row (GTCW-016) turned out to have no
+      reachable consumer at all.
 - [ ] Start with the five highest-confidence class C/M items already seeded:
       the 1864 election's double charge (which turns a −20 setback into an
       instant loss), the support-breakdown NaN, the Confiscation Act's inverted
