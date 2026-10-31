@@ -76,19 +76,27 @@ The field name is shared by two classes with different value sets. Labels in
 commander-in-chief election and from army rank tables, and capped at the Fleet
 rank ceiling.
 
-Branch *matching* drives `increaseofmoralecapforcorrectbranch`,
-`increaseofrofwhencorrectbranch` and `increaseofaccuracywhencorrectbranch` —
-but the guard differs between the two combat models:
+Branch *matching* — the commander of the unit itself, branch 0 on `unittyp` 0
+or 3, 1 on 1 or 4, 2 on 2 — drives `increaseofmoralecapforcorrectbranch`
+(morale recovery ×1.25, all three arms) and, for artillery only,
+`increaseofrofwhencorrectbranch` (×1.2) and
+`increaseofaccuracywhencorrectbranch` (×1.1). The guard differs between the
+two combat models:
 
 | Path | Guard |
 | --- | --- |
 | `Regiment` (manual battle, campaign) | `status == 0 && branch matches && commander.westpoint` |
-| `Autocalc` | `status == 0 && branch matches` — **no `westpoint` requirement** |
+| `Autocalc` | `status == 0 && branch matches` — **no `westpoint` requirement**, and no accuracy term |
 
 > **Engineer (branch 3) has no mechanical effect anywhere in the base game**,
-> despite `branchtextsub[3]` promising siege and obstacle bonuses. 61 of the
-> 1,906 shipped commanders carry it. See
-> [19](19-commanders-and-perks.md) §11.
+> despite `branchtextsub[3]` promising siege and obstacle bonuses. That isn't
+> because no bonus was written: `factorengineerpointsbranchofarms` (1.5,
+> labelled *"(engineers)"*) adds engineering points per infantry unit, but
+> both of its reads test `historicalbranch == 4`, the navy value, and no
+> assignment path or shipped unit file puts a naval officer on infantry. 61 of
+> the 1,906 shipped commanders carry branch 3. See
+> [19](19-commanders-and-perks.md) §11, which also documents the
+> professional / volunteer / political / veteran classes in §11.1.
 
 ---
 

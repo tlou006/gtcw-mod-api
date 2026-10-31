@@ -196,14 +196,26 @@ exactly.
 ### 3.2 A defamed commander's experience cap is not lowered
 
 `increaseexpcapcommanderifveteran` (**0.25**) is live, read at `GameVars` ~2042,
-and raises a veteran's experience ceiling above the national military
-experience. Its sibling `decreaseexpcapcommanderifdefamed` (**0.2**), from the
-adjacent config line *"Decrease experience cap due to national military
-experience by this value if commander is defamed [0-1]"*, is **dead**.
+and lets a veteran keep up to 0.25 above the national military experience.
+Its sibling `decreaseexpcapcommanderifdefamed` (**0.2**), from the adjacent
+config line *"Decrease experience cap due to national military experience by
+this value if commander is defamed [0-1]"*, is **dead**.
 
 So defaming is strictly cheaper than the config implies: it costs fame and the
 things fame feeds ([19](19-commanders-and-perks.md) §3), but **not the
-experience ceiling**. The asymmetry is one line of code.
+experience ceiling**.
+
+> **The ceiling itself is narrower than both labels suggest.** The veteran
+> term lives in `Commander.ResetExperience`, which runs only when commanders
+> are freshly loaded — a new campaign or standalone battle, with every save
+> path passing `resetexp: false` — and from the invented-commander
+> constructor. During play there is no ceiling of this kind:
+> `IncreaseExperienceThroughService` stops service experience at the
+> national level for everyone, with no veteran term, and battle experience
+> clamps only at 1.0 ([19](19-commanders-and-perks.md) §11.1). An earlier
+> version of this section called the veteran margin a standing ceiling and
+> the missing defamed term "one line of code"; for what the config describes,
+> it is a little more than that (§9).
 
 ---
 
@@ -457,12 +469,18 @@ perk multipliers; §4.1 now shows why pricing it was impossible — it is not re
 
 1. **Treat this file's list as the authority on which `GamePrefs` labels are
    real.** 144 of them are not, and about 110 of those carry no marker.
-2. **Four of the eight defects are one-identifier fixes**: swap
+2. **Three of the eight defects are one-identifier fixes**: swap
    `spottingfactor` for `timefactorspottings` in `SpottedEnemy`, swap
    `winterdefensiveoperationsmodifier` for `winteroffensiveoperationsmodifier`
-   in `CheckOffensiveMovements`, read `forthitpoints[level]` in
-   `CBuilding.Damage`'s callers, and subtract
-   `decreaseexpcapcommanderifdefamed` beside the veteran term.
+   in `CheckOffensiveMovements`, and read `forthitpoints[level]` in
+   `CBuilding.Damage`'s callers. The defamed cap is close to one, with a
+   catch: subtracting `decreaseexpcapcommanderifdefamed` beside the veteran
+   term in `ResetExperience` would only reach commanders already defamed when
+   the campaign first loads. `Load` runs `ClearDefamedStartup` straight after
+   the reset, which clears only future-dated defames, and nothing calls
+   `ResetExperience` again. For a defame earned in play to lower the cap, the
+   term belongs in `IncreaseExperienceThroughService`'s clamp, which has no
+   veteran term either.
 3. **Reviving the four cut subsidy categories is not a one-line job** —
    `basicsubsidiescost` has two spare slots marked `n/a` and the effect prefs
    all exist, but the UI, the ladder arrays and `GetSubsidyCost` would all need
