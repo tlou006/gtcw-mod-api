@@ -107,6 +107,13 @@ names the case that prompted it.
    section said …"). Files that restate a finding should cite the section
    that backs it, so this grep finds them.
 
+To re-check the folder in bulk, `scripts/replay-all-prefs.js` replays all six
+config loaders into tables that `check-pref-quotes.js` (quoted pref values),
+`check-dead-claims.js` ("dead" and "unread" claims) and `count-dead-prefs.js`
+(the census in [29](29-dead-prefs-audit.md)) check against. See
+[`scripts/README.md`](../scripts/README.md). They find candidates; every hit
+still needs reading.
+
 ## Index
 
 ### Provenance
