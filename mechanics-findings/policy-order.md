@@ -107,10 +107,10 @@ which *decreases* with N:
 | 4 | ×4.59 | 0.87 |
 | 5 | ×5.87 | 0.85 |
 | 7 | ×8.50 | 0.82 |
-| 12 | ×15.4 | 0.79 |
+| 12 | ×15.4 | 0.78 |
 
 So parallel research buys exactly one thing: several policies finishing at
-about the same time. It costs 7 % of your total output at two, and 21 % at
+about the same time. It costs 7 % of your total output at two, and 22 % at
 twelve.
 
 **Acts count in that divisor even though they ignore the slot cap.** Queueing

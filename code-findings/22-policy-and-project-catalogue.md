@@ -284,7 +284,7 @@ optimistic**.
 
 > **Parallel research is a net loss.** Total throughput across N policies is
 > `N × N^-1.1 = N^-0.1`, which *decreases* with N: at the cap of 12 the
-> aggregate rate is 0.79× that of researching one at a time. Parallelism only
+> aggregate rate is 0.78× that of researching one at a time. Parallelism only
 > buys you several policies finishing together. **The AI never parallelises**
 > (§13), so this is a one-sided handicap the player opts into.
 

@@ -145,7 +145,7 @@ averagesupport / N^1.1 × (1 + 0.05 × projectLevel(95)) / ResearchDuration
 
 where N is the count in research. Total throughput across N is
 `N × N^-1.1 = N^-0.1`, which **decreases** with N: at the cap of 12 you get
-0.79× the aggregate rate of researching one at a time.
+0.78× the aggregate rate of researching one at a time.
 The politics subsidy buys the slot cap (7 to 12) and funds the politics
 project category, which is the only category not throttled to a tenth of its
 rate at the start of a campaign — see below.

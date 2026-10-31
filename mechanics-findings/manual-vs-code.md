@@ -1677,7 +1677,7 @@ cell in §21.
 **Parallel research is a trap the chapter does not mention.** The Policies
 panel says only that activating a policy *"will reserve one available policy
 slot."* Throughput across N policies in research is `N × N^−1.1 = N^−0.1`,
-which **falls** as N rises: at the cap of twelve the aggregate rate is 0.79×
+which **falls** as N rises: at the cap of twelve the aggregate rate is 0.78×
 that of researching one at a time, and the AI never parallelises
 ([22](../code-findings/22-policy-and-project-catalogue.md) §3.1). Acts bypass
 the slot cap but still count in the divisor, so queueing acts past the cap
