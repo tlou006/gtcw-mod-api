@@ -513,6 +513,16 @@ than floored.
 
 ### GTCW-013 — `researchedonly` counts policies still in research
 
+> **Withdrawn — do not implement.** Re-verified against the four callers: the
+> in-research count is what every one of them needs. `UpdatePolicyResearch`
+> (`Policies.cs:321`) and the research tooltip (`:290`) divide research speed by
+> the number of policies in research; `CheckAIPolicyChange` (`:1845`, `:1860`)
+> keeps at least one in research. Grand policies are researched to 1.0 at
+> campaign start, so the ignored `includegrandpolicies` never changes the
+> count. Making this arm count completed policies would break all four. The
+> `Policies.cs:379` risk below is also misplaced — that call uses the default
+> form, which `researchedonly` does not touch. See the register row.
+
 **Target** `GameVars+Alliance:GetActivatedPolicies` — `GameVars.cs:3991`
 
 ```csharp
@@ -587,8 +597,14 @@ the conclusion is not re-derived.
 
 **Target** `CampaignObjective:CheckIfAccomplished` — penalty at `:705`
 **Default off, and arguably not ours.** Objective 9's chapter list is `{1}` and
-chapter 2 begins 6 November 1862, so a config label describing −0.01 Union
-morale *per week* is worth about −0.3 points in total.
+chapter 2 begins late on 5 November 1862, so a config label describing −0.01
+Union morale *per week* is worth about −0.15 points in total.
+
+> **Corrected:** the window is about 24 hours, not two days. `Tools.Date` and
+> the campaign clock measure the day differently, which puts objective 9's
+> trigger at about 21:24 on 4 November and chapter 2 at about 21:45 on
+> 5 November ([24](../../code-findings/24-campaign-objectives.md) §3.1). The
+> conclusion — a token, and the fix is a design call — is unchanged.
 
 "Fixing" it means extending the window, which turns a token into a −52/year
 penalty. That is a **design decision, not a repair** — nothing in the code says

@@ -1888,11 +1888,12 @@ moves through a single global slot.
   two-frame delay is a floor and a long AI movement queue postpones retreats
   two frames per order.
 - **What breaking actually costs, quantified.** `Surrender()` takes
-  `powratiosurrender` **0.6 ± 0.2** and then halves it twice —
-  `powmultiplierexp` **0.5** on experience and `powmultiplierfightingspirit`
+  `powratiosurrender` **0.6 ± 0.2** and then scales it twice —
+  `powmultiplierexp` **0.7** on experience and `powmultiplierfightingspirit`
   **0.5** on fighting spirit — so prisoners run **40–80 %** for a green unit
-  and **10–20 %** for a veteran at full fighting spirit, a **fourfold** spread
-  that nothing in the interface mentions. `DisintegrateUnit` zeroes readiness
+  and **14–28 %** for a veteran at full fighting spirit, a spread of about
+  **2.9×** that nothing in the interface mentions. (Corrected from 0.5 and
+  10–20 %; see findings/31 §5.3.) `DisintegrateUnit` zeroes readiness
   for the formation and everything attached, then either relocates the
   survivors to a friendly town after **50–80 %** desertion at national morale 0
   falling to **30–50 %** at 100 (`desertionsdisintegrationnatmorale0/1`), or —

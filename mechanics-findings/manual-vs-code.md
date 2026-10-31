@@ -1539,10 +1539,13 @@ Failing it charges `republicanmajorityunionmorale = −0.01` **per week** of
 Union national morale — a punishing −52 points a year if it ran for the rest
 of the war, which is how its own config label reads.
 
-It does not run. The objective's chapter list is `{1}`, and chapter 2 begins on
-6 November 1862, so the penalty's window is **4 and 5 November 1862 — two
-days**, worth −0.3 points of national morale. Reaching 60 % support in those
-two days latches the objective complete; missing it costs essentially nothing.
+It does not run. The objective's chapter list is `{1}`, and chapter 2 begins
+late on 5 November 1862, so the penalty's window runs from about 21:00 on
+4 November to about 22:00 on 5 November — **about a day**, worth roughly
+−0.15 points of national morale
+([24-campaign-objectives](../code-findings/24-campaign-objectives.md) §3.1;
+an earlier version said two days and −0.3). Reaching 60 % support inside that
+window latches the objective complete; missing it costs essentially nothing.
 Whether that is a deliberate token or a chapter-boundary accident, the midterms
 do not matter.
 
@@ -2162,7 +2165,7 @@ the single most useful thing a modder could have been told here.
     which line to patch depends on the answer.
 15. **Whether the 1862 midterm penalty is meant to outlive chapter 1**
     (§32.1). Its own config label describes a per-week rate "for the rest of
-    the campaign"; the chapter list gives it two days.
+    the campaign"; the chapter list gives it about a day.
 16. **Whether the 1864 election's doubled penalty is intended.** Two objectives
     with identical tooltips each charge −0.20 in the same pass (§32.2). If one
     of them is meant to be the Confederate *score* rather than a second

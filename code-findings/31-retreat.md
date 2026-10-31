@@ -298,27 +298,36 @@ if (unit.regimentpaths <= 0 && unit.unitrange.closestenemyunitfardistance <= uni
 > with no path and no surrender, which is the stalemate state a player sees as
 > a unit "stuck" in a pocket.
 
-### 5.3 Surrender costs 40–80 % of the men, or 10–20 % for a veteran
+### 5.3 Surrender costs 40–80 % of the men, or 14–28 % for a veteran
 
 `Regiment.Surrender()` (~13938):
 
 ```
 pow = clamp(powratiosurrender ± powratiovariation, 0, 1)        // 0.6 ± 0.2
-pow *= interpolate(experience,     1 → powmultiplierexp)        // 1.0 → 0.5
+pow *= interpolate(experience,     1 → powmultiplierexp)        // 1.0 → 0.7
 pow *= interpolate(fightingspirit, 1 → powmultiplierfightingspirit)   // 1.0 → 0.5
 SufferCasualtiesAll(…, casualty type 3 = captured, pow)
 ```
 
+Values from `unitprefs.txt` 1663–1669 by loader replay:
+`powratiosurrender` 0.6, `powratiovariation` 0.2, `powmultiplierexp` **0.7**,
+`powmultiplierfightingspirit` 0.5.
+
 | Unit | Prisoners taken |
 | --- | --- |
 | Green, no fighting spirit | **40–80 %** |
-| Full experience *or* full fighting spirit | 20–40 % |
-| Full experience **and** full fighting spirit | **10–20 %** |
+| Full experience only | 28–56 % |
+| Full fighting spirit only | 20–40 % |
+| Full experience **and** full fighting spirit | **14–28 %** |
 
-> **Experience and fighting spirit each halve the prisoners a surrender
-> costs**, so the spread between a green unit and a veteran one is **fourfold**.
-> That is a larger return on experience than almost anything else in the game,
-> and it is invisible — nothing in the interface mentions it.
+> **Fighting spirit halves the prisoners a surrender costs, and experience
+> cuts them by 30 %**, so a veteran at full fighting spirit loses about
+> **2.9×** fewer men to a surrender than a green unit with none *(calculated)*.
+> Fighting spirit is the bigger lever. Neither is mentioned anywhere in the
+> interface.
+>
+> An earlier version of this section read `powmultiplierexp` as 0.5, giving
+> 10–20 % for a veteran and a fourfold spread.
 
 ### 5.4 Disintegration: relocate and bleed, or be deleted
 

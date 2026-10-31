@@ -800,7 +800,7 @@ subtracted from 1.
 | --- | --- |
 | Morale slot 14 | Below `cohesionalertlevel` → morale penalty |
 | Morale slot 13 | Compared against the enemy's, as charge doubt |
-| `Autocalc.FightUnit` | `cohesioninfluenceonenemycasautocalc`, shipped 0.3 |
+| `Autocalc.FightUnit` | `cohesioninfluenceonenemycasautocalc`, shipped **0.8** (`campaignprefs.txt` 1169): casualties dealt ×0.8 at zero cohesion. An earlier version said 0.3 |
 | `CalculateMeleeCasualties` | `meleeinfluence_cohesion`, as a differential |
 | `CalculateMeleeStrength` | `(1 + cohesion)` multiplier — display only |
 | Sprite layout | Formation spread |

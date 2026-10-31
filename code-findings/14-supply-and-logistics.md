@@ -1106,11 +1106,18 @@ readiness 1.**
 
 ### 10d. Four readiness prefs the config marks dead itself
 
-`campaignprefs.txt` ships `readinesstargetentrenched` = 0.1,
-`readinesstargetencamped` = 0.4, `readinessforcedmarch` = 0.4 and an
+`campaignprefs.txt` ships a readiness target of 0.1 labelled *"if entrenched"*,
+0.4 labelled *"if encamped"*, `readinessforcedmarch` = 0.4 and an
 intelligence-based recovery factor of 0.008, each with **`[deactivated]`** in
 its own label — and all four are indeed parsed and never read. Unusually for
 this codebase, the config is being straight with the modder.
+
+> **The first two are loaded crosswise.** By loader replay,
+> `readinesstargetencamped` receives the 0.1 on the line labelled *entrenched*
+> (`campaignprefs.txt` 328) and `readinesstargetentrenched` the 0.4 labelled
+> *encamped* (330). Harmless while both are dead, but a mod that revives
+> either should set the value on the line the code actually reads. An earlier
+> version of this section named them by their labels.
 
 > **The two intelligence prefs are one letter apart and only one is live.**
 > `intelligenceinfluenceonreadiness` (0.008, *"Readiness improvement factor

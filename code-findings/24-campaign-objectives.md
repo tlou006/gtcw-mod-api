@@ -190,7 +190,7 @@ last entry in `supportdescr`).
 
 ## 3. Two elections
 
-### 3.1 The 1862 midterms — objective 9, and its two-day window
+### 3.1 The 1862 midterms — objective 9, and its one-day window
 
 Objective 9 "Maintain Support Above 60" keys off **4 November 1862**, the real
 midterm date, and tests `GameVars.alliance[0].averagesupport` — the
@@ -206,12 +206,26 @@ if (!accomplished && date >= Date(4, 11, 1862))
     // num = date − lastupdate, in campaign years
 ```
 
-**The rate is −0.52 per annum, and it runs for two days.** The objective's
+**The rate is −0.52 per annum, and it runs for about a day.** The objective's
 `ObjectiveChapters` is `{1}`, and `CheckForChapterUpdate` raises the chapter to
-2 once the date is strictly past 5 November 1862 — so from 6 November the
-objective is deactivated by the generic chapter gate (§5.1) and the charge
-stops. The reachable total is `(2/365) × 52 × 0.01` ≈ **0.003**, three tenths
-of a point of national morale.
+2 once the date is strictly past `Date(5, 11, 1862)`, after which the generic
+chapter gate (§5.1) deactivates the objective and the charge stops.
+
+The two thresholds do not land at midnight, because the two date systems
+measure a day differently. `Tools.Date.yearfraction` is `year + (days in the
+months before) / 365 + day / daysInMonth / 12`; `GetCampaignFloatingDate()` is
+`year + (month − 1) / 12 + (day − 1) / 365.25 + hour / 8766`. For 1862 that
+puts *(calculated)*:
+
+| Threshold | Code | Falls on the campaign clock at |
+| --- | --- | --- |
+| Objective 9 starts charging | `date >= Date(4, 11, 1862)` | about **21:24 on 4 November** |
+| Chapter 2 begins | `date > Date(5, 11, 1862)` | about **21:45 on 5 November** |
+
+So the charge runs for about **24 hours**, and the reachable total is
+`0.52 × 24.4 / 8766` ≈ **0.0015**, about a sixth of a point of national
+morale. An earlier version of this section said two days and 0.003, reading
+both dates as midnights.
 
 > **Corrects an earlier reading of this file**, which said the penalty runs
 > "for the rest of the campaign" — that is what the config label describes and
@@ -564,8 +578,9 @@ and therefore correct — but it is the reason the §1.2 hazard matters.
 8. **The 1864 election charges its −0.20 twice** (§3.2), from two objectives
    whose tooltips each promise −20, which turns the Union's election loss into
    an immediate campaign loss rather than a setback.
-9. **The 1862 midterm penalty is confined to a two-day window** by its chapter
-   list, against a config label describing an open-ended weekly rate (§3.1).
+9. **The 1862 midterm penalty is confined to a window of about a day** by its
+   chapter list, against a config label describing an open-ended weekly rate
+   (§3.1).
 10. **Objective 27's `SetEndOfCampaign` call is unreachable** (§3.2), and
     objective 26's fires only in a branch the chapter advance has already
     switched off.

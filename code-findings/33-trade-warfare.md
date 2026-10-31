@@ -18,7 +18,7 @@ source and would happen identically if the array did not exist. The game names
 its own categories in UI code: **1 blockades and privateering, 2 raids,
 3 repairs**, with **0 a recomputed total** and 4–9 unused. Values are stored
 **negative** and negated for display. And category 2 is fed by two writers with
-**opposite signs**, so cavalry raiding an enemy trade node makes the victim's
+**opposite signs**, so cavalry raiding an enemy market node (any `IIP`, not only an `IsTradeNode` one) makes the victim's
 displayed raid losses go *down*.
 
 ## 1. The categories, named by the game
@@ -29,7 +29,7 @@ and labels each slot.
 | Slot | Label in the game's own UI | Writer |
 | --- | --- | --- |
 | 0 | "total costs" | recomputed as the sum of 1–9 on every write |
-| 1 | "…through blockades & privateering" | `IIP` (a trade node) |
+| 1 | "…through blockades & privateering" | `IIP` (a market node) |
 | 2 | "…through raids" | `CBuilding`, **and** `Regiment.UpdateRaids` |
 | 3 | "…through repairs" | `CBuilding` |
 | 4–9 | *(none)* | none — the array is `float[10]` |
@@ -74,7 +74,7 @@ All three factors are strictly positive, and `GetResourcesCost` sums
 `GetLocalPrice(…) * resourceamount` with no negation anywhere. So this adds a
 **positive** number to a slot whose convention is negative.
 
-> **Consequences.** A raid on an enemy trade node *reduces* that alliance's
+> **Consequences.** A raid on any enemy market node in range (`UpdateRaids` collects every `IIP` whose owner is at war with the raider, trade node or not) *reduces* that alliance's
 > "losses through raids" figure, and with enough raiding drives it past zero so
 > the panel reports a negative cost. Because slot 0 is recomputed as the sum of
 > the rest, it corrupts the **total** as well — and therefore the
@@ -96,7 +96,7 @@ Only the sign is wrong.
 mirror their contribution into a per-object `lossestradewarfare` field, which
 is what the map icon tooltips read ("Cumulated losses in tax revenues through
 blockades and raids"). `Regiment.UpdateRaids` updates the alliance ledger but
-**not** the node's own `lossestradewarfare`, so a raided trade node's tooltip
+**not** the node's own `lossestradewarfare`, so a raided node's tooltip
 omits regiment raid losses entirely.
 
 ## 4. Nothing in the simulation reads it

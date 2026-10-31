@@ -119,15 +119,22 @@ Two defects compound:
 2. **`x == float.NaN` is always false in C#** — NaN is not equal to itself, so
    the guard never fires. The correct test is `float.IsNaN(x)`.
 
-The NaN then propagates: `BattleUnits` decays the tracker with
+The NaN then survives the decay: `BattleUnits` decays the tracker with
 `supportinfluencelast[...] /= Mathf.Pow(1f + x, 30f)`, and NaN divided by
-anything stays NaN. Nothing ever clears it.
+anything stays NaN. The only thing that clears it is the next `AdjustSupport`
+call for the **same reason code, state and alliance**, which *assigns* the
+tracker afresh: a gain writes a valid square root, another loss writes NaN
+again. So a slot stays NaN from a loss until the next gain on that code — for
+the rest of the campaign if the code never pays out anything positive there.
 
-**Consequence 1 — the stale-reset never fires.** `AdjustSupport` resets the
-cumulative slot when the tracker is near zero
-(`if (Mathf.Abs(supportinfluencelast[...]) < 0.0001f) supportinfluence[...] = 0f`).
-`Mathf.Abs(NaN) < 0.0001f` is false, so **once a reason code has ever caused a
-loss in a state, its cumulative figure stops being reset.**
+**Consequence 1 — the stale-reset stops firing while the slot is NaN.**
+`AdjustSupport` resets the cumulative slot when the tracker is near zero
+(`if (Mathf.Abs(supportinfluencelast[...]) < 0.0001f) supportinfluence[...] = 0f`),
+and it runs that test *before* reassigning the tracker. `Mathf.Abs(NaN) <
+0.0001f` is false, so **while a reason code's latest change in a state was a
+loss, its cumulative figure is never reset** — permanently for loss-only
+codes. An earlier version of this section said nothing ever clears the NaN;
+it overlooked that the tracker is assigned, not accumulated.
 
 **Consequence 2 — the "what is hurting us" UI can never populate.**
 `CampaignStrategy.GetStateSupportInfo(alliance, plus, amount)` selects entries

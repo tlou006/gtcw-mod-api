@@ -112,7 +112,7 @@ with a mechanism behind them
 | A naval defeat | −0.035 per 100 firepower destroyed | per battle, loser only |
 | Militia Act I not yet passed | −1.0 per **day** | daily, pre-war only |
 | Enemy on Confederate soil | −0.5 per **week** Union | weekly, chapter 1 |
-| 1862 midterms failed | −0.5 per annum, **for two days** | ≈ −0.003 total |
+| 1862 midterms failed | −1 per **week** (−52 per annum), **for about a day** | ≈ −0.15 total |
 | Policies | −5 to +10 each | on completion |
 
 Read that table once and the shape of the game changes. **The two continuous
@@ -389,7 +389,7 @@ once the Confederacy has inflicted 50,000 casualties.
 
 ---
 
-## 8. The 1862 midterms are worth three tenths of a point
+## 8. The 1862 midterms are worth about a sixth of a point
 
 The other election, objective 9 "Maintain Support Above 60", tests the Union's
 average state support against 60 % on **4 November 1862** and charges −0.5
@@ -603,7 +603,7 @@ are the last two, *"State Support"* and *"Private Wealth"*.
    month-over-month *growth* at the highest coefficient in the model, so a
    stalled economy stops paying even while it is still rich, and a recovering
    one pays every month.
-8. **Ignore the 1862 midterms.** Three thousandths of a point.
+8. **Ignore the 1862 midterms.** About a sixth of a point.
 9. **Auto-resolve when you want the AI to feel a defeat.** The
    auto-calculator skips the AI's morale-loss discount, the surrender
    multiplier and the Lieutenant General penalty — so against the AI it is the
@@ -620,7 +620,7 @@ descending order of effect per line edited.
 | Change | Pref | Effect |
 | --- | --- | --- |
 | Make Lincoln's defeat a setback again | `lincolninfluenceunionmorale` **or** `demoralizevotersunionmoraleinfluence` → 0 | removes the double charge, restoring the −20 both tooltips promise |
-| Give the 1862 midterms teeth | objective 9's `ObjectiveChapters` → empty | the −0.5/annum rate runs for the rest of the campaign instead of two days |
+| Give the 1862 midterms teeth | objective 9's `ObjectiveChapters` → empty | the −1-a-week rate (−52 per annum) runs for the rest of the campaign instead of about a day |
 | Make battles matter | `influenceonnationalmoralelossratefactor` 0.3 → 0.6 | 10,000 casualties goes from −0.6 to −4.0 points; the exponent is the single most leveraged number in the file |
 | Reward conquest | add a positive branch to the town-capture path for the new owner | currently only the loser is charged |
 | Slow the political clock | `convergencenatmoraletowardsstatesupport` 0.5 → 0.25 | doubles the time constant to four years, making the campaign decided by events rather than by support |

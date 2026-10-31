@@ -40,8 +40,10 @@
  * `x = T.Parse(streamReader.ReadLine());` for float/int/bool, plain string
  * reads, 1-D and 2-D array element targets (`a[i]`, `a[i, j]`),
  * `a = new T[n]` / `new T[n, m]` (recorded for `.Length`), and
- * `for (int i = 0; i < BOUND; i++)` where BOUND is a literal, an int read
- * earlier in the replay, a --set value, or `array.Length`. An `if` block
+ * `for (int i = 0; i < BOUND; i++)` (or `<=`) where BOUND is a literal, an
+ * int read earlier in the replay, a --set value, `array.Length`, or a sum or
+ * product of those, and typed local reads such as
+ * `int n = int.Parse(streamReader.ReadLine());`. An `if` block
  * whose body reads the file stops the replay with a message, because which
  * branch runs depends on runtime state (usually a version gate): simulate
  * each branch as its own range. An `if` block that does not read is skipped.
@@ -92,10 +94,10 @@ const PARSES = {
   string: () => true,
 };
 
-const RE_FOR = /^for \(int (\w+) = 0; \1 < ([\w.]+); \1\+\+\)$/;
+const RE_FOR = /^for \(int (\w+) = 0; \1 (<=?) ([^;]+); \1\+\+\)$/;
 const RE_SKIP_READ = /^(?:\w+ = )?streamReader\.ReadLine\(\);$/;
-const RE_ASSIGN = /^([\w.]+)(?:\[([\w\s,]+)\])? = (?:(float|int|bool)\.Parse\()?streamReader\.ReadLine\(\)\)?;$/;
-const RE_NEW = /^([\w.]+) = new (?:float|int|bool|string)\[(\w+)(?:, (\w+))?\];$/;
+const RE_ASSIGN = /^(?:(?:int|float|bool|string|var) )?([\w.]+)(?:\[([\w\s,]+)\])? = (?:(float|int|bool)\.Parse\()?streamReader\.ReadLine\(\)\)?;$/;
+const RE_NEW = /^([\w.]+) = new (?:float|int|bool|string)\[([^,\]]+)(?:, ([^\]]+))?\];$/;
 const RE_IF = /^(?:else )?if \(|^else$/;
 
 // Index of the closing brace that matches the block opening after line i.
@@ -117,19 +119,43 @@ function simulate(startLine, quiet) {
   const rows = [];
   const unknown = [];
   let failures = 0;
-  const bound = name => (/^\d+$/.test(name) ? +name : env[name]);
+  // A loop bound or array size: a literal, a known name, `x.Length`, or a
+  // sum/difference/product of those. Undefined if any part is unknown.
+  const bound = expr => {
+    const e = String(expr).trim();
+    if (/^\d+$/.test(e)) return +e;
+    if (e in env) return env[e];
+    if (!/^[\w.\s+*-]+$/.test(e)) return undefined;
+    let unknownPart = false;
+    const js = e.replace(/[A-Za-z_][\w.]*/g, id => {
+      if (id in env) return '(' + env[id] + ')';
+      unknownPart = true;
+      return '0';
+    });
+    return unknownPart ? undefined : Function('return (' + js + ');')();
+  };
 
   function run(lines, base) {
     for (let i = 0; i < lines.length; i++) {
-      const t = lines[i].trim();
+      let t = lines[i].trim();
       const csLine = base + i;
+      // A multi-line initializer (`x = new List<float>` / `{` / ... / `};`)
+      // is one statement: join it so the multi-read path below sees it whole.
+      if (/^[\w.\[\], ]+ = new [\w<>\[\], ]+$/.test(t) && (lines[i + 1] || '').trim() === '{') {
+        let j = i + 1;
+        while (j < lines.length && lines[j].trim() !== '};') j++;
+        if (j >= lines.length) throw new Stop(`cs ${csLine}: unterminated initializer`);
+        t = lines.slice(i, j + 1).map(l => l.trim()).join(' ');
+        i = j;
+      }
       if (!t || t === '{' || t === '}') continue;
       let m;
       if ((m = t.match(RE_FOR))) {
         const end = blockEnd(lines, i);
-        const n = bound(m[2]);
+        const limit = bound(m[3]);
+        const n = limit === undefined ? undefined : (m[2] === '<=' ? limit + 1 : limit);
         if (end < 0) throw new Stop(`unbalanced braces after cs ${csLine}`);
-        if (n === undefined) throw new Stop(`cs ${csLine}: loop bound '${m[2]}' unknown; pass --set ${m[2]}=N`);
+        if (n === undefined) throw new Stop(`cs ${csLine}: loop bound '${m[3]}' unknown; pass --set NAME=N for each unknown name`);
         for (let k = 0; k < n; k++) { env[m[1]] = k; run(lines.slice(i + 2, end), base + i + 2); }
         i = end;
         continue;
@@ -160,9 +186,25 @@ function simulate(startLine, quiet) {
         ptr++;
         continue;
       }
+      if ((m = t.match(/^(?:int )?(\w+) = (\d+);$/))) { env[m[1]] = +m[2]; continue; }
       if ((m = t.match(RE_NEW))) {
         const a = bound(m[2]);
         if (a !== undefined) env[m[1] + '.Length'] = m[3] === undefined ? a : a * (bound(m[3]) || 0);
+        continue;
+      }
+      // Several typed reads in one statement, e.g.
+      // `v = new Vector2(float.Parse(streamReader.ReadLine()), float.Parse(streamReader.ReadLine()));`
+      const multi = t.match(/^(?:(?:int|float|bool|string|var|Vector[234]|Color) )?([\w.]+(?:\[[\w\s,]+\])?) = .*;$/);
+      const reads = [...t.matchAll(/(float|int|bool)\.Parse\(streamReader\.ReadLine\(\)\)/g)];
+      if (multi && reads.length > 0 && reads.length === (t.match(/ReadLine/g) || []).length) {
+        reads.forEach((r, k) => {
+          const type = r[1];
+          const value = cfg[ptr - 1] === undefined ? '<EOF>' : cfg[ptr - 1];
+          const ok = value !== '<EOF>' && PARSES[type](value);
+          if (!ok) failures++;
+          rows.push({ name: `${multi[1]}{${k}}`, value: value.trim(), line: ptr, label: (cfg[ptr - 2] || '').trim(), ok, type });
+          ptr++;
+        });
         continue;
       }
       if (t.includes('ReadLine')) throw new Stop(`cs ${csLine}: unrecognised read: ${t}`);

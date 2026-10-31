@@ -431,22 +431,25 @@ cost ([what kills your men](what-kills-your-men.md)).
 > catches a beaten formation. The next two subsections are what happens when
 > there is nothing there.
 
-### 7a.1 Surrender: experience and fighting spirit each halve the prisoners
+### 7a.1 Surrender: fighting spirit halves the prisoners, experience trims them
 
 When a unit surrenders, the share of its men taken prisoner starts at
-**60 % ± 20** and is then halved twice over, once by experience and once by
-fighting spirit:
+**60 % ± 20**. Full fighting spirit halves it; full experience cuts it by 30 %
+([31-retreat](../code-findings/31-retreat.md) §5.3):
 
 | Unit | Prisoners |
 | --- | --- |
 | Green, no fighting spirit | **40–80 %** |
-| Full experience *or* full fighting spirit | 20–40 % |
-| Full experience **and** full fighting spirit | **10–20 %** |
+| Full experience only | 28–56 % |
+| Full fighting spirit only | 20–40 % |
+| Full experience **and** full fighting spirit | **14–28 %** |
 
-> **A fourfold spread, and nothing in the interface mentions it.** This is one
-> of the largest returns on experience anywhere in the game, and the clearest
-> argument for keeping fighting spirit up on units you expect to be cut off —
-> it is not only about whether they break, but about what breaking costs.
+> **Nearly a threefold spread, and nothing in the interface mentions it.**
+> Fighting spirit is the bigger lever, which makes this the clearest argument
+> for keeping it up on units you expect to be cut off: it is not only about
+> whether they break, but about what breaking costs. An earlier version of this
+> section said experience also halved the prisoners and called the spread
+> fourfold; experience's multiplier ships at 0.7, not 0.5.
 
 ### 7a.2 Disintegration: 30–80 % desert, and readiness goes to zero
 

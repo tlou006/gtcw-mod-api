@@ -43,8 +43,9 @@ clamped adder.
 
 - **4 November 1862, objective 9.** `alliance[0].averagesupport` must reach
   0.60. Failing it charges −0.01 Union national morale per week — but the
-  objective's chapter list is `{1}` and chapter 2 begins on 6 November, so the
-  charge runs for **two days** and totals about **0.003**. As shipped the 1862
+  objective's chapter list is `{1}` and chapter 2 begins late on 5 November, so
+  the charge runs for **about a day** and totals about **0.0015**
+  ([24](24-campaign-objectives.md) §3.1). As shipped the 1862
   midterms have no mechanical consequence, against a config label describing an
   open-ended rate.
 - **9 November 1864, objectives 26/27.** Union national morale must be ≥ 0.50.
