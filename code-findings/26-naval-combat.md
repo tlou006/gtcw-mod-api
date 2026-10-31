@@ -21,7 +21,7 @@ before; [11](11-combat-resolution.md) is land-only.
 
 ## 1. `shiptypes.dat` — 41 types, variable-length records
 
-`GameVars.import_shiptypes` (`GameVars` ~6858) reads `Config/shiptypes.dat`
+`GameVars.ImportShipTypes` (`GameVars` ~6855) reads `Config/shiptypes.dat`
 with `Encoding.Default`. The count line is **41**. Each record is **not** a
 fixed length: it carries a resource-count line followed by that many id/amount
 pairs, so a positional editor has to track it.
@@ -255,8 +255,13 @@ Four things to take from that.
   `GetCombatValue`, which sets the victory balance, sums *all* of them.
 
 `PickTargetVessel` draws with `Random.Range(0, list.Count - 1)`, the
-max-exclusive slip catalogued in [20](20-ai-campaign.md) §12.2, so the last
-active enemy vessel is never drawn.
+max-exclusive slip catalogued in [20](20-ai-campaign.md) §12.2, so the
+list's last entry is never drawn. Because every vessel is entered
+`ceil(size)` times and the smallest shipped hull is 1.32 (two entries), that
+costs the last active enemy vessel **one of its entries**, not all of them:
+a Ship's Tender Gunboat in last place is drawn half as often as it should
+be, a Warrior Class 23 times in 24. An earlier version said the last vessel
+is never drawn.
 
 `GetAveragePenetration` is the matching mean of
 `penetrationinch × guns / max(10, distance) ^ penetrationdistancefactor (0.1)`
@@ -421,7 +426,8 @@ participants).
 8. **The `armor == 1f` display band is overwritten** by the `>= 1f` test that
    follows it (§2), so the Cottonclad Ram's armour string is unreachable.
 9. **`PickTargetVessel` uses `Random.Range(0, list.Count - 1)`** (§5), the
-   repo-wide max-exclusive slip ([20](20-ai-campaign.md) §12.2).
+   repo-wide max-exclusive slip ([20](20-ai-campaign.md) §12.2). Here it only
+   under-weights the last vessel by one of its `ceil(size)` entries.
 10. **`strengthrelationtriggerdefeatnavybattles` is read for three unrelated
     quantities**: a fleet firepower ratio (`Autocalc` 1382, 2020, 1782, 5488),
     a ship's condition (`Fleet` 162) and a **garrison's** condition when
@@ -456,5 +462,6 @@ Still open here:
    dump would turn the band structure into readable text.
 
 And one question [30](30-naval-subsystems.md) opened: **`Retreat`** (624
-lines) is the live land retreat system for the whole campaign, runs while the
-game is paused, and is undocumented.
+lines) is the live land retreat system for the whole campaign and runs while
+the game is paused. ~~Undocumented.~~ Now covered by
+[31-retreat](31-retreat.md).

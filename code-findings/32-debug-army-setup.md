@@ -138,10 +138,14 @@ game version**, which is far above 0.7802. The reader therefore expects the
 
 > **Unlike `nations.dat`, this one has two possible fixes:** add the field to
 > each record, or drop a `version.dat` declaring something below 0.7802. The
-> second is cheaper but changes `num` everywhere else it is consumed in
-> `import_units`, including two comparisons whose scale is unexplained
-> (`num < 14`, and `num >= grp[i].regref.unittyp && num < 16`), so bringing the
-> file to the current format is the safer route.
+> second is cheaper, but `import_units` is not the only reader of that
+> folder's `version.dat`: `import_battledata` reads it too and, below
+> **0.8811**, replaces each group's readiness value with 1 — and stores
+> `readiness = value / 100`, so every deployed group would start at **1 %
+> readiness**. Bringing the file to the current format is the safer route.
+> An earlier version of this note pointed instead at two `num < 14` /
+> `num < 16` comparisons said to be in `import_units`; they are in
+> `RefreshUnitTypes`, where `num` is a unit type, not the version.
 
 **The field is morale.** `num17` is passed as the trailing argument to
 `create_regiment`, whose signature ends `bool isgarrison = false, float morale
@@ -229,7 +233,7 @@ without a `CultureInfo`, so on a comma-decimal locale `1.5` would parse as
 `CultureInfo.DefaultThreadCurrentCulture` and `DefaultThreadCurrentUICulture`
 to `InvariantCulture`, and it is called from `MainMenuControls.Awake()` — the
 first thing the game runs — as well as from `loaddebugs`, `MainMenu`, and
-`Options.SaveConfigs`.
+`Options.OnEnable` (an earlier version said `Options.SaveConfigs`).
 
 Two caveats worth keeping:
 
@@ -261,7 +265,8 @@ fields byte-identical, and back up what they replace.
 
 > **`battledata.dat` was never stale.** It had been the last suspect, on the
 > strength of a line count that differs from `000/A` (188 against 398). That
-> was never evidence: `import_battledata` has **no version gates at all** and
+> was never evidence: `import_battledata` has **no version gate on which lines it reads** (its one
+> gate, `num < 0.8811f`, overrides a value already read) and
 > **four count-driven variable-length loops**, so two battles with different
 > numbers of objectives and zones legitimately differ in length. The successful
 > load settles it — `import_battledata`'s own redirect excludes only
@@ -277,8 +282,10 @@ merely differs is not.*
 
 ## Still open
 
-- What `num`'s `< 14` / `< 16` comparisons in `import_units` mean, given `num`
-  is otherwise a version like `0.7802` or the current version.
+- ~~What `num`'s `< 14` / `< 16` comparisons in `import_units` mean.~~ They
+  are not in `import_units`: they are in `BattleUnits.RefreshUnitTypes`
+  (~10515), where `num` is `GetHighestSubordinateUnittype` — 14 is Division,
+  16 Army.
 - Whether a Steam update restores the publisher's stale copies. Both scripts
   are idempotent and take `-Verify`, so re-running them after a patch is the
   cheap check.

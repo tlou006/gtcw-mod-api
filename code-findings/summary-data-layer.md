@@ -119,9 +119,9 @@ label" an unsafe move.
 
 ## Still open
 
-- **A label-to-field map for all 2,215 prefs.** Needs the loaders simulated in
-  order rather than matched line by line; it would make every future pref
-  question a lookup ([29](29-dead-prefs-audit.md) §10).
+- ~~**A label-to-field map for all 2,215 prefs.**~~ **Built** as
+  `scripts/replay-all-prefs.js`, which writes one replay table per loader
+  ([29](29-dead-prefs-audit.md) §10).
 - **A full sweep of `GetStringPartitions`/`GetIntPartitions` call sites** would
   settle every list field in every config file at once. Cheap, high value, not
   done.

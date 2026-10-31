@@ -1848,15 +1848,18 @@ when hit") is not implemented.
 **Size does not enter hit probability at all.** Nothing in
 `GetAverageHitProbability` reads the target. What size does is enter the target
 lottery: `PickTargetVessel` adds each active enemy vessel to the draw
-`ceil(size)` times, so a size-25 Ocean Casemate Ironclad is drawn 25 times
-against a size-1.3 tender. Bigger ships therefore *attract* fire — the
+`ceil(size)` times, so a size-25.3 Ocean Casemate Ironclad holds 26 entries
+against a size-1.32 tender's 2. Bigger ships therefore *attract* fire — the
 manual's claim in outcome — but by a different route, **and `hull = size × 50`
 cancels most of it**: a ship twice the size is picked about twice as often and
 takes about half the condition damage per penetrating hit.
 
 > The lottery also uses the repo-wide `Random.Range(0, list.Count − 1)` slip
-> ([20](../code-findings/20-ai-campaign.md) §12.2), so the last active enemy
-> vessel can never be drawn.
+> ([20](../code-findings/20-ai-campaign.md) §12.2), which drops the list's
+> last entry. Every ship has at least two entries, so this only makes the
+> last active enemy vessel a little less likely to be picked (a tender in
+> last place, half as likely); it never makes a ship untargetable. An
+> earlier version said the last vessel can never be drawn.
 
 **Turrets buy rate of fire, not accuracy.** `withinturret` reaches exactly one
 formula in the game, `num7 *= (rofimprovementturrets − 1) × turretFraction + 1`

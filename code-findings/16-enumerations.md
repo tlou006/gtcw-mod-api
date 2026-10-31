@@ -107,7 +107,7 @@ Every assignment site accounted for. See
 
 | # | Meaning |
 | --- | --- |
-| 0 | Idle / main menu |
+| 0 | Idle / main menu; also a **new campaign** until frame 30 (`LoadCampaignScenario` does not set it) |
 | 1 | Standalone battle, fresh |
 | 2 | Campaign running (steady state) |
 | 3 | Campaign battle, fresh |
@@ -151,7 +151,7 @@ From consumption sites ([11-combat-resolution](11-combat-resolution.md) §6).
 | 1 | **Killed** | `inflcasualtiesonstatesupport × losses[1]` |
 | 2 | **Deserters / missing** | `nation[state].deserters += losses[2]`; desertion writes here |
 | 3 | **Prisoners** | excluded from own-casualty sums; routed melee losses use `overridelosstype = 3` |
-| 4, 5 | unknown | no consumption site found |
+| 4, 5 | unknown | no gameplay consumer; `losses[5]` is read only as a change trigger for the campaign unit-icon tooltip (`Regiment.cs:11687`, `:11698`). An earlier version said no site read either |
 
 ---
 

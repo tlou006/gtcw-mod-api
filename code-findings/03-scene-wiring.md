@@ -121,7 +121,7 @@ assignment site accounted for:
 
 | Value | Meaning | Set by |
 | --- | --- | --- |
-| 0 | Idle / main menu | `ExitBattleScenario`, `ExitCampaignScenario` (when `resetsceneoperation`) |
+| 0 | Idle / main menu; also a new campaign until frame 30, since `LoadCampaignScenario` leaves it at 0 | `ExitBattleScenario`, `ExitCampaignScenario` (when `resetsceneoperation`) |
 | 1 | Standalone battle, fresh | `LoadBattleScenario`; `BattleController` (7 → 1 once a loaded battle is set up) |
 | 2 | **Campaign running** (steady state) | `CampaignController`, frame 30 |
 | 3 | Campaign battle, fresh | `LoadCampaignBattleScenario`; `BattleController` (8 → 3 once a loaded battle is set up) |

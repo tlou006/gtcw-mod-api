@@ -501,10 +501,12 @@ perk multipliers; §4.1 now shows why pricing it was impossible — it is not re
 
 ## 10. Open questions
 
-- **A label-to-field map for all 2,215 prefs.** Building one needs the loaders
-  simulated in order — every `ReadLine()`, including those inside `for` bounds
-  that consume *n* lines — rather than matched line by line. It would make
-  every future pref question a lookup, and it is the natural next tool.
+- ~~**A label-to-field map for all 2,215 prefs.**~~ **Built:**
+  `scripts/replay-all-prefs.js` simulates all six text loaders in order and
+  writes one table per loader (field, value, config line, label);
+  `scripts/count-dead-prefs.js` reproduces this file's census from them (141
+  from the six loaders, plus the three DLC prefs counted by hand). The DLC
+  loader (`dlcwl_config.dat`) is still outside the tables.
 - **The 44 presentation and 7 scheduling dead prefs** were classified by name
   and spot-checked, not read individually. Nothing in them is likely to affect
   play, but the cloud block in particular (8 prefs) looks like a whole
