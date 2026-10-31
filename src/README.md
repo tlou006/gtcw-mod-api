@@ -19,6 +19,20 @@ The point of the split is that **a game update must break only `Runtime`.**
 into the public API is a build failure rather than a review miss — there is a
 `ForbidGameReferences` target that says so by name.
 
+Two invariants hold across all four projects, and a change that violates either
+is wrong however well it works:
+
+- **No game file is ever written, and no `Config/` file is ever parsed by us.**
+  The library reads the game's loaded structures, so it acts on whichever file
+  actually won the game's own resolution — global, scenario, or a data mod's
+  replacement. Ids and slots are allocated only from what is *measured* free on
+  the running install, never from a shipped range. See the
+  [compatibility boundary](../plan.md#compatibility-boundary--existing-data-mods-keep-working).
+- **The library never changes game behaviour on its own.** Defect repairs live
+  in a separate opt-in mod ([`defect-register.md`](../defect-register.md)),
+  because a mod that worked around a bug breaks the moment the library fixes it
+  underneath.
+
 ## Building
 
 ```powershell

@@ -7,6 +7,14 @@ reference.
 **Design and rationale:** [`plan.md` Phase 4b](plan.md#phase-4b--the-defect-register-and-the-bug-fixing-mod).
 **Fixes:** `GTCW.BugFixes`, an opt-in mod built on the ModApi. The library
 itself never changes game behaviour.
+**Compatibility:** no fix may break a mod that edits the game's data files
+([the boundary](plan.md#compatibility-boundary--existing-data-mods-keep-working)).
+Two consequences bind every row below: **a fix is never a file rewrite** — class
+D fixes are runtime overrides, so a data mod's edit of the same file is never
+clobbered and nothing survives uninstall — and **certainty decides whether we
+fix it, reach decides whether it is on.** A defect can be beyond doubt and still
+ship off by default because it moves a quantity data mods author and balance
+against.
 **Build:** every row refers to the build in
 [`code-findings/00-build-provenance.md`](code-findings/00-build-provenance.md).
 
@@ -27,7 +35,8 @@ itself never changes game behaviour.
 | **Defect** | The claim in one line. The account stays in the findings file. |
 | **Class** | One of the seven below. The class decides whether it is ours to fix. |
 | **Source** | The findings file and section that established it. **No row without one.** |
-| **Fix** | `patch`, `override`, `repair-on-load`, `contribution`, or `none`. |
+| **Fix** | `patch`, `override`, `repair-on-load`, `contribution`, or `none`. **Never a file rewrite.** |
+| **Default** | `on` only where the fix cannot change a tuned outcome — crashes, NaNs, dead code, latches, display-only. Everything else `off`, however certain the defect. |
 | **Status** | The ladder below. |
 
 ### Classes
@@ -63,7 +72,7 @@ Ordered by what a fix is worth, not by id.
 | GTCW-003 | **The Confiscation Act makes enemy-soil foraging worse.** Manual, appendix and config comment all say supply efficiency on enemy soil +15 %; the code multiplies `supplyenemysoilfactor = 1.15` into the resupply **time**, making local foraging 13 % slower. | M | [manual-vs-code §18.2](mechanics-findings/manual-vs-code.md) | patch | recorded |
 | GTCW-004 | **Naval rate of fire is a constant.** `Mathf.Max(1f, distance / num4)` pins the blend factor to exactly 1, because every gun counted already passed `range >= distance`. Every ship in every engagement fires at the long-range rate; `navalbattlerofmindistance = 1.00` is dead and closing the range buys no rate of fire. The clamp wanted `Mathf.Min`. | C | [manual-vs-code §38](mechanics-findings/manual-vs-code.md) | patch | recorded |
 | GTCW-005 | **`occupiedby` is a latch.** Full occupation sets it and nothing ever clears it, so units in a state you once fully held are permanently exempt from the enemy-soil `fightingspirit` and supply penalties, and projects 93/94 keep paying — after every town is lost back. | C | [summary-game-state](code-findings/summary-game-state.md) § Traps | patch + repair-on-load | recorded |
-| GTCW-006 | **Three turret ships get no turret bonus.** The rate-of-fire bonus tests `withinturret == 1`, while the ship panel counts `withinturret > 0`, so the three ships whose guns are split across two turrets lose the ×1.4 and the interface still calls their guns turret-mounted. | C | [manual-vs-code §39](mechanics-findings/manual-vs-code.md) | patch (an override of the data field also works, but changes what the appendix describes) | recorded |
+| GTCW-006 | **Three turret ships get no turret bonus.** The rate-of-fire bonus tests `withinturret == 1`, while the ship panel counts `withinturret > 0`, so the three ships whose guns are split across two turrets lose the ×1.4 and the interface still calls their guns turret-mounted. | C | [manual-vs-code §39](mechanics-findings/manual-vs-code.md) | patch — **not** the data route, which would mean editing a field of `shiptypes.dat` that data mods author | recorded |
 | GTCW-007 | **`powratio`'s denominator assigns instead of accumulating** POW camp capacity, so only the last camp counts. | C | [summary-game-state](code-findings/summary-game-state.md) § Defects | patch | recorded |
 | GTCW-008 | **`GetCurrentTaxValuePa(-1)` omits `taxrevenuemodifier[corporate]`**, which the per-type branch includes — so the all-types total disagrees with the sum of its parts. | C | [summary-game-state](code-findings/summary-game-state.md) § Defects | patch | recorded |
 | GTCW-009 | **`transportcapacitypeak` is updated three times per pass** by a triple-nested loop whose outer index is unused, cutting its trailing window to a third of the intended length. | C | [summary-game-state](code-findings/summary-game-state.md) § Defects | patch | recorded |
@@ -75,6 +84,19 @@ Ordered by what a fix is worth, not by id.
 | GTCW-015 | **`Regiment.UpdateRaids` never mirrors into the node's own `lossestradewarfare`**, which `IIP` and `CBuilding` both do, so a raided trade node's map tooltip omits regiment raids entirely. | C | [33](code-findings/33-trade-warfare.md) §3 | patch | recorded |
 | GTCW-016 | **`nation[].name` is mutated at runtime** by `statesetname`, so everything that matches a state by string silently stops matching — `SearchNationByName` and policy 30's five-state volunteer bonus among them. Escapes being live only because the territorial names belong to state-sets that precede every shipped campaign start. | C | [summary-game-state](code-findings/summary-game-state.md) § Traps | patch (match by index) | recorded |
 | GTCW-017 | **The 1862 midterms penalty has a two-day window.** Objective 9's chapter list is `{1}` and chapter 2 begins 6 Nov 1862, so a config label describing −0.01 Union morale *per week* is worth −0.3 points in total. Whether that is a deliberate token or a chapter-boundary accident is unresolved — **so this one ships off** even if fixed. | C | [manual-vs-code §32.1](mechanics-findings/manual-vs-code.md) | patch | recorded |
+
+### Defaults for the rows above
+
+Applying "certainty decides whether we fix it, reach decides whether it is on",
+**six of these seventeen ship on**:
+
+| Default | Rows | Why |
+| --- | --- | --- |
+| **on** | GTCW-001 | Nobody balances around a campaign that ends on a fixed date, and both tooltips already promise the single charge |
+| | GTCW-002, GTCW-011, GTCW-014, GTCW-015 | All four only feed a readout — a poisoned display tracker, an average of a cumulative counter, a ledger with no simulation reader, a missing tooltip mirror |
+| | GTCW-016 | No observable effect in shipped data; it is a guard for a **scenario mod** that moves a state-set date, which is the compatibility boundary working in the other direction |
+| **off** | GTCW-003, GTCW-004, GTCW-005, GTCW-006, GTCW-007, GTCW-009, GTCW-010, GTCW-012, GTCW-013, GTCW-017 | Each moves a combat, supply or economy quantity that `Config/` exposes and data mods tune against. Certain or not, the player opts in |
+| **off, pending** | GTCW-008 | Needs its consumer identified first: if `GetCurrentTaxValuePa(-1)` feeds actual revenue rather than a readout, the fix changes income |
 
 ## Class U — display defects, blocked on UI injection
 

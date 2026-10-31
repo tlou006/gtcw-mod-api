@@ -18,6 +18,15 @@ map into a stable surface other people can build on. Goal 3 is where they meet
 are the library's own backlog. Goal 1 output lives in `code-findings/` and
 `mechanics-findings/`; Goal 2 output lives in `src/`.
 
+Two boundaries constrain all three, and both are design constraints rather than
+release disclaimers:
+
+- **[Nothing we ship breaks an existing data mod.](#compatibility-boundary--existing-data-mods-keep-working)**
+  The people who mod this game by hand-editing `Config/` came first; the
+  library sits on top of whatever is on disk.
+- **[The game itself never ships, in whole or in part.](#distribution-boundary)**
+  Everyone who uses any of this supplies their own copy.
+
 ---
 
 ## What reconnaissance already established
@@ -2743,10 +2752,22 @@ gets silent nonsense.
   logical policies, not twenty.
 - **Projects: 56 `PLACEHOLDER` ids** (20–29, 42–87).
 
+> **Both figures are an upper bound, not the pool.** A data mod may already be
+> using project 42 or policy 184, and taking it from under them is precisely
+> what the [compatibility boundary](#compatibility-boundary--existing-data-mods-keep-working)
+> forbids. `ProjectPatches` already handles this correctly by scanning for the
+> `PLACEHOLDER` marker after the game's own `Import` rather than trusting the
+> shipped range; **policy allocation must do the same** — measure the ids absent
+> from the loaded table, per load, and allocate only from those. The ranges
+> above stay useful as a capacity estimate and as the bound on what a patch
+> would have to lift.
+
 So the ModApi must allocate ids, not let modders choose them:
 
 - [ ] Allocate from a **string key** (`"mymod.conscription-reform"`), never a
       number the modder picks.
+- [ ] Allocate only from slots **measured free on this install**, never from a
+      hardcoded range.
 - [ ] **Persist the key → id mapping in the save side-car.** Without this, a
       save referencing policy 184 means something different after the player
       installs another mod and allocation order shifts. This is the single most
@@ -2980,8 +3001,116 @@ day analysis started. Mitigations, in order of value:
 | Public API ossifies too early | Medium | Mark unstable areas `[Experimental]` until Phase 2 covers them |
 | Bug-fix mod drifts into a balance mod | Medium | Classes S/B/X on the register exclude by construction; every fix toggleable, cited and default-off unless unambiguous |
 | A "fix" is actually the design | Medium | No register row without a citation; M rows ship off by default, because the manual is evidence of intent, not proof |
+| An existing data mod breaks on install | High | The [compatibility boundary](#compatibility-boundary--existing-data-mods-keep-working): post-parse overrides, allocation from measured-free slots only, zero-diff when idle |
 | Decompiled code leaks into the repo | Low but serious | `.gitignore` covers it; notes describe findings rather than pasting source |
 | Game assembly swept into a release artifact | Low but serious | `Private="false"` on all game references; release-packaging filename check |
+
+---
+
+## Compatibility boundary — existing data mods keep working
+
+**Nothing this repo ships may break a mod that works by editing the game's data
+files.** Like the [distribution boundary](#distribution-boundary), this is a
+constraint on the design rather than a promise made at release. It binds all
+three goals: the library, the bug-fix mod, and anything in `scripts/`.
+
+The people this protects were modding this game for years before any of this
+existed, by hand, against a positional text format with no merge and no
+tooling. They are also the audience most likely to try the library — and a
+layered override system is worthless to someone whose existing work it breaks
+on install.
+
+### What is promised, and what is not
+
+| Promised | Not promised |
+| --- | --- |
+| A data mod keeps **loading** | That its **balance** still means the same thing |
+| Its values stay authoritative as the base layer | |
+| Its record indices and ids keep pointing at the same records | |
+| Its behaviour is unchanged unless the player opts into a fix that changes it | |
+| Uninstalling our DLLs restores exactly the setup it had before | |
+
+The one honest exception is in the right-hand column and it matters. A data mod
+tuned its numbers against the game's *actual* behaviour, defects included — so
+fixing naval rate of fire (GTCW-004) changes what someone's `shiptypes.dat`
+edits add up to, even though the file still loads and still wins. **We can
+preserve function, not balance.** The answer is the toggle and the default,
+not a refusal to fix.
+
+### The rules this forces
+
+Most of these the design already satisfies; they are written down here so they
+stop being coincidences.
+
+- [x] **Overrides intercept post-parse**, so a mod override is a layer on top
+      of whichever file won the game's own resolution — global, scenario, or a
+      data mod's replacement. Already the chosen design; this is now also a
+      compatibility requirement, not only a clarity one.
+- [x] **The library parses no game data file.** It reads the game's loaded
+      structures. Parsing `Config/` ourselves would miss a scenario override
+      and a data mod's replacement, and we would be acting on a file the game
+      is not using. Verified: the only path the library touches is the
+      `Managed` folder, for the build hash.
+- [x] **Free slots are found by the publisher's own marker, not an id range.**
+      `ProjectPatches` scans for `PLACEHOLDER` *after* the game's `Import`, so a
+      data mod that has already filled project 42 simply is not offered as
+      free, and `ExpectedFreeSlots` measures lower and logs it. This fell out of
+      a correctness argument about `projectid == list index`; it is also the
+      whole compatibility story for project registration.
+- [ ] **Policy id allocation must do the same, and currently would not.** [The
+      id broker](#the-id-broker) names a fixed range, ids 180–199. A data mod
+      using 184 today would collide with an allocation out of that range.
+      Allocate only from ids **absent from the loaded policy table**, measured
+      per load, exactly as the project pool is.
+- [ ] **Never insert, append or renumber where an index is an identity.**
+      Record position *is* the id across the config format. A mod referring to
+      weapon 47 or project 42 must still get the same record after our layer
+      runs, so no count header the game loaded is ever rewritten upward.
+- [ ] **Loosen, never tighten.** The override validator exists to stop *our*
+      injected result being malformed. It must never refuse a file the game
+      would otherwise have accepted: a data mod relying on
+      `Tools.GetIntPartitions` silently dropping a typo'd id keeps working, and
+      we **report** it rather than reject it. Making the game's parsers stricter
+      breaks mods that work by accident, and plenty do.
+- [ ] **Zero-diff when idle.** If no mod registered an override for a file, the
+      game's load path must be observably identical to unmodded — same file
+      chosen, same values, same arity. Worth a test: load with the library
+      present and no overrides, dump the loaded arrays, compare against a run
+      without it. This is the exit criterion that makes the whole promise
+      checkable rather than merely intended.
+- [ ] **No game file is ever written.** BepInEx injects at runtime and modifies
+      nothing on disk, which already gives this for free — but it must survive
+      contact with the bug-fix mod, where rewriting a `.dat` is the obvious
+      shortcut for a class D fix. It would clobber a data mod's edit of the same
+      file and persist after uninstall. **Class D fixes are runtime overrides,
+      never file edits**, and that settles GTCW-006 in favour of the code patch
+      over the data route.
+- [ ] **Scenario replacement semantics are untouched** for anyone who has not
+      opted in. Field-level merge is new capability offered to mods that ask for
+      it, not a change to how the game resolves files.
+- [ ] **The bug-fix mod's default profile is "fixes that cannot change a tuned
+      outcome"** — crashes, NaNs, dead guards, and anything that only feeds a
+      readout. A defect can be certain and still ship off by default because it
+      moves a quantity data mods author: GTCW-002's NaN is default-on, GTCW-004's
+      naval rate of fire is not, and the `occupiedby` latch is not either,
+      certain though it is. **Certainty decides whether we fix it; reach decides
+      whether it is on.** On the seeded register that leaves six of seventeen
+      rows default-on, which is the right proportion for a mod a data modder is
+      being asked to trust.
+- [ ] **`scripts/` stays a developer tool.** The fixture repair scripts rewrite
+      data files, which is exactly what the shipped mod may not do. They operate
+      on the game's own broken debug folder, they back up first, and they never
+      ship.
+
+### Saying so where modders will look
+
+- [ ] State it in the README and on every release page, next to the game
+      requirement — not buried in a design document.
+- [ ] Say it in the first paragraph of the getting-started guide, because the
+      reader is most likely someone who already has a `Config/` folder full of
+      their own work.
+- [ ] Carry a short **"already using data mods?"** note: the library sits on top
+      of whatever is on disk, so nothing needs to be undone first.
 
 ---
 

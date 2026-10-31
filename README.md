@@ -6,6 +6,17 @@ interoperability purposes.
 **Goals:** document the game's mechanics from its code, ship a C# hook library
 so other modders can extend the game without reversing it themselves, and
 repair the game's own defects in an opt-in mod built on that library.
+
+**Nothing here is allowed to break an existing data mod.** People have been
+modding this game for years by hand-editing the positional text files in
+`Config/`, and the library sits on top of whatever is already on disk rather
+than replacing it: overrides apply to whichever file won the game's own
+resolution, ids are allocated only from slots measured free on *your* install,
+and no game file is ever written. Bug fixes are individually toggleable, and
+default off whenever they move a number a data mod might have balanced against.
+The rules and how they are checked are the
+[compatibility boundary](plan.md#compatibility-boundary--existing-data-mods-keep-working).
+
 See [`plan.md`](plan.md) for the phased approach,
 [`defect-register.md`](defect-register.md) for the defects found so far, and
 [`code-findings/00-build-provenance.md`](code-findings/00-build-provenance.md) for which build
