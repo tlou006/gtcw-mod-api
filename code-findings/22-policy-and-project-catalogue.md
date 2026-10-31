@@ -660,7 +660,7 @@ empty body**, the scar where the agricultural support bonus used to be (§10).
 | 42 | once: `ltgenpolicy = true`; C-in-C gains `ltgenfame` (reason 4) and **`rank = 8`** written directly. See [19](19-commanders-and-perks.md) §6 for what `ltgenpolicy` then does to `campaignranking` |
 | 43 / 143 | once: `lettersmarque = true`; `AdjustInterventionLevel(lettersmarqueintervention)` |
 | 44 | once: `AdjustInterventionLevel(abolitionintervention)`; **both** alliances' national morale on code 23 |
-| 45 / 46 | once: `bountieslevel = 0` / `1`; always `volunteerspolicyadj += bountiesvolunteers[0/1]`; **rate**: `volunteerspolicyadjrunning` |
+| 45 / 46 | once: `bountieslevel = 0` / `1`; always `volunteerspolicyadj += bountiesvolunteers[0/1]`; **rate**: `volunteerspolicyadjrunning`. The level feeds the recruit bounty and the fighting-spirit cap, both guarded `bountieslevel > 0`, so **Bounties I applies neither** ([13](13-morale-and-cohesion.md) §5; GTCW-022) |
 | 48 / 147 | once: **creates a Corps + Division + 7 named regular regiments** — "U.S. Regulars", "1st U.S. Infantry"…"2nd U.S. Artillery" (or "C.S." equivalents), `contractlength = 99`, training and experience seeded from `militaryexperience + usregularstraining/exp`, `IncreasePerkExp(usregularsinitialperkvalue, -2)`; then `militaryexperience += usregularsmilexp` |
 
 ### 7.3 Confederate-only acts

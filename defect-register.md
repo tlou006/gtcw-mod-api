@@ -90,16 +90,18 @@ Ordered by what a fix is worth, not by id.
 | GTCW-016 | **`nation[].name` is mutated at runtime** by `statesetname`, so everything that matches a state by string silently stops matching — `SearchNationByName` and policy 30's five-state volunteer bonus among them. Escapes being live only because the territorial names belong to state-sets that precede every shipped campaign start. | C | [summary-game-state](code-findings/summary-game-state.md) § Traps | **none** — the rename is intended and no consumer is reachable; see IMPLEMENTATION.md §6 | wontfix |
 | GTCW-017 | **The 1862 midterms penalty has a one-day window.** Objective 9's chapter list is `{1}`; its trigger falls at about 21:24 on 4 Nov 1862 on the campaign clock and chapter 2 at about 21:45 on 5 Nov, so a config label describing −0.01 Union morale *per week* is worth about −0.15 points in total (corrected from "two days, −0.3"). Whether that is a deliberate token or a chapter-boundary accident is unresolved — **so this one ships off** even if fixed. | C | [manual-vs-code §32.1](mechanics-findings/manual-vs-code.md) | patch | recorded |
 
+| GTCW-022 | **Bounties I charges nothing.** Policy 45/145 sets `bountieslevel = 0` and 46/146 sets 1, matching the "Bounties 1-2" arrays indexed from 0, but both consumers guard `bountieslevel > 0` — the recruit bounty in `Economy.GetUnitCost` and the fighting-spirit cap in `TransformStateSupportToFightingSpirit`. Bounties I therefore never pays `bountiescost[0]` ($300 per recruit) or takes `bountiesfightingspirit[0]` (−0.05); it is a free volunteer bonus. | C | [13](code-findings/13-morale-and-cohesion.md) §5 | patch | recorded |
+
 ### Defaults for the rows above
 
 Applying "certainty decides whether we fix it, reach decides whether it is on",
-**six of these seventeen ship on**:
+**six of these eighteen ship on**:
 
 | Default | Rows | Why |
 | --- | --- | --- |
 | **on** | GTCW-001 | Nobody balances around a campaign that ends on a fixed date, and both tooltips already promise the single charge |
 | | GTCW-002, GTCW-011, GTCW-012, GTCW-014, GTCW-015 | All five only feed a readout — a poisoned display tracker, an average of a cumulative counter, a trend line that resets for 1000 frames after every load, a ledger with no simulation reader, a missing tooltip mirror. Each one's full reader set was checked, not assumed |
-| **off** | GTCW-003, GTCW-004, GTCW-005, GTCW-006, GTCW-007, GTCW-008, GTCW-009, GTCW-010, GTCW-017 | Each moves a combat, supply or economy quantity that `Config/` exposes and data mods tune against. Certain or not, the player opts in |
+| **off** | GTCW-003, GTCW-004, GTCW-005, GTCW-006, GTCW-007, GTCW-008, GTCW-009, GTCW-010, GTCW-017, GTCW-022 | Each moves a combat, supply or economy quantity that `Config/` exposes and data mods tune against. Certain or not, the player opts in |
 | **not fixed** | GTCW-016 | **No reachable consumer.** The rename is intended, `SearchNationByName` has no callers, and `Policies.cs:726`'s seven state names are all permanent ones. See IMPLEMENTATION.md §6 |
 | | GTCW-013 | **No behavioural defect** — the method returns what all four callers need. The plan for it in IMPLEMENTATION.md §5 is withdrawn: its "fix" would invert research speed and the AI's policy loop. Its risk note also names `Policies.cs:379`, which calls the default form and is untouched by `researchedonly` |
 
@@ -140,10 +142,10 @@ a presentation one: GTCW-002, which is *why* the support-loss list is empty.
 
 | Class | Rows | Of which actionable |
 | --- | --- | --- |
-| C | 17 | 14 — GTCW-021 and GTCW-013 have no behavioural effect, GTCW-016 no reachable consumer |
+| C | 18 | 15 — GTCW-021 and GTCW-013 have no behavioural effect, GTCW-016 no reachable consumer |
 | M | 1 | 1 |
 | U | ~50, unitemised | 0 — blocked on UI injection |
 | D | 0 so far | — |
 | S / B / X | 3 | 0 by definition |
 
-Next allocation: **GTCW-022**.
+Next allocation: **GTCW-023**.

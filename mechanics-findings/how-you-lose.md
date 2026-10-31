@@ -392,13 +392,16 @@ once the Confederacy has inflicted 50,000 casualties.
 ## 8. The 1862 midterms are worth about a sixth of a point
 
 The other election, objective 9 "Maintain Support Above 60", tests the Union's
-average state support against 60 % on **4 November 1862** and charges −0.5
-points per annum for as long as it is unmet
+average state support against 60 % on **4 November 1862** and charges −1 point
+a week (−52 a year) for as long as it is unmet
 ([24](../code-findings/24-campaign-objectives.md) §3.1).
 
 Its chapter list says chapter 1, and the chapter machine advances to chapter 2
-the moment the date passes 5 November 1862. So the penalty runs for **two
-days** and totals about **−0.003 points** — three thousandths of one point.
+late on 5 November 1862. The game's two date formulas disagree about where a
+day starts, so the penalty switches on at about 21:00 on 4 November and off at
+about 22:00 on 5 November: it runs for **about a day** and totals about
+**−0.15 points**. (An earlier version said two days and −0.003, which mixed
+the 0–1 scale into a table of points.)
 
 The config label describes an open-ended weekly rate and the objective text
 implies a political consequence. **As shipped, losing the 1862 midterms has no

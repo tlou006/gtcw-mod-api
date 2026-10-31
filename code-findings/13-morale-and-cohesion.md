@@ -311,11 +311,23 @@ influence depends on how the unit was raised:
 | volunteers | `influencestatesupportonfightingspirit` | **0.20** | 0.80 | 0.90 | 1.00 |
 | drafts (`== 1`) | `influencestatesupportonfightingspiritdrafts` | **0.40** | **0.60** | 0.80 | 1.00 |
 
-and the Bounties policy **subtracts**: `bountiesfightingspirit` = −0.05 at
-level 1, −0.10 at level 2, labelled *"absolute reduction of fighting spirit cap
-of volunteer units"*. So the worst reachable cap is a drafted brigade from a
-zero-support state under Bounties 2: **0.50** — exactly the melee crack level
-(§6).
+and the Bounties policy **subtracts** `bountiesfightingspirit[bountieslevel]`,
+labelled *"Bounties 1-2, absolute reduction of fighting spirit cap of volunteer
+units"* and shipped **−0.05, −0.10**. In practice only Bounties II subtracts
+anything (below). The term also applies to drafted units, whatever the label
+says. So the worst reachable cap is a drafted brigade from a zero-support state
+under Bounties II: **0.50** — exactly the melee crack level (§6).
+
+> **Bounties I is free.** Policy 45/145 sets `bountieslevel = 0` and 46/146
+> sets 1 (the field defaults to −1), so the arrays are indexed by level from 0,
+> as their "Bounties 1-2" labels say. But both consumers guard with
+> `bountieslevel > 0`: `TransformStateSupportToFightingSpirit` (`Regiment`
+> ~7385) and the recruit bounty in `Economy.GetUnitCost` (~2349). So under
+> Bounties I neither the −0.05 cap nor the **$300 per recruit**
+> (`bountiescost[0]`) ever applies; the policy grants only its volunteer bonus.
+> Bounties II reads index 1 (−0.10, $600) as intended. An earlier version of
+> this section gave −0.05 for level 1 and −0.10 for level 2. Registered as
+> GTCW-022.
 
 > This is much gentler than "support is the cap", and it matters: at 50 %
 > support a volunteer brigade is capped at **90 %**, not 50 %. The reason is
@@ -384,7 +396,8 @@ military experience 0, easing to −0.10 at 1**. Finally clamped to
 > That remains the single most important cross-layer coupling in the assembly —
 > any mod touching state support is a combat mod whether it means to be or
 > not — but the magnitude is 0.60–1.00 for drafts and 0.80–1.00 for
-> volunteers, plus up to −0.10 from Bounties and −0.30 for invading.
+> volunteers, plus −0.10 from Bounties II (Bounties I's −0.05 never applies)
+> and −0.30 for invading.
 >
 > `CampaignArmyPanel` surfaces it as *"Morale is capped by the fighting
 > spirit"*, and `UnitPanel` prints it under *"Maximum morale is capped by"*.
