@@ -131,6 +131,7 @@ the evidence than in a central list.
 | File | Contents |
 | --- | --- |
 | [19-commanders-and-perks](19-commanders-and-perks.md) | The three perk namespaces and the full perk catalogue; the attribute pipeline and the full consumer map of all five attributes; ranks and promotion; fame and defame; casualties and succession; `campaignranking` and the commander-in-chief; feuds; the fog-of-war accuracy function; **every perk array's shipped magnitudes, with four that point the wrong way**; `commanders.txt` |
+| [34-perks](34-perks.md) | A fresh, per-perk audit of all 48 manual perks against the code, with loader-verified values: **19 work as written, 9 differently, 20 have a dead, inverted or misdirected headline effect**. Siege-assault, skirmish and siege-night multipliers overwritten in `FightUnit`; Partisan Brigades and Bushwhackers scaling the raider's own losses; Sea Raiders' price effect tooltip-only; Ambulance Corps and Foot Cavalry testing the brigade's battle perk; eight cross-namespace collisions; Sharpshooters and Zouave swapped in auto-resolve; seven battlefields shipping the manual's older Engineering values; and where it corrects [19](19-commanders-and-perks.md) |
 
 ### Campaign AI — [summary](summary-ai-campaign.md)
 

@@ -1,6 +1,6 @@
 # Summary — Commanders and perks
 
-**Covers:** [19-commanders-and-perks](19-commanders-and-perks.md)
+**Covers:** [19-commanders-and-perks](19-commanders-and-perks.md), [34-perks](34-perks.md)
 **Build:** see [00-build-provenance](00-build-provenance.md)
 
 ## In one paragraph
