@@ -50,6 +50,63 @@ are always referred to by name.
 "Open questions" section — that is the backlog, and it is more useful next to
 the evidence than in a central list.
 
+### Verification rules
+
+Most corrections this folder has needed fall into a handful of repeating
+mistakes. These rules exist to catch them before they are written down. Each
+names the case that prompted it.
+
+1. **A "works" claim names its effect site.** An effect works when the value
+   changes an outcome — casualties, morale, speed, support, money — so cite the
+   line where it enters that calculation, not the line that computes or
+   multiplies it. Follow the variable to its last use: a value that is
+   overwritten later in the method, or read only by UI, does nothing.
+   *`meleestrength` is read only by the unit panel; `IIP.priceadjustment` only
+   by a tooltip; `FightUnit` multiplies four perk bonuses into a value it then
+   reassigns ([34](34-perks.md) §8).*
+2. **An absence claim states its search.** "Never", "only", "no effect
+   anywhere", "dead" and "unread" need the search behind them: the identifier,
+   value or pattern, the scope searched, and the hit count. Search by name
+   *and* by value. *The engineer-branch bonus was missed because the search
+   was for reads of branch value 3, not for the pref labelled "engineers" —
+   which reads 4 ([19](19-commanders-and-perks.md) §11).*
+3. **Read pref values through the loader, not the label.** The loaders parse
+   positionally, so a label is a claim about the value below it. Use
+   [`scripts/simulate-prefs-loader.js`](../scripts/README.md) and quote the
+   value with its file and line. Then check which file wins at runtime:
+   battlefield and campaign folders can ship their own copies
+   ([05](05-config-paths-and-overrides.md); [34](34-perks.md) §1.1 for seven
+   battlefields with older perk values).
+4. **Labels, names, tooltips and the manual are intent, not behaviour.**
+   Treat them as a hypothesis for the code to confirm. Where they disagree,
+   report both. *`increaseofmoralecapforcorrectbranch` scales a recovery
+   rate; Pontoon Train's "movement cost" is a pathfinding cost; Flying
+   Column's "maximum supplies" is a consumption divisor.*
+5. **Ids are not global.** Before reading meaning into a small integer,
+   establish its namespace: perk ids mean three tables depending on who holds
+   the list ([34](34-perks.md) §7), `historicalbranch` is two enumerations
+   ([16](16-enumerations.md)), `currentterrain` differs between battle and
+   campaign meshes, and auto-resolve still uses an older perk order
+   ([34](34-perks.md) §6). An unguarded `HasPerk(n)` is a finding until every
+   holder type has been checked.
+6. **Say how sure you are.** Unmarked means read directly from the code or
+   data. Mark a number you calculated from verified values *(calculated)*, so
+   a reader knows to check the arithmetic. Mark anything that needs the
+   running game to confirm — timing, state machines, rates that depend on how
+   often a method is called — **Untested**, the tag
+   [`mechanics-findings/`](../mechanics-findings/README.md) uses for the same
+   thing, and put it in "Open questions" with the test that would settle it.
+   The hook library can log the values in-game.
+7. **Search before writing; grep after correcting.** Before stating a
+   mechanism, grep `code-findings/` and `mechanics-findings/` for its
+   identifiers: it may already be documented, or contradicted. When a claim
+   is corrected, grep the whole repo for every restatement — summaries,
+   `mechanics-findings/`, `mechanics-findings-summaries/`,
+   `defect-register.md`, `plan.md` — and fix or flag each copy in the same
+   change. Say what changed where it changed ("An earlier version of this
+   section said …"). Files that restate a finding should cite the section
+   that backs it, so this grep finds them.
+
 ## Index
 
 ### Provenance
