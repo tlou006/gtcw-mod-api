@@ -156,11 +156,41 @@ explained. Consequences for the ModApi:
 - ~~The dual-unit question (yd/m, lb/kg, ft/s–m/s).~~ **Resolved** in
   [11](11-combat-resolution.md) §2: `weapons.txt` stores both members of each
   pair and the reader parses both.
-- ~~Whether the game forces an invariant culture at startup.~~ **It does:**
-  `GameVars.SetCultureInfo()` sets `CultureInfo.DefaultThreadCurrentCulture`
-  and `DefaultThreadCurrentUICulture` to `InvariantCulture`, called from
-  `MainMenuControls.Awake`, `GamePrefs.loaddebugs`, `MainMenu` and `Options`.
-  **Untested:** that sets the *default* for threads; whether Unity's Mono
-  applies it to the main thread if that thread's culture was already read
-  is a runtime question. If it does not, a comma-decimal locale would still
-  parse `1.5` as `15`.
+- ~~Whether the game forces an invariant culture at startup.~~ **It does, on
+  every thread.** `GameVars.SetCultureInfo()` sets
+  `CultureInfo.DefaultThreadCurrentCulture` and `DefaultThreadCurrentUICulture`
+  to `InvariantCulture`, called from `MainMenuControls.Awake`,
+  `GamePrefs.loaddebugs`, `MainMenu.Awake` and `Options.OnEnable`.
+
+  Checked against the game's own `Managed/mscorlib.dll`, since the setting
+  only changes a *default*:
+
+  - `Thread.CurrentCulture` returns `DefaultThreadCurrentCulture` whenever the
+    thread's `[ThreadStatic] m_CurrentCulture` is null
+    (`GetCurrentCultureNoAppX`). **Reading the culture never fills that
+    field**, so an early read does not pin the main thread to the OS locale.
+  - Only the `CurrentCulture` and `CurrentUICulture` setters fill it, and
+    nothing calls them: no shipped assembly except `mscorlib` references
+    either setter (all 112 in `Managed/`, plus BepInEx's core and the ModApi
+    plugins in the install), and inside `mscorlib` only the `CultureInfo`
+    forwarding properties do.
+  - `float.Parse(string)` resolves through `NumberFormatInfo.CurrentInfo` to
+    `Thread.CurrentThread.CurrentCulture`, and `NumberFormatter` re-reads the
+    thread culture on every `ToString`, so saves are written in the same
+    culture they are read in.
+
+  An earlier version of this note left the main-thread question
+  **Untested**. Two limits remain:
+
+  - **Parsing before the first `SetCultureInfo` call uses the OS locale.**
+    The menu scene's loaders all call it first (`SoundEngine.Awake` goes
+    through `loaddebugs`). The one early float parse that does not is
+    `Questionnaire.OnEnable` → `ImportQuestionnaire`, which reads the DLC's
+    `questionnaire.dat` (absent from this install). Battle and campaign
+    `Awake` parses run after the menu has set it.
+  - **Setting `CurrentUICulture` pins `CurrentCulture` to the OS locale.**
+    The first set of either property on a thread runs
+    `nativeInitCultureAccessors`, which stores the OS culture in
+    `m_CurrentCulture`. A mod that localizes by setting the UI culture on the
+    main thread would therefore make every `float.Parse` in the game read
+    `1.5` as `15` on a comma-decimal system.

@@ -239,7 +239,12 @@ Two caveats worth keeping:
 
 - It sets the *default* thread culture rather than assigning
   `CurrentCulture` outright, so a thread whose culture had already been set
-  explicitly would keep it. Nothing in the assembly does that.
+  explicitly would keep it. Nothing in any shipped assembly does that, and
+  merely *reading* the culture early does not pin it — checked against the
+  game's own `mscorlib`, see [06](06-config-file-format.md) open questions.
+  The trap is the UI culture: the first set of `CurrentUICulture` on a thread
+  also stores the OS culture as its `CurrentCulture`, so a mod must never set
+  either on the main thread.
 - **A BepInEx plugin's `Awake` can run before `MainMenuControls.Awake`.** So
   the ModApi must not rely on the game having set the culture yet: any parsing
   the library does itself should pass `CultureInfo.InvariantCulture`

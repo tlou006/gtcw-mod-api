@@ -130,7 +130,11 @@ label" an unsafe move.
   `DefaultThreadCurrentUICulture` to `InvariantCulture`, and runs from
   `MainMenuControls.Awake()`, the first thing the game executes, plus
   `loaddebugs`, `MainMenu` and `Options`. So a comma-decimal locale parses
-  `1.5` correctly. One consequence for the ModApi: a BepInEx plugin's `Awake`
+  `1.5` correctly — on the main thread too: in the game's `mscorlib` an early
+  read does not pin a thread's culture, and nothing sets one
+  ([06](06-config-file-format.md) open questions). The exception to guard
+  against: setting `CurrentUICulture` on a thread pins its `CurrentCulture` to
+  the OS locale. One consequence for the ModApi: a BepInEx plugin's `Awake`
   can run *before* `MainMenuControls.Awake`, so the library must pass
   `CultureInfo.InvariantCulture` explicitly rather than assume the game has
   already set it ([32-debug-army-setup](32-debug-army-setup.md) §6).

@@ -630,9 +630,11 @@ planned index are in [`mechanics-findings/README.md`](mechanics-findings/README.
    - **fatigue does not slow reloading.** `fatigueinfluenceonreloading` is read
      once and never assigned; the config value meant for it is parsed into a
      neighbouring field which a later line overwrites;
-   - **a full `GamePrefs` sweep** — 1,972 fields — shows that is the **only**
-     gameplay constant in the game read but never loaded, and turns up ~145
-     loaded-but-never-read candidates, eight confirmed by hand;
+   - **a full `GamePrefs` sweep** — 2,215 fields (first counted as 1,972) —
+     shows that is the **only** gameplay constant in the game read but never
+     loaded, and turns up ~145 loaded-but-never-read candidates, eight
+     confirmed by hand (144 after the full audit in
+     [29](code-findings/29-dead-prefs-audit.md));
    - **`weapon.bayonet` is parsed and never read**, so the manual's Bayonet
      column describes a dead field; Rebored Muskets are listed as
      bayonet-equipped and fight at the carbine `melee` value;
@@ -2210,8 +2212,10 @@ The debug folder's data files also ship stale, in three different ways:
 - [x] `groups.dat` was already current: 32 lines per group, same as `000/A`.
 - [x] **`battledata.dat` needed nothing.** It was the last suspect on the
       strength of a line count differing from `000/A`, which was never
-      evidence: `import_battledata` has no version gates and four count-driven
-      variable-length loops, so two battles legitimately differ in length.
+      evidence: `import_battledata` has no version gate on which lines it reads
+      (its one gate, below 0.8811, overrides a readiness value already read)
+      and four count-driven variable-length loops, so two battles legitimately
+      differ in length.
 - [x] **The flag loads.** Verified live: 1st Manassas selected from the menus
       came up with the debug folder's own order of battle — "1st Brigade",
       "U.S. Cavalry", "Patterson's Artillery" — and a clean log. **So the
@@ -2233,9 +2237,13 @@ flag is battle-only in practice, whatever its label implies.
 `CultureInfo` was flagged as a possible correctness blocker for the whole
 override layer. It is not one: `GameVars.SetCultureInfo()` forces
 `InvariantCulture` from `MainMenuControls.Awake()`, the first thing the game
-runs. The one thing the library must still do is pass `InvariantCulture`
+runs, and the game's own `mscorlib` applies that default to the main thread
+even if its culture was read earlier (reads never pin it; only the setters
+do, and nothing calls them). The library must still pass `InvariantCulture`
 explicitly in its own parsing, because a BepInEx plugin's `Awake` can run
-before the game's.
+before the game's, and it must never set `CurrentCulture` or
+`CurrentUICulture` on the main thread
+([06](code-findings/06-config-file-format.md) open questions).
 
 ### Build out, in shippable order
 
@@ -2599,19 +2607,30 @@ pile of Harmony patches**: `parse → collect (each patch tagged with its mod id
       considers valid. **Two exceptions to copy carefully:**
       `Tools.GetIntPartitions` uses `int.TryParse` and silently *drops*
       unparseable entries — so a typo'd id in a list field is invisible today,
-      and our validator should **report** it instead; and entries that do not
-      fill `partlen` exactly are dropped the same way.
+      and our validator should **report** it instead; and an entry that does
+      not fill `partlen` shifts every entry after it, so in an int list the
+      rest of the list fails `TryParse` and vanishes too.
 - [x] **The culture question is settled, and favourably.** It was carried as a
       correctness blocker: `float.Parse` throughout the data layer is called
       with no `CultureInfo`, so a comma-decimal locale would read `1.5` as `15`.
       But `GameVars.SetCultureInfo()` forces `InvariantCulture` from
       `MainMenuControls.Awake()`, the first thing the game runs
-      ([32-debug-army-setup](code-findings/32-debug-army-setup.md) §6).
+      ([32-debug-army-setup](code-findings/32-debug-army-setup.md) §6). The
+      main-thread doubt is closed too: in the game's own `mscorlib` an early
+      read of the culture does not pin it, and no shipped assembly sets one
+      ([06](code-findings/06-config-file-format.md) open questions).
 - [ ] **Pass `InvariantCulture` explicitly in our own parsing anyway.** A
       BepInEx plugin's `Awake` can run *before* `MainMenuControls.Awake`, so the
       library cannot assume the game has set the culture by the time it parses
       anything. Cheap to do, and the failure it prevents is locale-dependent and
       therefore nearly unreportable.
+- [ ] **Never set `CurrentCulture` or `CurrentUICulture` on the main thread**,
+      and reject a plugin that does. The first set of *either* stores the OS
+      culture as the thread's `CurrentCulture`, after which the game's
+      invariant default no longer applies and every `float.Parse` in the data
+      layer reads `1.5` as `15` on a comma-decimal system. Localization that
+      sets the UI culture is the likely way to trip this; pass an explicit
+      `CultureInfo` to formatting calls instead.
 
 ### Effect registration — the capability nothing else provides
 
@@ -2728,9 +2747,13 @@ risk.
       fields and replays every policy's effect each pass, so a registered effect
       must either guard on `alreadyactivatedacts` or scale by `timediff` — which
       is exactly what the contribution model does for free.
-- [ ] Cover **teardown** (`DeactivatePolicyEffect`) and **recurrence**
-      (`UpdatePolicyEffects`), not just the launch path, or an effect persists
-      after its policy is removed.
+- [ ] Cover **teardown** for anything outside the thirteen reset fields.
+      `UpdatePolicyEffects` calls `DeactivatePolicyEffect` for each act no
+      longer held, and the game uses it for only one policy (131), so a
+      registered effect that changes other state must undo it there or it
+      persists after its policy is removed
+      ([09](code-findings/09-policy-and-project-effects.md),
+      [22](code-findings/22-policy-and-project-catalogue.md) §6.2).
 - [ ] Text via `Tooltip.RegisterNewTooltip` — `public static`, appends to the
       live tooltip table.
 - [ ] Teach the AI, or decide not to and say so.
