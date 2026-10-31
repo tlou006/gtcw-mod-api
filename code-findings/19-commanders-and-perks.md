@@ -775,13 +775,16 @@ max) and then:
 | Condition | Effect |
 | --- | --- |
 | `rank < min` | **Promote** to `min`. `exp += explosscommanderbelowminrank(−0.25) × steps × professionalFactor / (1 + militarySchoolInfluence)`; `AdjustFame(famegaincommanderaboverank(0.05) × steps, 1)`; `dateofpromotion[rank]` stamped; a service-history line added |
-| `rank > max` | `exp += expgaincommanderabovemaxrank(0.10) × steps`; `AdjustFame(famelosscommanderbelowrank(−0.20) × steps, 1)`; `latestranktofit` lowered |
+| `rank > max` | `exp += expgaincommanderabovemaxrank(0.10) × steps × professionalFactor`; `AdjustFame(famelosscommanderbelowrank(−0.20) × steps, 1)`; `latestranktofit` lowered |
 | `rank − max >= defamedtriggerbelowlevel(3)` | `SetDefamed()` |
 | `exp` leaves `[0,1]` | the overflow is parked in `bonusmalusexp` |
 
 `professionalFactor` = `experiencelosspromotingprofessionals` (0.5) for
 `westpoint` commanders — West Pointers pay half the experience cost of
-over-promotion.
+over-promotion. The label says *"loss … when appointed to a higher command"*,
+but `GetExpEffectOfPromotion` (`GameVars` ~1595) applies the same factor to
+the gain branch, so they also earn half the experience for serving below
+their rank. Military schools divide only the loss.
 
 > **Rank is never lowered.** Only the `rank < min` branch writes `rank`. Being
 > assigned below your station costs fame and *gains* experience, and
@@ -1234,7 +1237,10 @@ if (commander.political && commander.currentcommand != null)
 ```
 
 committed as a **delta** against the previous total via
-`AdjustSupport(alliance, temp − committed, 2)`.
+`AdjustSupport(alliance, temp − committed, 2)`. So it is a **standing**
+contribution, not an accrual: the state's support sits that much higher while
+the general holds a command and drops back when he loses it. It reads raw
+`fame`, so the ×1.4 famous multiplier does not apply.
 
 > The reason code is **2, "Commander appointments"** — not 38. Code 38,
 > "Commander", exists but is **DLC-only** (the player-commander's personal
@@ -1351,24 +1357,155 @@ navy }`, with a descriptive `branchtextsub[5]` alongside.
 from the C-in-C election, from army rank tables, from army service-history
 text, and capped at the Fleet rank ceiling.
 
-**Branch matching has mechanical effect in only two places**, both morale and
-fire multipliers, and the two differ:
+The data agrees with the label order. Robert E. Lee, George G. Meade, George
+B. McClellan and Gouverneur K. Warren — all pre-war engineers — are branch 3;
+David G. Farragut, David D. Porter and Raphael Semmes are branch 4; Thomas J.
+Jackson and Henry J. Hunt are branch 2.
 
-| Path | Guard |
-| --- | --- |
-| `Regiment` (manual battle, campaign) | `status == 0 && branch matches && commander.westpoint` → `increaseofaccuracywhencorrectbranch`, `increaseofrofwhencorrectbranch`, `increaseofmoralecapforcorrectbranch` |
-| `Autocalc` | `status == 0 && branch matches` — **no `westpoint` requirement** → `increaseofrofwhencorrectbranch`, `increaseofmoralecapforcorrectbranch` |
+**Branch matching has a combat effect in two code paths, plus a third site
+written for engineers that tests the navy number.** "Matching" means branch 0
+on `unittyp` 0 or 3, branch 1 on 1 or 4, branch 2 on 2, and it is always the
+commander of the unit itself, never a superior's. Shipped values from
+`unitprefs.txt` 1590–1596, alignment checked against the loader
+(`GamePrefs` ~5509–5515):
 
-> **Engineer (branch 3) has no mechanical effect anywhere in the base game.**
-> `branchtextsub[3]` promises better siege warfare and obstacle work; the only
-> code that reads branch 3 is the avatar panel, the commanders-list filter and
-> the DLC requirement system. 61 shipped commanders carry it.
+| Path | Guard | Effect |
+| --- | --- | --- |
+| `Regiment`, manual battle | `status == 0 && branch matches && commander.westpoint` | Artillery only: accuracy ×`increaseofaccuracywhencorrectbranch` **1.1** (`FireBullet` ~9554) and rate of fire ×`increaseofrofwhencorrectbranch` **1.2** (`UpdateFiringAndReloading` ~9987). All three arms: morale recovery ×`increaseofmoralecapforcorrectbranch` **1.25** (`UpdateMorale` ~17897) |
+| `Regiment`, campaign map | same | Morale recovery ×1.25 (`UpdateMoraleCampaign` ~17573) |
+| `Autocalc` | `status == 0 && branch matches` — **no `westpoint` requirement** | Artillery rate of fire ×1.2 (`GetROF` ~3027); morale recovery ×1.25 (~3408). No accuracy term |
+| Engineering points: `BattleUnits.CalculateAllUnitsOfAlliance` ~9205, `Autocalc.CalculateEngineeringPoints` ~4553 | `status <= 0 && historicalbranch == 4` | +`availableconstructiontimeperengineerunit` × (`factorengineerpointsbranchofarms` **1.5** − 1) = +0.25 h per infantry unit (`unittyp == 0`) |
+
+> **The engineer bonus exists, and it is keyed to the navy.** The pref's label
+> is *"Increase factor of engineering points if commander fits to branch of
+> arms (engineers)"*, and its only two reads test `historicalbranch == 4`.
+> A naval officer can never be seated on an infantry unit:
+>
+> - `CheckSuitableRank` rejects branch 4 for every non-fleet `unittyp`
+>   (§11.1), which covers the player's commanders list and tier 1 of
+>   `GetSuitableCommander`;
+> - tiers 2 and 3 of `GetSuitableCommander` (§5.4) each test
+>   `historicalbranch != 4` explicitly;
+> - in authored data, a scan of all 68 shipped `regiments.dat` files
+>   (`Campaigns/` and `Battlefields/`; 7,165 units, 6,425 with an authored
+>   commander id) finds **7** land units under a naval officer, all of them
+>   **artillery**: Thomas J. Page on *Pendleton's Corps* in `Campaigns/001/C`,
+>   and William W. Carnes on a battery in six battlefields. None is infantry,
+>   so none qualifies.
+>
+> Meanwhile **114** infantry units are authored under engineer-branch
+> commanders: exactly the units the bonus was written for. So engineer
+> (branch 3) still has no mechanical effect in the base game, but because the
+> one bonus written for it tests `4` where `3` was meant. An earlier version of
+> this section said no such bonus existed, and that the only code reading
+> branch 3 is the avatar panel, the commanders-list filter and the DLC
+> requirement system. The second half is still true.
 >
 > And note the `westpoint` asymmetry — one more manual-versus-auto divergence
 > to add to the list in [summary-combat](summary-combat.md).
 
 `increaseofmoralecapforcorrectbranch` is applied to the morale *recovery rate*,
 not to a cap, despite the name.
+
+`branchtextsub` promises more than this for every branch: readiness, marching
+and condition for infantry; intelligence, raiding and horse condition for
+cavalry; gun condition for artillery. None of those reads `historicalbranch`.
+The tooltip built in `Commander` ~761 prints the branch only when `westpoint`
+is set, which matches the manual-battle rule and hides the branch that still
+counts in auto-resolve.
+
+The only other non-cosmetic reads of a commander's branch are about
+**assignment**, not effect: the artillery vacancy rule in succession (§5.3)
+and `forcenowestpointarty` in `GetSuitableCommander` (§5.4).
+
+### 11.1 Professional, volunteer, political, veteran
+
+Three flags from `commanders.txt` — `westpoint`, `political`, `veteran` — give
+the background classes the commanders list filters by (`CommandersList`
+~285–309):
+
+| Filter | Test |
+| --- | --- |
+| Professional | `westpoint` |
+| Volunteer | `!westpoint && !political` |
+| Political | `political` |
+| Veteran | `veteran` (overlaps all of the above) |
+
+Shipped mix:
+
+| | Union | Confederacy | Europe (alliances 2, 3, 4, 7) |
+| --- | --- | --- | --- |
+| `westpoint` only | 252 | 159 | 3 |
+| `westpoint` and `political` | 17 | 3 | 0 |
+| `political` only | 132 | 98 | 2 |
+| neither (volunteer) | 745 | 463 | 32 |
+| `veteran` (any of the above) | 273 | 177 | 6 |
+
+The 20 with both flags appear under both Professional and Political, and
+every rule below that tests `political` applies to them.
+
+**`CheckSuitableRank(unittyp, unit, autoassignment)`** (`GameVars` ~1753) is
+where the classes differ for assignment. With `num = unit.state`
+(−1 if there is no unit):
+
+| Test | Result |
+| --- | --- |
+| `unittyp == 17 && historicalbranch != 4 && != -1` | rejected: only naval (or invented, branch −1) officers take fleets |
+| any land `unittyp` and `historicalbranch == 4` | rejected: naval officers take nothing on land |
+| `!political && !westpoint && num >= 0 && num != stateid` | rejected: **volunteers only lead units from their home state** |
+| `political && num >= 0 && num != stateid` | rejected: **political generals likewise** |
+| `autoassignment && !political && !westpoint && unittyp > 13` | rejected: auto-assignment never gives a volunteer a division or above |
+| `autoassignment && usedummyphoto` | rejected: auto-assignment skips officers with a placeholder portrait |
+| rank above the unit's maximum; army-group minimum rank and experience; `status != 0`; `!IsAvailable()` | rejected |
+
+West Pointers are exempt from both home-state tests.
+
+- **The rule binds the player.** `CommandersList` ~465 fills
+  `commanderassignable` from `CheckSuitableRank(chosenunit)` (with
+  `autoassignment` false), and the Assign button (~669) is disabled for an
+  officer who fails it.
+- **It mostly binds brigade commands.** `CreateUnitDefault` gives every
+  `unittyp <= 13` a state; most formations are created with `state = -1`
+  (corps and divisions under a new army, policy-raised formations), so the
+  home-state tests pass for them.
+- **Automatic picks skip it.** `GetSuitableCommander` calls
+  `CheckSuitableRank(unittyp, null, autoassignment)`, so `num` is −1 in tier 1
+  and the home-state tests never fire; tier 3 applies its own
+  `commander.stateid == stateid` match to everyone.
+
+**What else each flag does:**
+
+- **`westpoint`:** the manual-battle branch bonus above; half the experience
+  effect of a rank change in both directions (§3.2); feud-charge baseline ×1
+  (§7); exempt from the home-state tests; a "West Point Graduate"
+  service-history line (`Commander.Load` ~1286, non-navy only).
+- **`political`:** the standing state-support contribution (§9);
+  feud-charge chance ×`chanceoffeudspoliticalcommanders` 2 (§7); home-state
+  rule.
+- **Neither (volunteer):** feud-charge chance
+  ×`chanceoffeudsvolunteercommanders` 0.5 (§7); home-state rule; no division
+  or above under auto-assignment; no branch bonus in manual battles.
+- **`veteran`:** read in exactly one mechanical place,
+  `Commander.ResetExperience` (~2037), which clamps `exp` to
+  `alliance.militaryexperience + increaseexpcapcommanderifveteran` (0.25)
+  for a veteran and to `militaryexperience` for everyone else.
+  `ResetExperience` runs from `Commander.Load` only when `resetexp` is true
+  — a fresh import for a new campaign (`CampaignController` ~72), a
+  standalone battle (`BattleController` ~77) or the main menu (`MainMenu`
+  ~772); every save path passes `false` — and from the invented-commander
+  constructor. After that, `IncreaseExperienceThroughService` (~388) caps
+  service experience at `militaryexperience` with **no** veteran term, and
+  battle experience (`Regiment` ~16730) clamps only at 1.0. So the veteran
+  margin [29](29-dead-prefs-audit.md) §3.2 describes is a ceiling on the
+  **starting** value, not an ongoing one. Also a "Fought in the Mexican War"
+  service-history line and a tooltip line.
+
+**Invented commanders** (`new Commander(createdummy: true, …)`, §5.4) set
+`westpoint = false` and `veteran = false`, leave `political` at its default
+`false`, take `historicalbranch = 4` for a fleet and −1 otherwise, and take a
+`stateid` from units near where they are created. They are volunteers with no
+branch: never a branch bonus, and subject to the home-state test like any
+volunteer.
 
 ---
 
