@@ -45,16 +45,14 @@ namespace GTCW.BugFixes
 
             var registry = new FixRegistry(Config, Logger);
 
-            // Fixes register here, one line each, grouped by the method they
-            // patch. Nothing is registered yet: IMPLEMENTATION.md specifies all
-            // twenty-one rows and the order to build them in, and an empty
-            // registry is the correct idle state rather than a placeholder —
-            // the mod currently loads, reports that nothing is enabled, and
-            // patches nothing.
-            //
-            //   registry.Add(Fixes.ElectionDoubleCharge.Group);   // GTCW-001
-            //   registry.Add(Fixes.SupportBreakdownNaN.Group);    // GTCW-002
-            //   ...
+            // Wave 1. One line per patched method, in register order; a method
+            // with several fixes on it appears once, because the patch is shared
+            // (see FixGroup). IMPLEMENTATION.md has the remaining three waves.
+            registry.Add(Fixes.ElectionDoubleCharge.Group());   // GTCW-001
+            registry.Add(Fixes.SupportBreakdownNaN.Group());    // GTCW-002
+            registry.Add(Fixes.ConfiscationActSupply.Group());  // GTCW-003
+            registry.Add(Fixes.NavalFiringStrength.Group());    // GTCW-004, GTCW-006
+            registry.Add(Fixes.RaidLedgerSign.Group());         // GTCW-014
 
             _harmony = new Harmony(PluginGuid);
             registry.ApplyAll(_harmony);

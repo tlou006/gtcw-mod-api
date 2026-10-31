@@ -43,6 +43,16 @@ namespace GTCW.BugFixes
         public static bool IsOn(string id) => Enabled.Contains(id);
 
         /// <summary>
+        /// The mod's own log. Fixes report through this rather than through
+        /// <c>ModApi.Log</c>: a fix's noise belongs under the mod that chose to
+        /// apply it, not under the library.
+        /// </summary>
+        public static void Info(string message) => _log?.LogInfo(message);
+
+        /// <inheritdoc cref="Info"/>
+        public static void Warn(string message) => _log?.LogWarning(message);
+
+        /// <summary>
         /// Runs a patch body, swallowing anything it throws.
         /// </summary>
         /// <remarks>

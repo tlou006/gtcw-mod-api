@@ -2966,6 +2966,10 @@ than guessing what modders will want:
       no transpiler**, four of them share one method with the ModApi's own
       patches, two share another, and one row (GTCW-016) turned out to have no
       reachable consumer at all.
+- [x] **Wave 1 built** — GTCW-001, 002, 003, 004, 006, 014, one file each in
+      `mods/GTCW.BugFixes/Fixes/`. Chosen so that between them every technique
+      in the catalogue gets exercised once, and **none needed a transpiler**.
+      All six are `fixed`; none is `confirmed` until it has been seen working.
 - [ ] Start with the five highest-confidence class C/M items already seeded:
       the 1864 election's double charge (which turns a −20 setback into an
       instant loss), the support-breakdown NaN, the Confiscation Act's inverted

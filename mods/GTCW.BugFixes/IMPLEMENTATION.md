@@ -67,7 +67,28 @@ above is exercised once**, which is worth more than doing the easy ones first.
 
 ---
 
-## 3. Wave 1
+## 3. Wave 1 — **implemented, awaiting in-game confirmation**
+
+All five are written and build clean: `Fixes/ElectionDoubleCharge.cs`,
+`SupportBreakdownNaN.cs`, `ConfiscationActSupply.cs`,
+`NavalFiringStrength.cs`, `RaidLedgerSign.cs`. Every one is `fixed`, none is
+`confirmed` — the repro and confirm below are still owed.
+
+**Two things changed from the spec as written, both because the code said so.**
+
+1. **GTCW-001 no longer predicts the charge; it watches for it.** The planned
+   prefix was to replicate each objective's window test and spoof the pref. That
+   needs the fresh value of `deactivated`, and `CheckIfAccomplished` reassigns
+   that on its own first line — so a prefix reads the *previous* pass's value.
+   Guessing wrong in the safe direction does nothing; guessing wrong in the
+   other direction suppresses the **only** charge instead of the second one.
+   The implementation instead marks which objective is executing and filters at
+   `AdjustNationalMorale`, which observes what actually happens and needs no
+   copy of the game's date arithmetic.
+2. **GTCW-002 gained a one-shot sweep.** The postfix repairs every *new* NaN,
+   but a save written before the fix was enabled keeps its NaN in any slot whose
+   reason code never fires again. A sweep at `Milestone.CampaignLive` clears
+   those — 10 × 50 floats per state, once per campaign.
 
 ### GTCW-001 — the 1864 election charges twice
 
