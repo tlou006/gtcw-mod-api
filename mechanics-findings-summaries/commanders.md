@@ -257,3 +257,112 @@ The figures used are the ones the commanders actually work at, so experience and
 * **Keep initiative similar** up and down the chain of command. Don't just pick the boldest man for every post.
 * **Put your most famous generals at the top.** A superior more famous than his subordinates cancels out some of the initiative gap.
 * **Political generals belong under famous, bold superiors.** That shrinks both parts of the feud chance at once, and keeps the state support they generate.
+
+---
+&nbsp;
+
+## 5. Types of officers
+
+Every officer carries two labels on top of his stats:
+
+* **His background:** a **professional** (a West Point graduate), a **volunteer**, or a **political** appointee. Some officers are also tagged **veteran** (they fought in the Mexican War). The commanders list filters by all four.
+* **His branch of service:** **infantry**, **cavalry**, **artillery**, **engineer** or **navy**.
+
+The game's own descriptions promise a lot for each. Most of it isn't there. Here is what each label actually changes.
+
+---
+&nbsp;
+### Who's who
+
+| Background | Union | Confederacy | Europeans |
+| --- | --- | --- | --- |
+| **Professional** (West Point) | 252 | 159 | 3 |
+| **Professional and political** | 17 | 3 | — |
+| **Political** | 132 | 98 | 2 |
+| **Volunteer** (neither) | 745 | 463 | 32 |
+| **Total** | 1,146 | 723 | 37 |
+
+**Veterans** cut across all of these: 456 officers in total (273 Union, 177 Confederate, 6 European).
+
+| Branch | Officers | Of whom West Pointers |
+| --- | --- | --- |
+| Infantry | 1,086 | 153 |
+| Cavalry | 221 | 59 |
+| Artillery | 415 | 141 |
+| Engineer | 61 | 52 |
+| Navy | 123 | 29 |
+
+---
+&nbsp;
+### Professionals, volunteers and political appointees compared
+
+| | Professional | Volunteer | Political |
+| --- | --- | --- | --- |
+| **Which units you can give him** | Any | Only units raised in his home state | Only units raised in his home state |
+| **Branch bonus in battles you fight** | Yes | **No** | **No** |
+| **Branch bonus in auto-resolved battles** | Yes | Yes | Yes |
+| **Experience lost per rank when promoted into a bigger command** | **12.5** | 25 | 25 |
+| **Experience gained per rank when serving below his rank** | 5 | 10 | 10 |
+| **Chance of charging off on his own during a feud** | Normal | **Half** | **Double** |
+| **State support** | None | None | **Raises his home state's support while he holds any command** |
+
+* **The home-state rule.** A volunteer or political general can only be given a unit that was raised in his own state. Every brigade belongs to the state that raised it; most divisions, corps and armies don't belong to any state, so in practice the rule limits who can lead your **brigades**. The commanders list won't let you assign around it. Professionals can lead units from anywhere. The 20 officers who are both professional *and* political still follow the political rule.
+* **Professionals are cheap to promote.** Appointing an officer to a command that needs a higher rank promotes him on the spot and costs him **25 experience points per rank** he jumps. A West Pointer loses only **12.5**. Military schools in his home state cut the loss further. Remember that an officer with no experience works at half his stats (Section 1), so this matters: jumping a volunteer two ranks costs him 50 experience points, and a West Pointer 25.
+* **Political generals buy state support.** While he holds any command, a political general props up his **home state's** support for your side, whatever state he's fighting in. It's a standing bonus, not one that builds up over time: it disappears the moment he loses his command. How much depends on his command and his fame:
+
+| His command | Fame 0 | Fame 100 |
+| --- | --- | --- |
+| Brigade | +0.5 points | +1.75 points |
+| Division | +0.75 points | +2.6 points |
+| Corps | +1.0 points | +3.5 points |
+| Army | +1.5 points | **+5.25 points** |
+| Fleet or army group | +1.0 points | +3.5 points |
+
+> Only his **base** fame counts here: the ×1.4 from being famous doesn't help. And note that an army group command is worth *less* than an army command, which looks like an oversight.
+
+* **When the game picks a commander itself** (for a new unit or a replacement), it first looks for a professional or political officer for anything from division upwards. Volunteers, and officers with a placeholder portrait, are only the fallback.
+
+---
+&nbsp;
+### Branch of service
+
+The branch bonus goes to the officer's **own** unit only: a brigade or battery commander whose branch matches his troops. A corps commander's branch does nothing for the brigades under him. The officer has to be on duty: a wounded, captured or killed commander loses it.
+
+| Branch | What the game's description promises | What it actually does |
+| --- | --- | --- |
+| **Infantry** | Better readiness, marching and fighting condition | Infantry and skirmisher units **recover morale 25% faster**, in battle and on the campaign map. Nothing else |
+| **Cavalry** | Better intelligence, raiding, horse condition and morale | Cavalry and scout units **recover morale 25% faster**. Nothing else |
+| **Artillery** | Faster, more accurate fire; well-kept guns; proud gunners | Batteries **fire 20% faster**, are **10% more accurate**, and **recover morale 25% faster**. Gun condition is unaffected |
+| **Engineer** | Better at sieges and at building or overcoming obstacles | **Nothing** (see below) |
+| **Navy** | Can command a ship or a squadron | **Only** naval officers can command fleets, and they can't command anything on land |
+
+* **In battles you fight, the bonus needs a West Pointer.** A volunteer or political officer of the right branch gets nothing. In **auto-resolved** battles the West Point requirement disappears: any officer of the right branch gets the morale and rate-of-fire bonuses (but not the accuracy). That means only **353 officers**, the West Pointers in infantry, cavalry and artillery, can ever give a branch bonus in a battle you fight yourself.
+* **The portrait tooltip only shows the branch of West Pointers.** That's consistent with the battle rules, but it hides the branch that still counts in auto-resolve.
+* **Engineer officers are dead weight.** The game *does* have a bonus meant for them, +50% engineering points per infantry unit, but it checks for the **navy** branch instead of engineer. Naval officers can never command infantry, so the bonus never fires. All 61 engineer officers, 52 of them West Pointers, are just officers with no branch bonus.
+* **The navy is a separate career.** Naval officers have their own rank ladder, can't be made commander-in-chief, and are the only officers who can take a fleet.
+* **Battery commanders.** When the game picks an artillery commander itself, it won't spend a West Pointer from another branch on the job.
+
+---
+&nbsp;
+### Veterans
+
+Being a **veteran** does one thing: at the **start of a new campaign**, every officer's experience is trimmed down to your nation's military experience level, but a veteran may keep up to **25 points more**.
+
+After that the tag is worth nothing. Service experience stops at the national level for everyone, veteran or not, and battle experience can take anyone to 100. It's a head start, not a lasting edge.
+
+---
+&nbsp;
+### Officers the game invents
+
+When there's nobody left to fill a post, the game invents an officer (Section 3). He is always a **volunteer** with **no branch**, so he never gets a branch bonus, and he's tied to a state taken from the units around him, so the home-state rule applies to him too.
+
+---
+&nbsp;
+### Using officer types well
+
+* **Put West Point artillery officers on your batteries.** It's the biggest branch bonus in the game: +20% rate of fire, +10% accuracy and faster morale recovery, on every battery that has one.
+* **Match West Point infantry and cavalry officers to their own arm at brigade level.** Faster morale recovery is the only reward, but it's free.
+* **Don't count on a volunteer's branch** in battles you fight. It only counts when you auto-resolve.
+* **Promote West Pointers into big jumps.** They lose half as much experience as anyone else when moved up several ranks.
+* **Give political generals the biggest command you can.** An army command is worth three times a brigade for state support, and fame multiplies it further. Pair that with the feud advice above: under a famous, bold superior they're less likely to feud, and when they do they're twice as likely as anyone to charge off on their own.
+* **Ignore the engineer branch.** It does nothing in the base game.
