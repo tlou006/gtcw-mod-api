@@ -470,6 +470,14 @@ Springfields put their shots in exactly the same places. What the veterans
 actually get is **rate of fire** — inexperienced troops take 40 % longer to
 reload — plus everything morale and experience do outside the firing model.
 
+The one way round the floor is a perk. Sharpshooters, Stormers, Skilled laying
+and Grand battery multiply the result *after* the blend, so they can lift a
+shot above 1.0, and that is where experience pays again: a veteran Springfield
+brigade with Sharpshooters III scatters a third less, an average one about
+15 % less, a green one not at all *(calculated,
+[34](../code-findings/34-perks.md) §2.4)*. An earlier version of this section
+counted the perks among the inputs the floor throws away.
+
 What to do with that:
 
 - **Veterans are worth having for their rate of fire, their resilience and
@@ -2131,10 +2139,12 @@ the single most useful thing a modder could have been told here.
    read like effects that existed and were replaced — order delay by the
    courier model, flanking by the stance thresholds, rallying by the proximity
    bonus. A changelog would say; the assembly does not.
-4. **Perk reachability.** [19](../code-findings/19-commanders-and-perks.md) §1.6
-   records the perk defects found so far, but the perk *catalogue* has not been
-   cross-checked against the manual's special-training chapters, which are a
-   separate body of claims from the attribute matrix.
+4. ~~**Perk reachability.**~~ **Answered:** [34](../code-findings/34-perks.md)
+   traces all 48 perks against Appendix C — 17 work as written, 11 work
+   differently and 20 have a dead, inverted or misdirected headline effect.
+   The player-facing version is [commanders worth having](commanders-worth-having.md)
+   §8–11. The manual's special-training chapters outside Appendix C were not
+   part of that pass.
 5. **What "2,000" is in map units** for the foraging interpolation
    ([14](../code-findings/14-supply-and-logistics.md) §11 question 8).
 6. **Whether the forced-march supply cut-off is intended**, against the 25 %

@@ -685,7 +685,8 @@ raids (`AddShortages`, `ResetShortages`).
    scratch each pass over `unitsinrange`: a non-fleet with `cavalryorders == 2`
    blockades any non-trade node; a fleet with `fleetorders == 1` blockades
    `id_harbor`; a fleet with **perk 6** also blockades a trade node and sets
-   `priceadjustment = priceincreasessearaiders[level]`. Each contributor adds
+   `priceadjustment = priceincreasessearaiders[level]` (read only by the map
+   tooltip, so no price changes: [34](34-perks.md) §5.7). Each contributor adds
    `blockadeefficencyvalue × rangeFactor × (1 + level(106) ×
    project_blockadeefficiency)`, where `rangeFactor` is
    `blockadeefficiencyfactorcombatrange` inside `buglerange` and 1 outside, and

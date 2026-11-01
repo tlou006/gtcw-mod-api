@@ -353,7 +353,9 @@ Suggested order — combat first, since it's what modders most want to change:
    gone: there are **three perk namespaces** (19 battle, 18 army campaign, 11
    fleet), selected by one line — `unittyp <= 13` gets **one** battle perk,
    anything higher gets **four** campaign or fleet perks. The id "collisions"
-   recorded earlier were cross-namespace and never ambiguous at runtime.
+   recorded earlier were cross-namespace — though eight unguarded sites still
+   read the wrong table ([34](code-findings/34-perks.md) §7; an earlier version
+   said "never ambiguous at runtime").
 
    The five attributes all run through one pipeline:
    `raw × outOfDuty(0.5) × (0.5 + 0.5·exp) × (1 + 0.33·(superior − self))`, so
@@ -625,8 +627,10 @@ planned index are in [`mechanics-findings/README.md`](mechanics-findings/README.
      `Mathf.Max(accuracy/k, 1/k)` floors the divisor at 1 — and the blend's
      ceiling is 1.105, so for the 34 land weapons rated 1.0 or below (every
      standard rifle-musket) the weapon's accuracy, experience, morale, fatigue,
-     gun condition, artillery zeroing and four perks change nothing about where
-     the shots land;
+     gun condition and artillery zeroing change nothing about where the shots
+     land (four accuracy perks, applied after the blend, can still lift a shot
+     over the floor: [34](code-findings/34-perks.md) §2.4; an earlier version
+     listed them among the inert inputs);
    - **fatigue does not slow reloading.** `fatigueinfluenceonreloading` is read
      once and never assigned; the config value meant for it is parsed into a
      neighbouring field which a later line overwrites;
@@ -1252,16 +1256,24 @@ wrong way.
   strength, construction speed, siege assault, raiding casualties and night
   combat respectively, reached through `HasPerkParent` sites in `Autocalc` and
   `CBuilding`. Now [19](code-findings/19-commanders-and-perks.md) §1.7 with
-  every array's values.
+  every array's values. **Superseded by
+  [34](code-findings/34-perks.md) §4:** following each value to its last use,
+  Siege Train is halved by a +1 baseline, Sappers and Miners and Limelights'
+  siege value are overwritten in `FightUnit`, Partisan Brigades scales the
+  raider's own losses, and Engineers & Mechanics leaves total build time
+  unchanged.
 - **Balloon Corps lengthens your order delays.** `orderdelaysballooncorps`
   ships **1.25 / 1.10 / 1.10** against a multiplier on the delay, where the
   adjacent `fieldtelegraphorderdelays` ships 0.9 / 0.8 / 0.7. Taking the perk
   costs order speed at every level and levelling it only recovers part of the
-  loss.
+  loss. *(Later: the manual lists that as the perk's cost, so it is as
+  designed — [34](code-findings/34-perks.md) §4.3.)*
 - **Bushwhackers gets worse as it levels.** `skirmishingbushwhackers` ships
   **1.25 / 1.20 / 1.10** as a multiplier on raiding casualties, while its
   support-drop sibling rises correctly — diminishing increments authored as
-  absolute factors.
+  absolute factors. *(Later corrected: the manual authors the same declining
+  values; the real defect is that both factors land on the raider's own losses
+  and the support backlash — [34](code-findings/34-perks.md) §4.14.)*
 - **Field Telegraph conceals and the intelligence perk exposes.**
   `informationdelay` and `informationdelaybureauofmilitaryinformation` ship the
   same 1.0 / 0.75 / 0.5 and are applied to the same spot-mark probability with
@@ -1276,7 +1288,9 @@ wrong way.
   `Regiment` ~4700's raiding-target filter tests `HasPerk(6)` with no
   `unittyp == 17` guard, so campaign perk 6 (Foot Cavalry) satisfies the
   fleet-only Sea Raiders clause. The `IIP` copy is guarded and no shipped trade
-  node is reachable by land, so it is latent.
+  node is reachable by land, so it is latent. *(Later: one of eight such sites,
+  two of which strip Ambulance Corps and Foot Cavalry of their attrition
+  effects — [34](code-findings/34-perks.md) §7.)*
 - **`project_civilorderraids` is a second discarded-statement pref.**
   `Regiment` ~4661 and ~4663 compute Civil Order's raid factor as bare
   expressions and throw both away, immediately before the two `AdjustSupport`
@@ -1290,6 +1304,9 @@ wrong way.
   bonus at level I**, **Skilled laying III is the only perk that grants an
   immunity** (zero demoralization under artillery fire), and **Supply Colliers
   is the only perk with a standing penalty** (−30 % fleet speed at level I).
+  *(Later: neither "only" holds — Zouave, Vanguard, Deadly volley II and Iron
+  discipline III each switch off a morale term, and Balloon Corps' slower
+  orders are a designed cost too.)*
   The pass also claimed **Mounted rifles takes the mounted-fire penalty from
   ×0.75 to ×0.2**; that was wrong — the pref is the share *recovered*, so the
   perk is strongest at level I and weakens with each level (corrected in

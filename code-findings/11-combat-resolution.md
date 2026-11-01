@@ -405,7 +405,15 @@ degrades fire — there is no distance term in the accuracy formula itself.
 > accuracy is at or below 1.0 the scatter is `distance × k`, and **nothing in
 > the cascade changes it** — not the weapon's accuracy rating, not experience,
 > morale or fatigue, not gun condition, not artillery zeroing-in, not the
-> mounted penalty, not perks 1, 11, 15 or 16.
+> mounted penalty.
+>
+> Perks 1, 11, 15 and 16 (Sharpshooters, Stormers, Skilled laying, Grand
+> battery) are the exception that matters: they multiply `num8` *after* the
+> mean bounded below, as the last writes before `Initialize`, so they can lift
+> a shot over the floor and count by however much they do. For an average
+> rifle-musket line only Sharpshooters III does (scatter ×0.85); a veteran
+> line gets each factor in full ([34](34-perks.md) §2.4). An earlier version
+> listed these four perks among the inputs that never matter.
 
 How often does the cascade clear 1.0? With the shipped
 `experienceinfluenceonaccuracy` = 0.66 and `moraleinfluenceonaccuracy` = 0.25,
@@ -549,12 +557,18 @@ non-trivial firepower edit.
 Siege (`type == 2`) replaces the weapon firepower entirely with
 `EnvolvedUnits.GetFortWeaponStrength(unit0)` and multiplies by
 `siegestrength`. Embarked units (terrain 3/4/5/8) take
-`fightingstrengthembarked`, or `fightingstrengthembarkedriverexp` with perk 10.
+`fightingstrengthembarked`, or `fightingstrengthembarkedriverexp` with perk 10
+— army perk 10 is Sappers and Miners; the pref is labelled for River
+Expedition, perk 17 ([34](34-perks.md) §7). The siege-assault, siege-skirmish
+and night multipliers applied to `num5` earlier in the method are lost to the
+siege replacement ([34](34-perks.md) §4.11).
 
 Night-time is detected per month:
 `uniStormSystem.hourCounter > GamePrefs.dayendhours[month-1]` or
 `< GamePrefs.daystarthours[month-1]` — **daylight hours are month-indexed
-config arrays**, and perk 15 multiplies combat efficiency at night.
+config arrays**, and perk 15 (Limelights) multiplies combat efficiency at
+night — effectively only in `type == 0` field battles, given the siege
+replacement above.
 
 ### 4c. Ammo and supply drain
 
@@ -588,7 +602,7 @@ formulas.**
 | Being flanked | `× moralehitflankingautocalc` |
 | Ammo below alert level (first time) | `+ moraleeffectlowammo * 0.5` |
 | Out of ammo (first time) | `+ moraleeffectoutofammo * 0.5` |
-| Fatigue above `fatiguealertlevel`, without perk 1 | `+ moraleeffectonhighfatigue * timediff` |
+| Fatigue above `fatiguealertlevel`, without perk 1 (Sharpshooters; meant for Zouave, [34](34-perks.md) §6) | `+ moraleeffectonhighfatigue * timediff` |
 | Cohesion below `cohesionalertlevel` | `+ moraleeffectcohesionbelowalertlevel * timediff` |
 
 The low-ammo and out-of-ammo hits are **latched** through

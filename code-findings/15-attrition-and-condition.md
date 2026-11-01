@@ -146,7 +146,7 @@ encamped ? (mortalityratewoundedencamped, recoveryratewoundedencamped)
 
 mortality /= 1 − CBuilding.GetMedicalTreatmentValue(pos, alliance, 1, unit)
 recovery  *= 1 + CBuilding.GetMedicalTreatmentValue(pos, alliance, 2, unit)
-mortality *= woundedtokilledambulancecorps[perk 8 level]     // self and parent
+mortality *= woundedtokilledambulancecorps[perk 8 level]     // see note below
 mortality /= DLC effect 15 ;  recovery *= DLC effect 15
 
 died      = TrimToInt(unittypesize[unittyp] × mortality × elapsed × (1 ± variationforattrition))
@@ -155,6 +155,14 @@ recovered = TrimToInt(unittypesize[unittyp] × recovery  × elapsed × (1 ± var
 losses[0] -= died;                                  // wounded pool shrinks
 strength  += recovered;  losses[0] -= recovered;    // and some return to duty
 ```
+
+> **The perk-8 test reads the wrong table.** This runs on brigades
+> (`unittyp <= 13`; the method returns early above 13), so `HasPerk(8)` is the
+> brigade's **battle** perk 8, Expert scouts, and `HasPerkParent` is always
+> false for a brigade. Cavalry brigades with Expert scouts get the mortality
+> cut; Ambulance Corps formations never do ([34](34-perks.md) §4.9, §7). The
+> same applies to the perk-6 test in §2b. An earlier version annotated both as
+> "self and parent".
 
 Three points:
 
@@ -247,7 +255,7 @@ Same exponential-approach idiom as cohesion:
 target = sicknesstargetrate × strength × (1 ± variationforattrition)
        × DLC effect 22
        × sicknessadjustmentforcedmarch     if doublequick
-                                           (reduced by attritionfootcavalry[perk 6], self + parent)
+                                           (× attritionfootcavalry[perk 6] — the brigade's battle perk 6, Ace of Spade: see §2a)
        × sicknessadjustmentwinter          if temperature <= coldweathertemperature
        × ((sicknessadjustmentbadweather − 1) × badWeather + 1)
        × sicknessadjustmentencamped        if encamped
@@ -464,9 +472,12 @@ Notes:
   (`aicheat_shiftedbonusmorale`, `aibonus_restoringmorale`,
   `debug_aicheat_fallbackmoralemultiplier`).
 
-**Perk 2 is both Zouaves (fatigue) here and a sharpshooter bonus in
-`Autocalc.FightUnit`** — more of the perk-id reuse documented in
-[12-melee](12-melee.md) §6.
+**Perk 2 is Zouave (fatigue) here and gets the sharpshooter bonus in
+`Autocalc.FightUnit`.** That is not id reuse but an id swap: every
+auto-resolve site uses an older order in which 1 was Zouave and 2
+Sharpshooters, so in auto-resolve the two perks trade effects
+([34](34-perks.md) §6). An earlier version called it "more of the perk-id
+reuse documented in [12-melee](12-melee.md) §6".
 
 ---
 

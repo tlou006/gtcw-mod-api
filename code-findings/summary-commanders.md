@@ -21,8 +21,9 @@ goes off and fights his own battle.
 
 **Three namespaces, not one**: 19 battle perks, 18 army-campaign perks, 11
 fleet perks, each with its own tooltip file and its own id space. The id
-collisions recorded in [16](16-enumerations.md) were cross-namespace and are
-unambiguous at runtime everywhere but one site — see below.
+collisions recorded in [16](16-enumerations.md) were cross-namespace, and most
+call sites guard against them — but at least eight don't (see below). An
+earlier version said "everywhere but one site".
 
 The namespace is decided by a single line:
 
@@ -31,8 +32,10 @@ int num = ((component.unittyp <= 13) ? 1 : 4);   // perk slots
 ```
 
 > **Fighting units get one battle perk. Formations get four campaign (or
-> fleet) perks.** The namespace is derivable from `unittyp` alone, which is
-> exactly what a ModApi perk surface needs.
+> fleet) perk slots**, though `PanelHandler` defines only three perk rows, so
+> the player can never fill the fourth; the campaign AI can
+> ([34](34-perks.md) §2.3). The namespace is derivable from `unittyp` alone,
+> which is exactly what a ModApi perk surface needs.
 
 Battle perks are additionally partitioned by branch — infantry 0–7, cavalry
 8–13, artillery 14–18 — and that partition is **hardcoded in C#**, in
@@ -43,42 +46,68 @@ Two things worth knowing before building on it:
 | | |
 | --- | --- |
 | **Slots unlock in order** | A perk slot earns experience only if it is slot 0 or its predecessor is already filled. Formations must commit to a first perk before the second starts progressing. |
-| **Inheritance is one level, Corps only** | `HasPerkParent` early-returns unless `unittyp == 15`. An Army's perk reaches its Corps and stops; a Division never inherits from its Corps. Where both are tested, the bonuses stack multiplicatively — except for Engineers & Mechanics, which assigns (see below). |
+| **Inheritance is one level, Corps only** | `HasPerkParent` early-returns unless `unittyp == 15`. An Army's perk reaches its Corps and stops; a Division never inherits from its Corps. Where both are tested, the bonuses usually stack multiplicatively — except for Engineers & Mechanics, which assigns (see below), and the Siege Train and Balloon Corps siege bonuses, which add ([34](34-perks.md) §4.1). |
 
 And the tooltip lies: **`PerkRow.IsPerkUnlocked()` returns `true` and is never
 called.** The in-game text promising that available perks are "limited for each
 nation, depending on its policies and technologies" describes a feature that
 does not exist.
 
-## Perk magnitudes, and four data defects
+## Perk magnitudes, and what the per-perk audit found
 
 Every perk array is `float[3]` indexed by the 0-based level, so "level I" is
 index 0. The six campaign perks the first pass of
-[19](19-commanders-and-perks.md) could not find prefs for all have real
-effects, reached through `HasPerkParent` sites in `Autocalc` and `CBuilding`:
-Siege Train (siege weapon strength ×1.25/1.50/2.00), Engineers & Mechanics
-(construction speed, same), Sappers and Miners (siege assault, same), Partisan
-Brigades (raiding casualties, same), Limelights (night combat, same) and
-Bushwhackers. Full tables in §1.7.
+[19](19-commanders-and-perks.md) could not find prefs for all reach one,
+through `HasPerkParent` sites in `Autocalc` and `CBuilding`. Following each to
+its last use ([34](34-perks.md) §4) shows that only Siege Train's changes the
+outcome its label describes, at half strength:
 
-Four of the shipped arrays are wrong in a way that changes play.
+| Perk | Label | What it does |
+| --- | --- | --- |
+| Siege Train | siege weapon strength ×1.25 / 1.50 / 2.00 | `UpdateSiegeStrength` adds it to a baseline of 2 and averages it over the side's top units: +12.5 / 25 / 50 % for a lone holder |
+| Sappers and Miners, Land Torpedoes, River Expedition | siege assault, siege skirmish | Multiplied into `num5`, which `FightUnit` then overwrites with `GetFortWeaponStrength` |
+| Limelights | night sieges and skirmishing | Survives only in auto-resolved field battles (`type == 0`) |
+| Partisan Brigades, Bushwhackers | raiding casualties and morale | Applied to the **raider's own** brigade in `UpdateRaiding`'s return-fire block; Bushwhackers' support factor amplifies the raid's support backlash |
+| Engineers & Mechanics | construction speed | `UpdateRaidSmoke` re-arms the construction timer, so total build time is unchanged (**Untested**) |
 
-| What | Problem |
+An earlier version said all six "have real effects" and gave each its label.
+Across all 48 perks, **17 work as the manual says, 11 work differently and 20
+have a dead, inverted or misdirected headline effect** ([34](34-perks.md) §8).
+The four accuracy perks (Sharpshooters, Stormers, Skilled laying, Grand
+battery) count only for the part that lifts a shot above the aim-scatter
+floor of [11](11-combat-resolution.md) §3e — nothing at low levels for an
+average crew, the full factor for a veteran one ([34](34-perks.md) §2.4).
+Full tables in [19](19-commanders-and-perks.md) §1.7.
+
+Three of the shipped arrays need a closer look:
+
+| What | Finding |
 | --- | --- |
-| **Balloon Corps** | `orderdelaysballooncorps` ships **1.25 / 1.10 / 1.10** against a *multiplier on the order delay*, where the adjacent `fieldtelegraphorderdelays` ships 0.9 / 0.8 / 0.7. **The perk lengthens its formation's order delays** at every level |
-| **Bushwhackers** | `skirmishingbushwhackers` ships **1.25 / 1.20 / 1.10**, so the raiding-casualty multiplier **falls** as the perk levels up. Its support-drop sibling rises correctly |
-| **Field Telegraph vs. Bureau of Military Information** | Both read a 1.0 / 0.75 / 0.5 array against the same spot-mark probability in `SpottedEnemy`, one with `*=` and one with `/=`. The probability is the chance **the player** is shown a last-seen mark for an enemy formation, and the perk read is that formation's **own** — so Field Telegraph conceals its holder and the intelligence perk makes its holder **twice as easy to track** |
-| **Engineers & Mechanics** | The own-perk and parent-perk branches both **assign** `constructiontimer` rather than multiplying, so this is the one paired `HasPerkParent` site that does not stack |
+| **Balloon Corps** | `orderdelaysballooncorps` ships **1.25 / 1.10 / 1.10** against a *multiplier on the order delay*, where the adjacent `fieldtelegraphorderdelays` ships 0.9 / 0.8 / 0.7. **The perk lengthens its formation's order delays** at every level — but the manual lists that as the perk's cost, so it is as designed. An earlier version counted it as a defect |
+| **Bushwhackers** | `skirmishingbushwhackers` ships **1.25 / 1.20 / 1.10**, falling with level, as the manual also authors it. The defect is where it lands (the raider's own losses, above). An earlier version called the falling array the defect |
+| **Field Telegraph vs. Bureau of Military Information** | Both read a 1.0 / 0.75 / 0.5 array against the same spot-mark probability in `SpottedEnemy`, one with `*=` and one with `/=`. The probability is the chance **the player** is shown a last-seen mark for an enemy formation, and the perk read is that formation's **own** — so Field Telegraph conceals its holder and the intelligence perk makes its holder **twice as easy to track**. Both saturate within about eight game hours anyway ([29](29-dead-prefs-audit.md) §4.1) |
 
-And one genuine cross-namespace ambiguity, qualifying the claim above that
-there are none: `Regiment` ~4700's raiding-target filter tests `HasPerk(6)`
-with **no `unittyp == 17` guard**, so campaign perk 6 (**Foot Cavalry**)
-satisfies the fleet-only Sea Raiders clause. The `IIP` copy of the same test is
-guarded, and no shipped trade node is reachable by land, so it is latent.
+And **Engineers & Mechanics** is the one paired `HasPerkParent` site that
+neither multiplies nor adds: its own-perk and parent-perk branches both
+**assign** `constructiontimer`, so the parent's level wins.
 
-Two perks make their commander famous, which is worth ×1.4 on his fame
-everywhere: **Blockade Busters** on selection, and **Sea Raiders** on reaching
-level III while blockading a trade node.
+**At least eight unguarded `HasPerk(n)` sites read the wrong table**
+([34](34-perks.md) §7). The two that matter most strip formations of an
+effect: Ambulance Corps' wounded mortality and Foot Cavalry's forced-march
+sickness are tested on **brigades**, so they read battle perks 8 (Expert
+scouts) and 6 (Ace of Spade). Others give perks free effects: fleets with Sea
+Raiders get Foot Cavalry's speed, formations and fleets with ids 3 or 8 get
+Expert skirmishers' or Expert scouts' concealment, and Sappers and Miners gets
+River Expedition's embarked-strength override. `Regiment` ~4700's
+raiding-target filter, which lets Foot Cavalry satisfy the fleet-only Sea
+Raiders clause, is the one an earlier version listed as the only ambiguity; no
+shipped trade node is reachable by land, so it is latent.
+
+Two perks make their commander famous, which is worth ×1.4 wherever
+`GetCommanderFame` is read (not in political state support, which reads raw
+`fame`: [19](19-commanders-and-perks.md) §9): **Blockade Busters** on
+selection, and **Sea Raiders** on reaching level III while blockading a trade
+node. An earlier version said "everywhere".
 
 ## The attribute pipeline
 
@@ -210,6 +239,12 @@ but nothing in the base simulation branches on it.
    **score**, so it never does anything.
 8. `commanderehabilitationmin/max` are **misspelled in the game** —
    "ehabilitation" — joining `choesionbyotherunitspassing`.
+
+The perk defects are ranked separately in [34](34-perks.md) §8. The most
+visible: Partisan Brigades and Bushwhackers raising the raider's own losses,
+Mounted rifles weakening at every level, Iron discipline II+ freezing the
+friendly-rout penalty, Deadly volley III halving the drill protection, and
+Sharpshooters and Zouave swapping in auto-resolve.
 
 ## For the hook library
 

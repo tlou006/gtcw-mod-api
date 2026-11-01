@@ -15,9 +15,11 @@ Every perk in the manual's Appendix C, traced from scratch through every
 `HasPerk` / `GetPerkLevel` / `HasPerkParent` / `IncreasePerkExp` call site
 (about 330 calls in about 60 methods). This was done as an independent pass,
 not as an edit of [19](19-commanders-and-perks.md) §1, and §9 lists where it
-agrees and where it doesn't. The short version: **of 48 perks, 19 do what the
-manual says, 9 work but differently, and 20 have a headline effect that is
-dead, inverted or lands on the wrong unit** (§8).
+agrees and where it doesn't. The short version: **of 48 perks, 17 do what the
+manual says, 11 work but differently, and 20 have a headline effect that is
+dead, inverted or lands on the wrong unit** (§8). An earlier version said 19
+and 9, before Stormers and Skilled laying moved to ⚠️ over the aim-scatter
+floor (§2.4).
 
 **How to read a perk entry.** *Manual* is Appendix C, levels I / II / III.
 *Code* is what the source does, with shipped values I / II / III and a
@@ -160,6 +162,40 @@ commander** (§5.9).
 > 2 is Zouave. That is an older id order, and it's the same order the
 > auto-resolve code still uses (§3.2, §3.3).
 
+### 2.4 Accuracy perks only count above the aim-scatter floor
+
+Five perks multiply the shot accuracy `num8` in `Regiment.FireBullet`:
+Mounted rifles (~9620), Skilled laying (~9628), Grand battery (~9636),
+Sharpshooters (~9642) and Stormers (~9646). Those are the last writes before
+`num8` goes to `Projectile.Initialize` (~9693), whose only use of it is the
+aim-scatter divisor `max(accuracy, 1)` ([11](11-combat-resolution.md) §3e).
+So a perk's accuracy factor changes where shots land only by the amount it
+lifts `num8` **above 1.0**.
+
+The perks act after the weighted mean that 11 §3e bounds at 1.105, so they can
+lift a shot over the floor; how far depends on the crew. For a 1.0-rated
+weapon (every standard rifle-musket, the Napoleon, most carbines), with no
+fatigue *(calculated)*:
+
+| Crew | Mean | ×1.1 | ×1.25 | ×1.5 |
+| --- | --- | --- | --- | --- |
+| Green, full morale (E 0, M 1) | 0.65 | floor | floor | floor |
+| Average (E 0.5, M 0.7) | 0.79 | floor | floor | scatter ×0.85 |
+| Veteran (E 1, M 1) | 1.00 | scatter ×0.91 | ×0.80 | ×0.67 |
+
+The factor needs `0.66·E + 0.25·M` above **0.74 at ×1.1, 0.53 at ×1.25 and
+0.27 at ×1.5** to do anything with a 1.0 weapon. Fatigue (up to −33 %) and,
+for artillery, gun condition and the first three zeroing shots push the bar
+higher; a 1.1 or 1.2 weapon and the West Point artillery bonus (×1.1) lower
+it. Mounted fire is ×0.6 before the perk, so even Mounted rifles I leaves it
+at ≤ 0.99 for every weapon: **its accuracy half never changes a shot** (a
+mounted scout company's ×1.1 skirmish factor reaches 1.09 at best).
+
+An earlier version of this audit counted the accuracy factors as working at
+face value; 11 §3e in turn listed "perks 1, 11, 15 or 16" among the inputs
+that never matter, which holds for the mean but not for factors applied after
+it.
+
 ---
 
 ## 3. Battle perks (19)
@@ -198,7 +234,9 @@ with none, between perkless infantry). ✅
 **Code:**
 - Accuracy ×**1.1 / 1.25 / 1.5**, but only for `unittyp == 0`
   (`Regiment.FireBullet` ~9640). A detached skirmisher company keeps the perk
-  and loses the bonus.
+  and loses the bonus. It only counts above the aim-scatter floor (§2.4): for
+  an average rifle-musket line levels I and II change nothing and III
+  tightens scatter by about 15 %; only a veteran line gets the full factor.
 - Range ×**1 / 1 / 1.25** for any holder (`GetFireRange` ~8886). ✅
 - Auto-resolve reads id 1 as Zouave (§6).
 
@@ -352,17 +390,22 @@ backwards:
 `unittyp == 1 || == 3`, so detached cavalry scouts (4) never earn it; infantry
 skirmishers (3) qualify but are never mounted.
 **Verdict:** ❌ — always better than nothing, and **weaker at every level**.
-It also covers accuracy, which the manual doesn't mention.
+It also covers accuracy, which the manual doesn't mention, but mounted
+accuracy stays under the aim-scatter floor with or without it (§2.4), so only
+the reload half changes a fight.
 
 ### 3.12 Stormers — battle 11, cavalry
 
 **Manual:** allows running; loose-order accuracy +10 / +25 % at II / III.
 **Code:** running (`CheckAbilityToRun` ~4209) ✅; accuracy ×**1 / 1.1 /
-1.25** in formation 1 (~9644) ✅; ➕ level III exempt from the "enemy is in
-cover" morale term (~18136).
+1.25** in formation 1 (~9644), which only counts above the aim-scatter floor
+(§2.4): with 1.0–1.1 carbines it needs a near-veteran regiment to do
+anything ⚠️; ➕ level III exempt from the "enemy is in cover" morale term
+(~18136).
 **Levels up:** 0.001 per casualty inflicted in loose formation (same
 `1 || 3` test as §3.11).
-**Verdict:** ✅
+**Verdict:** ⚠️ — running and the morale exemption work; the accuracy bonus
+mostly doesn't. An earlier version marked it ✅.
 
 ### 3.13 Vanguard — battle 12, cavalry
 
@@ -407,17 +450,21 @@ already held.
 **Manual:** counter-battery accuracy +10 / +20 / +50 %; morale hit from
 artillery −50 % / none at II / III.
 **Code:** accuracy ×**1.1 / 1.2 / 1.5** in counter-battery
-(`combatbehavior == 8`, ~9626); incoming-artillery morale term ×**1 / 0.5 /
-0** (~18192). ✅
+(`combatbehavior == 8`, ~9626), counting only above the aim-scatter floor
+(§2.4): a 1.1–1.2 rifled gun with a seasoned crew gets most of it, a 1.0
+Napoleon needs a veteran crew for levels I–II ⚠️; incoming-artillery morale
+term ×**1 / 0.5 / 0** (~18192) ✅.
 **Levels up:** 0.005 per counter-battery shot.
-**Verdict:** ✅
+**Verdict:** ⚠️ — the morale half is complete; the accuracy half depends on
+the crew. An earlier version marked it ✅.
 
 ### 3.17 Grand battery — battle 16, artillery
 
 **Manual:** bombardment accuracy +10 / +20 / +30 %; enemy morale hit +50 %
 at II, doubled at III.
 **Code:** accuracy ×**1.1 / 1.2 / 1.3** in bombardment (`combatbehavior ==
-9`, ~9634). ✅ The morale side is **amplified past its label.** For each
+9`, ~9634), counting only above the aim-scatter floor (§2.4). The morale side
+is **amplified past its label.** For each
 incoming artillery source the target's term counts the source and adds its
 distance, then divides by the average distance. Grand battery adds
 `malus − 1` (0 / 0.5 / 1.0) to the **count without adding distance**
@@ -873,13 +920,15 @@ Formations do carry their perk list into battle (`BattleUnits.import_units`
 
 | Verdict | Battle (19) | Army (18) | Fleet (11) |
 | --- | --- | --- | --- |
-| ✅ works as written | Ace of Spade, Expert scouts, Expert skirmishers, Flying battery, Lightning brigade, Skilled laying, Stormers, Zouave¹ | Balloon Corps, Expert Scouts, Skilled Cartographers | Amphibious Attack, Battery Runner, Blockading Squadron, Limelights, Mortar Boats, Port Defender, Supply Colliers, Torpedoes |
-| ⚠️ works differently | Close support, Engineering, Grand battery, Sapper gunners, Sharpshooters | Flying Column, Siege Train | Balloon Barge, Blockade Busters |
+| ✅ works as written | Ace of Spade, Expert scouts, Expert skirmishers, Flying battery, Lightning brigade, Zouave¹ | Balloon Corps, Expert Scouts, Skilled Cartographers | Amphibious Attack, Battery Runner, Blockading Squadron, Limelights, Mortar Boats, Port Defender, Supply Colliers, Torpedoes |
+| ⚠️ works differently | Close support, Engineering, Grand battery, Sapper gunners, Sharpshooters³, Skilled laying³, Stormers³ | Flying Column, Siege Train | Balloon Barge, Blockade Busters |
 | ❌ headline dead, inverted or misdirected | Cold steel, Deadly volley, Iron discipline, Mounted rifles, Spirited charge, Vanguard | Ambulance Corps, Bushwhackers, Embedded Reporters, Engineers & Mechanics, Field Telegraph², Foot Cavalry, Land Torpedoes, Limelights, Partisan Brigades, Pontoon Train, River Expedition², Sappers and Miners, Bureau of Military Information² | Sea Raiders² |
 
 ¹ In battle; broken in auto-resolve (§6).
 ² Half works: Field Telegraph's order delays, River Expedition's speed, the
 Bureau's intelligence and Sea Raiders' trade-node unlock are fine.
+³ The accuracy factor counts only above the aim-scatter floor (§2.4).
+Grand battery's does too, and Mounted rifles' accuracy half never clears it.
 
 The ❌ defects come in six kinds:
 

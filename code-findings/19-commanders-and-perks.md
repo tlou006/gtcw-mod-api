@@ -45,22 +45,22 @@ PerksShownArtillerySingle = { 14,15,16,17,18 };
 | Id | Name | Effect prefs seen in code |
 | --- | --- | --- |
 | 0 | Engineering | `hasengineers`; engineering points ×2/3/4; `perk_engineers_pontoonspeed` 1 / 1.25 / 2 (`Pontoons`); the only perk fed by `IncreasePerksAllUnits` |
-| 1 | Sharpshooters | `perk_sharpshooters_accuracyfactor`, `perk_sharpshooters_rangefactor`; in `Autocalc` it also receives **Zouave's** fatigue factor (§1.6) |
-| 2 | Zouave | `isabletorun`, `perk_zouaves_fatiguefactor` — manual battles only (§1.6) |
+| 1 | Sharpshooters | `perk_sharpshooters_accuracyfactor` (`unittyp == 0` only), `perk_sharpshooters_rangefactor`; `perk_sharpshooters_rangefrom` is loaded and never read; in `Autocalc` it receives **Zouave's** fatigue factor and fatigue-morale exemption (§1.6) |
+| 2 | Zouave | `isabletorun`, `perk_zouaves_fatiguefactor`; at every level skips the "men are exhausted" morale term (`UpdateMorale` ~18375) — manual battles only; in `Autocalc` it receives Sharpshooters' casualty bonus (§1.6) |
 | 3 | Expert skirmishers | `perk_expertskirmishersconcealment` +10/+25/+50 (`FogOfWar`), `perk_expertskirmishersreloadspeed`; **level III** (`GetPerkLevel(3) == 2`) suppresses the low-cohesion morale penalty |
 | 4 | Spirited charge | `perk_spiritedchargemeleefactor` (display only — see [12](12-melee.md)); at **level III**, adds to an opponent's "doubt their chances" melee term unless the opponent holds it at II+ (`Regiment` ~18311) |
 | 5 | Deadly volley | `perk_deadlyvolleylethalityfactor`; from **level II**, no enemy-in-cover morale penalty (~18132); at **level III**, `perk_deadlyvolley_reductionmoralehit` — **inverted**, see §1.6 |
 | 6 | Ace of Spade | `perk_aceofspadereloadbonusfactorbehindcover`, `perk_aceofspademoralebonusbehindcover` |
-| 7 | Iron discipline | `perk_irondisciplinecohesionrecovery`; **level III** floors the "doubt their chances" term at 1 (~18329); from **level II**, zeroes the *recovery* of `friendlyroutednear` — see §1.6 |
+| 7 | Iron discipline | `perk_irondisciplinecohesionrecovery` (scales the approach rate both ways, so cohesion also falls faster); **level III** floors the "doubt their chances" term at 1 (~18329); from **level II**, zeroes the *recovery* of `friendlyroutednear` — see §1.6 |
 | 8 | Expert scouts | `perk_expertscoutsconcealment`, `perk_expertscoutsvisibilityrangefactor` (`FogOfWar`), `perk_expertscoutsperkexp`; its level III morale branch is **dead** (see §1.6) |
 | 9 | Cold steel | `perk_coldsteelmeleeeffectiveness` (display only), `perk_coldsteelenemymoralemalus` 1 / 2 / 2 |
 | 10 | Mounted rifles | `perk_mountedriflesmalusfactor` — **inverted**, see §1.6 |
-| 11 | Stormers | `perk_stormersaccuracyfactor`; level III ignores enemy cover morale |
-| 12 | Vanguard | `perk_vanguardperkexp`; **level II** zeroes the falling-back-under-fire morale term, **level III** the retreating-under-fire term (~18252, ~18269) |
+| 11 | Stormers | `isabletorun` (`CheckAbilityToRun` ~4209); `perk_stormersaccuracyfactor`; level III ignores enemy cover morale |
+| 12 | Vanguard | `perk_vanguardperkexp`; at **every level** zeroes the outflanked and flanking-fire morale terms (~18034, ~18070); **level II** zeroes the falling-back-under-fire term, **level III** the retreating-under-fire term (~18252, ~18269). The detached term it is named for is never tested ([34](34-perks.md) §3.13). An earlier version listed only the level II and III gates |
 | 13 | Lightning brigade | `perk_lightningbrigadereloadfactor`, `perk_lightningbrigadecovervalue`, `perk_lightningbrigadecovermorale` |
 | 14 | Close support | `perk_closesupportweaponstrength` ×2 (`Projectile`), `perk_closesupportreloadspeed`, `perk_closesupportmeleestrength` (display only) |
 | 15 | Skilled laying | `perk_skilledlayingcounterbatteryaccuracy`, `perk_skilledlayingartilleryfiredemoralization` |
-| 16 | Grand battery | `perk_grandbatterybombardmentaccuracy`, `perk_grandbatteryartillerymalus` |
+| 16 | Grand battery | `perk_grandbatterybombardmentaccuracy`, `perk_grandbatteryartillerymalus` (added to the source count without distance, so the morale term grows about ×2.25 / ×4 at II / III, not ×1.5 / ×2: [34](34-perks.md) §3.17) |
 | 17 | Flying battery | `perk_flyingbatteryspeed`; the same level II / III retreat-morale gates as Vanguard (~18256, ~18273) |
 | 18 | Sapper gunners | `perk_sappergunnersreloadspeed` (no cover test at ~10012, despite its label), `perk_sappergunnerscovermoralefactor` |
 
@@ -78,18 +78,23 @@ table read several of these one level low.
 | 3 | Bureau of Military Information | `perkexpincreasescoutingcampaign` |
 | 4 | Skilled cartographers | `intelligencegatheringskilledcartographers`, `movementspeedskilledcartographers` |
 | 5 | Flying Column | `movementspeedflyingcolumn`, `perkexpincreaseflyingcolumn` |
-| 6 | Foot Cavalry | `forcedmarchspeedfootcavalry`, `perkexpincreasefootcavalrymovement` |
+| 6 | Foot Cavalry | `forcedmarchspeedfootcavalry` (on every campaign move, no forced-march test), `perkexpincreasefootcavalrymovement`; its attrition site reads the brigade's battle perk 6 instead (§1.6) |
 | 7 | Engineers & Mechanics | |
-| 8 | Ambulance Corps | `speedreductiondisabledsoldiersambulancecorps`, `perkexpincreasewounded` |
-| 9 | Pontoon train | `movementcostpontoontrain`, `perkexpincreasecrossingsmallrivers` |
+| 8 | Ambulance Corps | `speedreductiondisabledsoldiersambulancecorps`, `perkexpincreasewounded`; its mortality site reads the brigade's battle perk 8 instead (§1.6) |
+| 9 | Pontoon train | `movementcostpontoontrain` (a NavMesh path cost, not a speed), `perkexpincreasecrossingsmallrivers`; a supply-clock factor that raises consumption ([34](34-perks.md) §4.10) |
 | 10 | Sappers and Miners | |
 | 11 | Land Torpedoes | `movementreductionlandtorpedoes`, `perkexplandtorpedoes` |
 | 12 | Partisan Brigades | |
 | 13 | Bushwhackers | |
-| 14 | Embedded reporters | `fameadjustmentembeddedreporters` (fame multiplier, `unittyp >= 15` only) |
+| 14 | Embedded reporters | `fameadjustmentembeddedreporters` (fame multiplier for `unittyp >= 15`, but it skips the holder and always applies the level I factor: §4.1, [34](34-perks.md) §4.15) |
 | 15 | Limelights | |
 | 16 | Expert Scouts | `intelligencegatheringexpertscouts` |
 | 17 | River Expedition | `rivermovementspeedriverexpedition`, `perkexpincreaserivermovement` |
+
+These columns list the prefs each perk *reaches*, not whether the value
+changes an outcome. [34](34-perks.md) followed each one to its last use and
+found most campaign perks' headline effects dead, inverted or misdirected; §1.7
+summarises the corrections.
 
 ### 1.3 Fleet perks (11)
 
@@ -126,14 +131,18 @@ Mirrored in serialization: `ImportExportUnitData` writes four
 fighting units.
 
 > **The id collisions documented in [16](16-enumerations.md) were
-> cross-namespace collisions.** They were never ambiguous at runtime. But
-> `HasPerk(n)` still is not a global registry, so **a ModApi perk surface must
-> key on *(namespace, id)*** — and the namespace is derivable from `unittyp`
-> alone.
+> cross-namespace collisions.** `HasPerk(n)` is not a global registry, so **a
+> ModApi perk surface must key on *(namespace, id)*** — and the namespace is
+> derivable from `unittyp` alone.
 
-Guards in the code follow from this: battle-perk reads are written
+Guards in the code mostly follow from this: battle-perk reads are written
 `HasPerk(n) && !calledfromcampaign`, campaign-perk reads
-`calledfromcampaign && …`, fleet-perk reads `unittyp == 17 && …`.
+`calledfromcampaign && …`, fleet-perk reads `unittyp == 17 && …`. **Not
+everywhere.** [34](34-perks.md) §7 lists eight unguarded sites where a perk
+fires for the wrong table, including two that hand Ambulance Corps' and Foot
+Cavalry's attrition effects to brigades holding battle perks 8 and 6. An
+earlier version of this note said the collisions "were never ambiguous at
+runtime".
 
 **Inheritance is one level and only for Corps:**
 
@@ -147,8 +156,10 @@ public bool HasPerkParent(int perkid)        // and GetPerkLevelParent
 
 So an Army's or Army Group's campaign perk reaches its **Corps** and no
 further — a Division does not inherit from its Corps. Where both are checked
-(`HasPerk(4)` then `HasPerkParent(4)`) the multipliers **stack
-multiplicatively**.
+(`HasPerk(4)` then `HasPerkParent(4)`) the multipliers usually **stack
+multiplicatively**. The exceptions are Engineers & Mechanics, which assigns
+(§1.7), and the siege bonuses of Siege Train and Balloon Corps, which
+`UpdateSiegeStrength` adds and averages ([34](34-perks.md) §4.1).
 
 `HasPerk(-1)` is the "has any perk at all" query.
 
@@ -180,7 +191,13 @@ commander famous.
 **Merging two units** strength-weights `perkexp` per slot but leaves
 `perk`/`perklevel` at the surviving unit's values. **Detaching** a skirmisher
 or scout (`unittyp == 3 || == 4`) copies the parent's perk, level and exp;
-other spawned units start blank.
+other spawned units start blank. Reattaching is a merge, so a level the
+detachment gained is lost.
+
+Two grants bypass the per-perk rules: `Autocalc.FightUnit` gives both units in
+every pairing `aiperkexpincreaseautocalc × timediff` to all slots (`id = -2`),
+and the US Regulars policy starts its units at `usregularsinitialperkvalue` = 1
+([34](34-perks.md) §2.2).
 
 `IncreasePerksAllUnits(perktype, unittyp, alliance, amount)` spreads a fixed
 budget: first over units that already hold that perk, otherwise over units with
@@ -198,16 +215,27 @@ with battle perk 0, from pontoon and obstacle construction in `BattleUI`.
 | `PerkRow.GetPerkInfos` | Indexes the **campaign** tooltip table for anything that is not a fleet, including `unittyp <= 13`. Only ever called on top-level units, so it does not fire in practice — but it would read out of range for a battle perk above id 17. |
 | `UnitPerk.UpdateStatus` | Hardcoded tooltip strings from an older build, applied **after** the id-based lookup, claiming perk 2 is "Sharpshooters". Perk 2 is **Zouave**; perk 1 is Sharpshooters. |
 | `PerkRow.PerkSpriteMarkNames` | `{ "", "_h", "" }` — the greyed-out sprite is the same asset as the normal one. |
-| `orderdelaysballooncorps` (data) | Ships **1.25 / 1.10 / 1.10** against a multiplier on the order delay, where the adjacent `fieldtelegraphorderdelays` ships 0.9 / 0.8 / 0.7 — so **Balloon Corps lengthens orders** (§1.7). |
-| `skirmishingbushwhackers` (data) | Ships **1.25 / 1.20 / 1.10**, so the perk's raiding-casualty multiplier **falls** as it levels up, while its sibling support array rises correctly (§1.7). |
+| `orderdelaysballooncorps` (data) | Ships **1.25 / 1.10 / 1.10** against a multiplier on the order delay, where the adjacent `fieldtelegraphorderdelays` ships 0.9 / 0.8 / 0.7 — so **Balloon Corps lengthens orders** (§1.7). **Not a defect:** the manual lists +25 / +10 / +10 % as the perk's cost. An earlier version counted it as one. |
+| `Autocalc` ~2403–2418 | **Partisan Brigades and Bushwhackers scale the raider's own losses.** Both perks' casualty factors (and Partisan Brigades' morale factor) multiply the return casualties `UpdateRaiding` inflicts on a brigade picked from `raidingunits[0]`, the raiding side; the block that damages the enemy reads no perks. Bushwhackers' declining **1.25 / 1.20 / 1.10** matches the manual. An earlier version reported the declining array as the defect ([34](34-perks.md) §4.13–4.14). |
+| `Regiment.UpdateRaids` ~4653 | **Bushwhackers' support factor amplifies a backlash.** It scales both raid support writes, which ship −0.00025 to the raider's own support and +0.0001 to the owner's, so it does nothing to the enemy's support. |
 | `SpottedEnemy.UpdateMarks` | `informationdelay` and `informationdelaybureauofmilitaryinformation` ship the **same** 1.0 / 0.75 / 0.5 and are applied with **opposite operators**, so one of the two is inverted — and the one that makes its holder easier to track is the intelligence perk (§1.7). |
-| `Regiment` ~4700 | `HasPerk(6)` with **no `unittyp == 17` guard**, so campaign perk 6 (Foot Cavalry) satisfies the fleet-only Sea Raiders clause. The `IIP` copy of the same test is guarded (§1.7). |
+| `Regiment` ~4700 | `HasPerk(6)` with **no `unittyp == 17` guard**, so campaign perk 6 (Foot Cavalry) satisfies the fleet-only Sea Raiders clause. The `IIP` copy of the same test is guarded (§1.7). One of eight such sites ([34](34-perks.md) §7). |
+| `Regiment.UpdateCampaignUnitStats` ~5998, ~6040 | **Ambulance Corps and Foot Cavalry test the brigade.** The wounded-mortality and forced-march-sickness factors are read with `HasPerk(8)` / `HasPerk(6)` in a method that returns early above `unittyp` 13, so they read the brigade's **battle** perks 8 (Expert scouts) and 6 (Ace of Spade); `HasPerkParent` is false for brigades. The formations' perks never reach them. |
 | `CBuilding` ~1412 | The own-perk and parent-perk branches both **assign** `constructiontimer`, so Engineers & Mechanics does not stack from Army to Corps as every other paired site does (§1.7). |
 | `Regiment` ~9620, ~10004 (data) | **Mounted rifles is inverted.** Both sites compute `factor = (1 − base) × perk_mountedriflesmalusfactor[level] + base`, so the pref is the share of the mounted penalty *recovered* — but it ships **0.75 / 0.5 / 0.2**, labelled as a shrinking "malus factor". With `mountedaccuracyinfluencefactor` 0.6 and `mountedreloadinfluencefactor` 1.25, mounted accuracy is ×0.90 / 0.80 / 0.68 and reload time ×1.06 / 1.13 / 1.20 at levels I / II / III: **best at level I, weaker every level**, always better than no perk. |
 | `Regiment` ~18221 | **Deadly volley III is inverted.** The high-momentary-casualties term (`moraleeffectonhighmomentarycasualties` −0.6) is reduced by `term × GetTraining() × drillreductionfactorforhighmomentarycasualties (0.7) × num16`, and the perk sets `num16 = perk_deadlyvolley_reductionmoralehit` (0.5). That halves the **drill reduction**, not the term: no change at training 0, and at training 1 the term goes from −0.18 to **−0.39**. The label ("reduction of morale hit … (factor)") describes multiplying the term itself. |
 | `Regiment` ~17953 | **Iron discipline II+ freezes the nearby-rout penalty.** `num8 = 0` multiplies the *recovery* of `friendlyroutednear` (`routedunitrecovery` 0.3/h), not the impact (`impactownunitrouted` −0.075 per rout within `rangeroutedunits` 60). The term is applied per hour and only reset in `Initialize`, so from level II each nearby friendly rout costs −0.075/h for the rest of the battle, floored at −1. Presumably meant to zero the impact. |
-| `Autocalc` ~3349 | `HasPerk(1)` then `perk_zouaves_fatiguefactor[GetPerkLevel(1)]` — Zouave's fatigue factor gated and levelled on **perk 1, Sharpshooters**. In auto-resolve, Sharpshooters brigades get the fatigue cut and Zouaves get none. `Autocalc` ~3229 also tests `HasPerk(1)` beside a fatigue threshold and may be the same slip; not traced. |
+| `Autocalc` ~3349, ~3229, ~3062 | `HasPerk(1)` then `perk_zouaves_fatiguefactor[GetPerkLevel(1)]` — Zouave's fatigue factor gated and levelled on **perk 1, Sharpshooters**. ~3229 is the same slip (the fatigue-morale exemption tests `!HasPerk(1)`), and ~3062 gives perk 2, Zouave, the Sharpshooters casualty bonus. All three use the older id order of the legacy `157_Zouaves` / `158_Sharpshooters` buttons, so in auto-resolve the two perks swap. An earlier version left ~3229 "not traced" and missed ~3062 ([34](34-perks.md) §6). |
 | `Regiment` ~16130–16138 | Spirited charge, Cold steel and Close support all multiply `meleestrength`, which is display-only ([12](12-melee.md) §3). Only Spirited charge was flagged as such in an earlier version of the mechanics translation. |
+
+This table is not the full list. [34](34-perks.md) §8 groups 20 perks whose
+headline effect is dead, inverted or misdirected. Those not covered here: the
+siege-assault, skirmish and night multipliers that `FightUnit` overwrites
+(§1.7); Sea Raiders' `priceadjustment`, read only by a tooltip; Embedded
+Reporters' parent walk (§4.1); Engineers & Mechanics undone by
+`UpdateRaidSmoke`; Pontoon Train's supply clock; Vanguard's missing detached
+gate; and the campaign AI's `Random.Range(0, count − 1)`, which never picks
+River Expedition or Port Defender.
 
 ### 1.7 Shipped magnitudes — and the six "blank" campaign perks
 
@@ -216,18 +244,21 @@ values, read from `unitprefs.txt` (battle) and `campaignprefs.txt` (campaign,
 fleet). Every array is `float[3]`, indexed by the **0-based** `GetPerkLevel`,
 so index 0 is the tooltip's "level I".
 
-**The six campaign perks §1.2 left with an empty effect column all have real
-effects**, reached through `HasPerkParent` sites in `Autocalc` and
-`CBuilding`:
+**The six campaign perks §1.2 left with an empty effect column all reach a
+pref**, through `HasPerkParent` sites in `Autocalc` and `CBuilding`. Only Siege
+Train's changes the outcome the label describes, and at half strength:
 
-| Campaign perk | Pref | I / II / III | Site |
-| --- | --- | --- | --- |
-| 0 Siege Train | `weaponfactorsiegetrains` | 1.25 / 1.50 / 2.00 | `Autocalc` ~415, siege weapon strength |
-| 7 Engineers & Mechanics | `constructionspeedengineersmechanics` | 1.25 / 1.50 / 2.00 | `CBuilding` ~1412, `constructiontimer = 1f / pref` |
-| 10 Sappers and Miners | `siegeassaultsappersandminers` | 1.25 / 1.50 / 2.00 | `Autocalc` ~3082, siege assault |
-| 12 Partisan Brigades | `skirmishingpartisanbrigades` / `raidingmoralepartisanbrigades` | 1.25 / 1.50 / 2.00 and 1.10 / 1.25 / 1.50 | `Autocalc` ~2404, raiding casualties and morale |
-| 13 Bushwhackers | `skirmishingbushwhackers` / `supportfactorraidingbushwhackers` | **1.25 / 1.20 / 1.10** and 1.10 / 1.25 / 1.50 | `Autocalc` ~2415; `Regiment` ~4655 |
-| 15 Limelights | `combatefficiencynighttimelimelights` | 1.25 / 1.50 / 2.00 | `Autocalc` ~3116, night sieges and skirmishing |
+| Campaign perk | Pref | I / II / III | Site | What it does ([34](34-perks.md) §4) |
+| --- | --- | --- | --- | --- |
+| 0 Siege Train | `weaponfactorsiegetrains` | 1.25 / 1.50 / 2.00 | `Autocalc` ~415, siege weapon strength | `siegestrength` starts at 1, adds `(factor − 1) / topunits.Count` per holder, then adds 1, so a lone holder gets +12.5 / 25 / 50 % |
+| 7 Engineers & Mechanics | `constructionspeedengineersmechanics` | 1.25 / 1.50 / 2.00 | `CBuilding` ~1412, `constructiontimer = 1f / pref` | `UpdateRaidSmoke` re-arms the timer to `1 − Condition`, so total build time is unchanged; only the completion event comes early (**Untested**) |
+| 10 Sappers and Miners | `siegeassaultsappersandminers` | 1.25 / 1.50 / 2.00 | `Autocalc` ~3082, siege assault | Overwritten: `num5 = GetFortWeaponStrength(unit0)` at ~3125 for the same `type == 2` |
+| 12 Partisan Brigades | `skirmishingpartisanbrigades` / `raidingmoralepartisanbrigades` | 1.25 / 1.50 / 2.00 and 1.10 / 1.25 / 1.50 | `Autocalc` ~2404 | Scales the casualties and morale hit the **raider's own** brigade takes (§1.6) |
+| 13 Bushwhackers | `skirmishingbushwhackers` / `supportfactorraidingbushwhackers` | 1.25 / 1.20 / 1.10 and 1.10 / 1.25 / 1.50 | `Autocalc` ~2415; `Regiment` ~4655 | Raider's own casualties; amplifies the raid support backlash (§1.6) |
+| 15 Limelights | `combatefficiencynighttimelimelights` | 1.25 / 1.50 / 2.00 | `Autocalc` ~3116 | Survives only for `type == 0`, auto-resolved field battles; the siege value is overwritten and raids and skirmishes never reach `FightUnit` |
+
+An earlier version said all six "have real effects" and described each by its
+label.
 
 and the rest of the campaign list:
 
@@ -238,12 +269,16 @@ and the rest of the campaign list:
 | 2 Balloon Corps | `orderdelaysballooncorps` | **1.25 / 1.10 / 1.10** — see below |
 | | `intelligencefactorballooncorps` | 1.25 / 1.25 / 1.50 |
 | | `siegeeffectivenessballooncorps` | 1.05 / 1.10 / 1.15 |
-| 11 Land Torpedoes | `skirmishlandtorpedoes` | 1.05 / 1.10 / 1.20 |
+| 11 Land Torpedoes | `skirmishlandtorpedoes` | 1.05 / 1.10 / 1.20 — siege-only and overwritten like Sappers and Miners |
 | | `movementreductionlandtorpedoes` | 0.9 / 0.8 / 0.7 on enemy movement in range |
-| 17 River Expedition | `siegeassaultefficiencyriverexpedition` | 1.1 / 1.25 / 1.5 |
+| 17 River Expedition | `siegeassaultefficiencyriverexpedition` | 1.1 / 1.25 / 1.5 — overwritten like Sappers and Miners |
 | | `rivermovementspeedriverexpedition` | 1.25 / 1.50 / 2.00 |
 
-#### Two arrays that point the wrong way
+The embarked-strength override labelled for River Expedition,
+`fightingstrengthembarkedriverexp` (0.50 against 0.25), is tested with
+`HasPerk(10)` at `Autocalc` ~3137, so Sappers and Miners gets it instead.
+
+#### Two arrays that looked wrong
 
 **`orderdelaysballooncorps` lengthens order delays.** `Regiment` ~14964
 multiplies the order-delay accumulator by it, exactly as the line above
@@ -252,16 +287,18 @@ multiplies by `fieldtelegraphorderdelays`. Field Telegraph ships
 Balloon Corps perk makes a formation's orders **25 % slower at level I and
 10 % slower thereafter** — and levelling it up is the only way to recover part
 of the loss. The two arrays sit in adjacent config blocks with identical
-labels ("Order delays on campaign map for … perk, level N (factor)"), which
-makes this look like a set of "+25 % faster" figures entered against a
-multiplier on the delay.
+labels ("Order delays on campaign map for … perk, level N (factor)"). But the
+manual's Appendix C lists order delays +25 / +10 / +10 % as the perk's cost,
+so the array is as designed ([34](34-perks.md) §4.3). An earlier version read
+it as "+25 % faster" figures entered against a multiplier on the delay.
 
 **`skirmishingbushwhackers` declines with level**: 1.25 / 1.20 / 1.10, applied
-as a multiplier on raiding casualties in `Autocalc` ~2415. Its sibling
-`supportfactorraidingbushwhackers` rises correctly (1.10 / 1.25 / 1.50). The
-declining array reads like diminishing *increments* authored as absolute
-factors, so **Bushwhackers III inflicts fewer raiding casualties than
-Bushwhackers I**.
+as a multiplier in `Autocalc` ~2415, while its sibling
+`supportfactorraidingbushwhackers` rises (1.10 / 1.25 / 1.50). The manual
+authors the same declining 25 / 20 / 10 %. The real defect is where it lands:
+on the casualties the **raider's own** brigade takes (§1.6), so the declining
+array happens to shrink a penalty. An earlier version said **Bushwhackers III
+inflicts fewer raiding casualties than Bushwhackers I**.
 
 #### And one pair of identical arrays used with opposite operators
 
@@ -317,7 +354,7 @@ operators**, so one of them is inverted:
 | | `siegeeffectivenessperkballoonbarge` | 1.00 / 1.00 / 1.05 |
 | 4 Limelights | `combatefficiencynighttime` | 1.25 / 1.50 / 2.00 — fort strength and every vessel's firing strength at night |
 | 5 Blockading Squadron | `blockadeefficiencyblockadingsquadron` | 1.1 / 1.25 / 1.50 |
-| 6 Sea Raiders | `priceincreasessearaiders` | 1.1 / 1.25 / 1.5 on prices at a blockaded **trade node** — plus the unlock itself (the ordinary blockade clause in `IIP` ~660 excludes trade nodes), and `SetFamous()` at level III (~650) |
+| 6 Sea Raiders | `priceincreasessearaiders` | 1.1 / 1.25 / 1.5, stored in `IIP.priceadjustment`, whose only reader is the map tooltip (`CBuildingIcon` ~429), so **no price changes**. The unlock itself works (the ordinary blockade clause in `IIP` ~660 excludes trade nodes), and `SetFamous()` at level III (~650). An earlier version said it raised prices ([34](34-perks.md) §5.7) |
 | 7 Amphibious Attack | `fortoccupationprobamphibiousattacklev` | 1.00 / 1.10 / 1.50 |
 | 8 Blockade Busters | `fightingefficiencyblockadingfleetsblockadebusters` | 1.1 / 1.2 / 1.3 |
 | | `effectoonblockadewithinradius` | 0.9 / 0.8 / 0.7 on the blockade of **your own** ports in the fleet's radius; and **`ChoosePerk` calls `SetFamous()`** |
@@ -326,29 +363,33 @@ operators**, so one of them is inverted:
 
 Three notes.
 
-**Supply Colliers is the only perk with a standing penalty.** Level I costs
-30 % of the fleet's speed for a 15 % consumption saving; level III costs 10 %
-for a 50 % saving. The perk is only worth taking on a fleet that does not need
-to move.
+**Supply Colliers carries a standing penalty**, as Balloon Corps does on land.
+Level I costs 30 % of the fleet's speed for a 15 % saving on provisions (not
+coal or ammunition); level III costs 10 % for a 50 % saving. The perk is only
+worth taking on a fleet that does not need to move. An earlier version called
+it "the only perk with a standing penalty".
 
 **`combatefficiencynighttime` (fleet 4) and
 `combatefficiencynighttimelimelights` (campaign 15) are two different arrays
 with the same shipped values**, which is why both perks are called Limelights.
 
-**The Sea Raiders test is the one genuine cross-namespace ambiguity.** The
-`IIP` site guards it with `unittyp == 17`, but `Regiment` ~4700 — the raiding
-target filter — reads `HasPerk(6)` with no such guard, and campaign perk 6 is
-**Foot Cavalry**, so a land formation holding Foot Cavalry also satisfies the
-`IsTradeNode` clause. No shipped trade node is reachable by land, so it does
-not bite, but it qualifies §1.4's claim that the three namespaces are never
-ambiguous at runtime.
+**The Sea Raiders test is one of eight cross-namespace ambiguities**
+([34](34-perks.md) §7). The `IIP` site guards it with `unittyp == 17`, but
+`Regiment` ~4700 — the raiding target filter — reads `HasPerk(6)` with no such
+guard, and campaign perk 6 is **Foot Cavalry**, so a land formation holding
+Foot Cavalry also satisfies the `IsTradeNode` clause. No shipped trade node is
+reachable by land, so this one does not bite. The reverse does: `RegimentMove`
+~22207 gives Foot Cavalry's speed to fleets holding Sea Raiders. An earlier
+version called this "the one genuine cross-namespace ambiguity".
 
 **And one `HasPerkParent` site that assigns rather than stacks.**
 `CBuilding` ~1412 writes
 `constructiontimer = 1f / constructionspeedengineersmechanics[level]` in
 both the own-perk and the parent-perk branch, so a Corps that holds
 Engineers & Mechanics *and* inherits it from its Army takes the **parent's**
-level instead of compounding the two. Every other paired site multiplies.
+level instead of compounding the two. Most other paired sites multiply; the
+siege-strength sites add (§1.4). Either way the perk does not shorten total
+build time (table above).
 
 ---
 
@@ -857,9 +898,16 @@ share — then:
 score × famefactorleveladjustment[clamp(unittyp,13,16) − 13]
 score × woundedinfluencemodifier                                  if score > 0 and status == 3 (WIA)
 score × (1 + alliance.GetFameImprovementThroughPrintingWorks())   if score > 0
-score × fameadjustmentembeddedreporters[level]                    if unittyp >= 15 and campaign perk 14
+score × fameadjustmentembeddedreporters[unit.GetPerkLevel(14)]   if unittyp >= 15 and an ancestor holds campaign perk 14
 → AdjustFame(score, 2)
 ```
+
+The Embedded Reporters test, `CheckForGroupPerk`, starts at the unit's
+**parent**, and the index is the unit's **own** level (0 when it doesn't hold
+the perk). So the holder's commander gets nothing unless its own parent holds
+it too, and every formation below gets ×1.25 whatever level the holder has
+reached. A negative score is scaled too ([34](34-perks.md) §4.15). An earlier
+version wrote the condition as "campaign perk 14".
 
 then the **best** scorer becomes famous if `score > fametrigger[resulttype]`,
 and the **worst** becomes defamed if `score < defamedtrigger[resulttype]`.

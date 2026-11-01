@@ -25,7 +25,7 @@ So a brigade holds **exactly one perk for the whole war**, while a corps can hol
 * **The AI picks at random.** AI formations and fleets pick perks at random, and never the last one on each list: AI armies never get River Expedition, and AI fleets never get Port Defender.
 * **No real perk limits.** The tooltip says *"the amount of available perks is limited for each nation, depending on its policies and technologies"*. That system doesn't exist.
 
-> **A warning on the numbers below.** Of the 48 perks, **19 do what the manual says, 9 work differently, and 20 have a headline effect that does nothing, works backwards or lands on another unit**. Some bonuses are only shown on screen, some get **worse** as they level up, two campaign perks hurt your own raiders, and several hand their effect to an unrelated perk (Section 5). They're flagged in each table. These come from reading the game's files and code, and **haven't been confirmed in play yet**.
+> **A warning on the numbers below.** Of the 48 perks, **17 do what the manual says, 11 work differently, and 20 have a headline effect that does nothing, works backwards or lands on another unit**. Some bonuses are only shown on screen, some get **worse** as they level up, accuracy bonuses only help troops whose aim is already good (Section 2), two campaign perks hurt your own raiders, and several hand their effect to an unrelated perk (Section 5). They're flagged in each table. These come from reading the game's files and code, and **haven't been confirmed in play yet**.
 
 ---
 &nbsp;
@@ -38,7 +38,7 @@ One slot per fighting unit, for the whole campaign. Values are for levels I / II
 
 | Perk | Effect at I / II / III |
 | --- | --- |
-| **Sharpshooters** | Accuracy **×1.1 / 1.25 / 1.5**, for line infantry only (a detached skirmisher company keeps the perk but loses the bonus). Range ×1 / 1 / **1.25**. **Swapped with Zouave in auto-resolve, see below** |
+| **Sharpshooters** | Accuracy **×1.1 / 1.25 / 1.5**, for line infantry only (a detached skirmisher company keeps the perk but loses the bonus), **but only for good troops, see below**. Range ×1 / 1 / **1.25**. **Swapped with Zouave in auto-resolve, see below** |
 | **Ace of Spade** | Cover value ×1.1 / 1.2 / **1.5**. Morale bonus from cover ×1 / **2** / 2. Reloads ×1 / 1 / **1.25** faster behind cover |
 | **Deadly volley** | Casualties inflicted ×1.05 / 1.10 / **1.25**. From level II, no morale penalty for firing at an enemy in cover. **Level III backfires, see below** |
 | **Expert skirmishers** | Concealment +10 / +25 / **+50**. Reloads ×1 / 1.05 / 1.1 faster, in any formation. At level III, no morale penalty for low cohesion |
@@ -49,6 +49,7 @@ One slot per fighting unit, for the whole campaign. Values are for levels I / II
 
 * **Deadly volley III makes sudden losses hurt more, not less.** It's meant to halve the morale hit from sudden heavy casualties. Instead it halves the protection that **drill** gives against that hit. An undrilled brigade sees no change, but a fully drilled one takes **more than twice** the morale hit it would without the perk. Levels I and II are fine.
 * **Iron discipline II and III have a nasty side effect.** Normally, when a friendly unit routs nearby, the morale penalty fades within about 15 minutes. From level II, that penalty **never fades** for the rest of the battle. Next to a crumbling line, an Iron discipline brigade keeps losing morale every hour. Its cohesion bonus also cuts both ways: under fire, cohesion drops faster by the same factor.
+* **Accuracy bonuses only help troops whose aim is already good.** The game rounds any shot's accuracy below a fixed level up to that level, and the average rifle-musket brigade sits below it. A perk's accuracy bonus only counts for the part that lifts a shot above it. For an average brigade, Sharpshooters I and II change nothing and III tightens its aim by about 15%; a veteran brigade gets the full ×1.1 / 1.25 / 1.5 *(calculated)*. The same limit applies to Stormers, Skilled laying and Grand battery.
 * **Sharpshooters and Zouave swap places in auto-resolve.** Auto-resolved battles still use an older numbering for these two. There, a Zouave brigade gets the sharpshooting bonus (nothing at level I, and a small penalty in a retreat stance), and a Sharpshooters brigade gets Zouave's fatigue reduction and immunity to exhaustion.
 * **Spirited charge spends your brigade's only slot on a number that does nothing** until it reaches level III. In battle it only levels from melee against line infantry.
 * **Engineering's speed rubs off.** On an obstacle line, brigades without the perk that work after an Engineering brigade often build at its speed too.
@@ -63,7 +64,7 @@ One slot per fighting unit, for the whole campaign. Values are for levels I / II
 | **Expert scouts** | Concealment +10 / +25 / **+50**. Sight range ×1 / 1.25 / **1.5**. **Levels very slowly, see below** |
 | Cold steel | From level II, enemies charged by it take **double** the morale hit from a cavalry charge, unless they're in square. Its melee bonus (×1.1 / 1.2 / 1.5) is **shown on screen but never used** |
 | **Lightning brigade** | Cover value ×1.1 / 1.2 / **1.5**. Morale bonus from cover ×1 / **2** / 2. Reloads ×1 / 1 / **1.25** faster in cover |
-| **Stormers** | Can run. Accuracy in loose formation ×1 / 1.1 / **1.25**. At level III, no morale penalty for firing at an enemy in cover |
+| **Stormers** | Can run. Accuracy in loose formation ×1 / 1.1 / **1.25**, which only helps a near-veteran regiment (see Infantry). At level III, no morale penalty for firing at an enemy in cover |
 | **Vanguard** | **At every level, no morale penalty for being outflanked, surrounded, or fired on from the flank or rear.** From level II, none for falling back under fire; at level III, none for retreating under fire either. Its promised level I effect, no penalty for fighting detached, is missing |
 
 * **Expert scouts levels very slowly.** Only a detached scout company earns its experience, by revealing enemy units, and that's averaged back into the regiment when it rejoins. Its level III morale bonus never applies. The concealment and sight range work fine, and on the campaign map it also picks up a bonus meant for Ambulance Corps (Section 5).
@@ -79,7 +80,7 @@ One slot per fighting unit, for the whole campaign. Values are for levels I / II
 | II | 20% | 12.5% |
 | III | 32% | 20% |
 
-It's always better than having no perk, but each level up makes it worse.
+It's always better than having no perk, but each level up makes it worse. And only the reload half matters in practice: mounted fire is always below the accuracy floor described under Infantry, with or without the perk *(calculated)*.
 
 ---
 &nbsp;
@@ -88,8 +89,8 @@ It's always better than having no perk, but each level up makes it worse.
 | Perk | Effect at I / II / III |
 | --- | --- |
 | **Close support** | Canister strength **×2 at every level**. Reloads ×1 / 1.1 / 1.2 faster, with any ammunition. Its melee bonus is **shown on screen but never used** |
-| **Skilled laying** | Counter-battery accuracy ×1.1 / 1.2 / **1.5**. Morale loss from incoming artillery ×1 / 0.5 / **0, complete immunity** |
-| **Grand battery** | Bombardment accuracy ×1.1 / 1.2 / 1.3. Morale hit on enemies under its fire ×1 / 1.5 / 2 as labelled, **but really about ×1 / 2.25 / 4, see below** |
+| **Skilled laying** | Counter-battery accuracy ×1.1 / 1.2 / **1.5**, best with rifled guns and seasoned crews (see Infantry). Morale loss from incoming artillery ×1 / 0.5 / **0, complete immunity** |
+| **Grand battery** | Bombardment accuracy ×1.1 / 1.2 / 1.3, with the same limit. Morale hit on enemies under its fire ×1 / 1.5 / 2 as labelled, **but really about ×1 / 2.25 / 4, see below** |
 | **Flying battery** | Speed ×1.15 / 1.3 / **1.5**. From level II, no morale penalty for falling back under fire; at level III, none for retreating either |
 | **Sapper gunners** | Cover value ×1.1 / 1.2 / **1.5**. Morale bonus from cover ×1 / 2 / 2. Reloads ×1 / 1 / 1.25 faster (despite the description, in the open too) |
 
@@ -196,7 +197,7 @@ Perk numbers are shared across the three lists, and in a few places the game che
 
 | Unit | Take | Avoid |
 | --- | --- | --- |
-| Infantry | Sharpshooters, or Ace of Spade for troops who fight from cover | Spirited charge (nothing until level III), Iron discipline (backfires from level II), Deadly volley on well-drilled brigades (backfires at level III) |
+| Infantry | Sharpshooters for experienced brigades, or Ace of Spade for troops who fight from cover | Spirited charge (nothing until level III), Iron discipline (backfires from level II), Deadly volley on well-drilled brigades (backfires at level III) |
 | Cavalry | Expert scouts for scouting, Vanguard for brigades that get flanked, Mounted rifles to fight mounted (best at level I) | Cold steel, unless it will meet enemy cavalry (nothing until level II) |
 | Artillery | Close support, Grand battery (stronger than it says), or Skilled laying for guns under counter-battery fire | — |
 | Formations | Field Telegraph first, then the intelligence perks, Flying Column or Foot Cavalry for speed, and Siege Train for sieges (at half its stated strength) | Partisan Brigades and Bushwhackers (they hurt your own raiders); Sappers and Miners, Limelights and Engineers & Mechanics (nothing that matters); Balloon Corps if you want fast orders |

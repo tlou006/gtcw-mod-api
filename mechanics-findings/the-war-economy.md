@@ -314,7 +314,9 @@ enemy units standing near it:
   route;
 - a **fleet on blockade orders** blockades a **harbour**;
 - a fleet whose commander has the **sea raider** perk can also blockade a
-  **trading route**, and additionally raises the prices that route charges;
+  **trading route**. The perk's price rise on that route is shown on the map
+  tooltip and applied nowhere else ([34](../code-findings/34-perks.md) §5.7;
+  an earlier version said it raised the prices);
 - each contributor adds its own blockade efficiency, multiplied up by the
   **blockading squadron** perk and by **project 106 Trade Warfare**;
 - your own fleet with the **blockade buster** perk in the same radius reduces
