@@ -76,8 +76,11 @@ differ from `Config/`:
 > **The manual was written against the older numbers.** Its Engineering
 > "+25 % / +50 % / doubled" is exactly 1.25 / 1.5 / 2; the in-game tooltip's
 > "x2 / x3 / x4" matches `Config/`. A standalone battle on one of those seven
-> fields plays the manual's Engineering and levels artillery perks two to
-> three times faster; the same field fought from a campaign does not.
+> fields plays the manual's Engineering and levels artillery perks two to six
+> times faster (Close support six, Skilled laying and Grand battery three,
+> Sapper gunners two; at 020/A only Close support differs); the same field
+> fought from a campaign does not. An earlier version said "two to three
+> times", which missed Close support's 0.0025 → 0.015.
 
 ---
 

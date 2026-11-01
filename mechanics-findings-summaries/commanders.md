@@ -114,7 +114,7 @@ That grade is then scaled by his level of command. An army commander's grade cou
 
 * **Printing works** in your nation boost the fame your commanders earn.
 * A commander who was **wounded** in the battle gets **20% more** fame from a good result.
-* The **Embedded Reporters** campaign perk (corps and above) multiplies it.
+* The **Embedded Reporters** campaign perk multiplies it by 1.25 for commanders of corps and armies **under** the formation that holds it, whatever the perk's level. The holder's own commander gets nothing, and a bad grade is magnified too (see [Perks](perks.md), Section 3).
 
 As a rough guide, a brigade commander who kills two men for every one he loses gains about **1 point** of fame. An army commander with the same ratio gains about **2.6 points**. A bad result takes fame away in the same way.
 
