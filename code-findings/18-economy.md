@@ -644,7 +644,8 @@ limits) is kept alongside for the trade-warfare ledger (open question 5).
 `SetTradeAgreementWithNation` has one caller, the nations loader
 (`GameVars` ~7278), so the agreement matrix is fixed for the campaign.
 
-> **Defect: the tariff factor leaks onto domestic connections.** `tariff`
+> **Defect GTCW-060: the tariff factor leaks onto domestic connections.**
+> `tariff` is `num7` in `IIP.UpdateEconomy` (`:890`, `:895`). It
 > starts at 1 before the connection loop and is assigned only when
 > `allianceowner != connectediips[j].allianceowner`, with no `else`. After the
 > first foreign connection in `connectediips`, every later connection,

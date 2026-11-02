@@ -160,7 +160,9 @@ same term.
 > it, so every connection after that one in the node's list, including
 > connections to your own markets, is priced as if it paid your tariff. A
 > border node with a high tariff under-imports from its own hinterland too.
-> This is a defect ([18](../code-findings/18-economy.md) §4, "Trade flow").
+> This is a defect, registered as **GTCW-060**
+> ([18](../code-findings/18-economy.md) §4, "Trade flow";
+> [defect register](../defect-register.md)).
 
 The whole flow model above is traced in
 [18](../code-findings/18-economy.md) §4, "Trade flow". *An earlier version of
