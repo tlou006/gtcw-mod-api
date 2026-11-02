@@ -12,7 +12,9 @@ namespace GTCW.BugFixes
     internal sealed class FixRegistry
     {
         private readonly List<FixGroup> _groups = new List<FixGroup>();
-        private readonly Dictionary<string, ConfigEntry<bool>> _toggles =
+        private readonly Dictionary<string, ConfigEntry<FixToggle>> _toggles =
+            new Dictionary<string, ConfigEntry<FixToggle>>();
+        private readonly Dictionary<string, ConfigEntry<bool>> _families =
             new Dictionary<string, ConfigEntry<bool>>();
 
         private readonly ConfigFile _config;
@@ -30,6 +32,15 @@ namespace GTCW.BugFixes
 
             foreach (Fix fix in group.Fixes)
             {
+                if (fix.Family != null && !_families.ContainsKey(fix.Family))
+                {
+                    _families[fix.Family] = _config.Bind(
+                        "0. Families",
+                        fix.Family,
+                        false,
+                        DescribeFamily(fix.Family));
+                }
+
                 // Section by class, so a player can read the file and take the
                 // arithmetic repairs without opting into anything that moves a
                 // tuned number. The id is the key, never the title: titles get
@@ -39,12 +50,13 @@ namespace GTCW.BugFixes
                 _toggles[fix.Id] = _config.Bind(
                     section,
                     fix.Id,
-                    fix.DefaultEnabled,
+                    FixToggle.Default,
                     $"{fix.Title}\n" +
                     $"Patches: {group.Target}\n" +
                     $"Evidence: {fix.Source}\n" +
                     $"Save safety: {Describe(fix.Save)}\n" +
-                    $"Default: {(fix.DefaultEnabled ? "on" : "off")}");
+                    $"Default: {(fix.DefaultEnabled ? "on" : "off")}" +
+                    (fix.Family == null ? string.Empty : $", or on with {fix.Family}"));
             }
         }
 
@@ -62,7 +74,7 @@ namespace GTCW.BugFixes
             {
                 foreach (Fix fix in group.Fixes)
                 {
-                    if (!_toggles[fix.Id].Value)
+                    if (!IsWanted(fix))
                     {
                         skipped.Add($"{fix.Id} off");
                         continue;
@@ -108,6 +120,37 @@ namespace GTCW.BugFixes
 
             Report(enabled, skipped, patched);
         }
+
+        /// <summary>
+        /// Whether the player has asked for this fix: their own word first, then
+        /// the fix's family, then its shipped default.
+        /// </summary>
+        private bool IsWanted(Fix fix)
+        {
+            switch (_toggles[fix.Id].Value)
+            {
+                case FixToggle.On:
+                    return true;
+                case FixToggle.Off:
+                    return false;
+                default:
+                    return fix.DefaultEnabled ||
+                           (fix.Family != null &&
+                            _families.TryGetValue(fix.Family, out ConfigEntry<bool> family) &&
+                            family.Value);
+            }
+        }
+
+        private static string DescribeFamily(string family) => family switch
+        {
+            Fix.Perks =>
+                "Turn on every perk fix at once: perks then do what the manual and their tooltips say.\n" +
+                "Each perk fix moves a combat or campaign quantity, so each one ships off; this is the " +
+                "one decision that turns the family on.\n" +
+                "Any individual GTCW-NNN below set to On or Off overrides this.\n" +
+                "Covers the implemented rows of defect-register.md's perk section.",
+            _ => $"Turns on every fix in the '{family}' family. Individual ids still override it.",
+        };
 
         private void Report(List<string> enabled, List<string> skipped, int patched)
         {

@@ -54,6 +54,15 @@ namespace GTCW.BugFixes
             registry.Add(Fixes.NavalFiringStrength.Group());    // GTCW-004, GTCW-006
             registry.Add(Fixes.RaidLedgerSign.Group());         // GTCW-014
 
+            // Wave 5 — the perks. Every one of these answers to the
+            // `perksasdocumented` family switch as well as to its own id, and
+            // all of them are off until one of the two is turned on.
+            registry.Add(Fixes.MoralePerks.Group());            // GTCW-024, 025, 027
+            registry.Add(Fixes.MountedRiflesMalus.Group());     // GTCW-028
+            registry.Add(Fixes.AttritionPerkNamespace.Group()); // GTCW-035, 036
+            registry.Add(Fixes.RaidingPerkDirection.Group());   // GTCW-038, 039
+            registry.Add(Fixes.EmbeddedReporters.Group());      // GTCW-041
+
             _harmony = new Harmony(PluginGuid);
             registry.ApplyAll(_harmony);
         }

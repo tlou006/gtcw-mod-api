@@ -3011,6 +3011,20 @@ than guessing what modders will want:
       `mods/GTCW.BugFixes/Fixes/`. Chosen so that between them every technique
       in the catalogue gets exercised once, and **none needed a transpiler**.
       All six are `fixed`; none is `confirmed` until it has been seen working.
+- [x] **Sweep [34-perks](code-findings/34-perks.md) into the register** — 37 rows,
+      GTCW-023 to GTCW-059, the largest family found so far and the first one
+      driven by a stated intention rather than by technique coverage: *a perk
+      should do what its tooltip and the manual say it does.*
+- [x] **Wave 5 built — nine perk fixes** (GTCW-024, 025, 027, 028, 035, 036,
+      038, 039, 041) in five patch groups. None needed a transpiler either: the
+      game reads almost every perk factor from a `GamePrefs` field with exactly
+      one reader, so a prefix can lend the method a value chosen to make the
+      game's own arithmetic produce the documented result.
+- [x] **A family switch, `perksasdocumented`.** Every perk fix moves a tuned
+      quantity, so each defaults off — and thirty-seven toggles would make the
+      family unreachable. One switch turns the family on; a per-id entry still
+      overrides it, which is why those entries are now `Default`/`On`/`Off`
+      rather than booleans.
 - [ ] Start with the five highest-confidence class C/M items already seeded:
       the 1864 election's double charge (which turns a −20 setback into an
       instant loss), the support-breakdown NaN, the Confiscation Act's inverted

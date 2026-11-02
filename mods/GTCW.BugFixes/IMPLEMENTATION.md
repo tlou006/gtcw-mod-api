@@ -19,10 +19,16 @@ config key a player sees.
 ## 1. Six techniques, ranked by how little they assume
 
 Reading the actual code changed the shape of this mod. The naive expectation was
-"a transpiler per defect"; in practice **sixteen of seventeen actionable fixes
-need no transpiler at all**, because the defective arithmetic is either a pure
-function of state we can redo, or a factor read from a field we can lend a
-different value for the duration of one call.
+"a transpiler per defect"; in practice **sixteen of the first seventeen
+actionable fixes need no transpiler at all**, because the defective arithmetic is
+either a pure function of state we can redo, or a factor read from a field we can
+lend a different value for the duration of one call.
+
+The perk family (§6b) made that stronger rather than weaker. Thirty-seven more
+rows, nearly all of them arithmetic buried inside very long methods, and exactly
+**one** — GTCW-047 — is a candidate for a transpiler. The reason is that the game
+reads every perk factor out of a `GamePrefs` field, and those fields turn out to
+have one reader each.
 
 | # | Technique | Use when | Costs |
 | --- | --- | --- | --- |
@@ -64,6 +70,7 @@ above is exercised once**, which is worth more than doing the easy ones first.
 | **2** | 007, 009, 011, 012 | The `UpdateAllianceData` group — one patch, four fixes, shared with the ModApi |
 | **3** | 005, 008, 010, 013 | Pure functions and load-time repair |
 | **4** | 015, 016, 017, 018–021 | Deferred, declined, and the rows that are recorded so nobody fixes them |
+| **5** | 023–059, of which 024, 025, 027, 028, 035, 036, 038, 039, 041 are built | The perk family — the largest body of manual deviation found, and the first wave driven by an intention (*perks work as documented*) rather than by technique coverage |
 
 ---
 
@@ -619,6 +626,392 @@ balance mod rather than this one.
 | GTCW-019 | Class X — the Navy rank-change dates are authored data for an unimplemented feature |
 | GTCW-020 | Class B — unlimited intervention recruits read as a deliberate shortcut for non-belligerents. Classification unconfirmed; revisit only if European forces become playable |
 | GTCW-021 | Class C with **no behavioural effect** — `AddTradeWarfare`'s orphaned guard statements. Recorded so nobody spends a patch on it, and because it is the reason GTCW-014 went unnoticed |
+
+---
+
+## 6b. Wave 5 — the perks, as documented
+
+The perk family is [34 — Perks](../../code-findings/34-perks.md) turned into
+patches: 37 register rows, GTCW-023 to GTCW-059, of which **nine are
+implemented** and the rest are specified below. The intention is a single
+sentence — *a perk should do what its tooltip and the manual say it does* — and
+the rows are the distance between that and the build.
+
+**One switch for the family.** Each row moves a combat or campaign quantity, so
+each one defaults off. Thirty-seven toggles would make the family unreachable in
+practice, so the registry also binds `perksasdocumented`: turning it on turns on
+every implemented perk fix, and an explicit per-id entry still wins. The switch
+is not a shortcut around the default-off rule — it is the one decision the rule
+is really asking the player to make.
+
+That forced a change to the config schema, and it is worth stating why. **Each
+id's entry is now `Default` / `On` / `Off`, not a `bool`.** BepInEx writes every
+bound entry to the config file on the first run, so with a `bool` there is no way
+to tell *"the player wants this off"* from *"the player has never touched it"* —
+and a family switch that cannot be overridden for one id is not a switch. With
+three states the resolution order is the player's word, then the family, then the
+shipped default (`FixRegistry.IsWanted`). Wave 1's six ids changed type with the
+rest; the mod is unreleased, and the alternative was two kinds of toggle in one
+file.
+
+### The technique that unlocked the wave
+
+Nine of these defects are inside three very long methods — `UpdateMorale`,
+`UpdateRaiding`, `UpdateCampaignUnitStats` — where the broken arithmetic is a
+local the patch cannot reach. **Technique 4 reaches all of them**, because the
+game reads almost every perk factor out of a `GamePrefs` field that has exactly
+one reader:
+
+| Pref | Readers in the whole assembly |
+| --- | --- |
+| `perk_mountedriflesmalusfactor` | 2, both of them the defect |
+| `perk_deadlyvolley_reductionmoralehit` | 1 |
+| `moraleeffectonhighmomentarycasualties` | 1 |
+| `drillreductionfactorforhighmomentarycasualties` | 1 |
+| `moraleeffectofbeingcutoff` | 1 |
+| `casualtyfactorguardingunits` | 1 |
+| `skirmishingpartisanbrigades`, `raidingmoralepartisanbrigades`, `skirmishingbushwhackers` | 2 each, both in the defective block |
+
+So a prefix can lend the method a *different* value for one call — chosen so
+that **the game's own arithmetic produces the documented result** — and a
+finalizer puts the shipped value back. That is worth more than it sounds: the
+corrected term then goes through the method's own clamps, its net-change
+amplification by experience and leadership, and into `moraleeffects[]` for the
+breakdown panel, all without this mod reimplementing any of it.
+
+Two variants appear for the first time here:
+
+- **Perk-entry spoof.** `Regiment.Perk` is a class in a `List<Perk>`, so a
+  prefix can set `perks[i].perk = -1` for the duration of one call and restore
+  it in the finalizer. That is how a perk is made *not* to fire at a site where
+  the game grants it too early (GTCW-027). A fighting unit has exactly one perk
+  slot, so there is nothing else in the list to disturb.
+- **Scoped read redirection.** A postfix on `Regiment:GetPerkLevel`, active only
+  inside one scope, answers a question the caller asked of the wrong unit
+  (GTCW-041). It is a chokepoint (technique 5) on a method called a few thousand
+  times a second at worst, so the body is a single static `bool` test before
+  anything else happens.
+
+**A fourth rule for perk patch bodies**, on top of the two in §1: *restore in a
+finalizer, never a postfix.* Every fix in this wave lends the game a value, and
+`UpdateMorale`, `UpdateRaiding` and `UpdateCampaignUnitStats` all call into code
+that can throw. A spoofed `GamePrefs` field that is never restored is a global
+balance change for the rest of the session — far worse than the defect.
+
+### GTCW-024 — Deadly volley's resistance works backwards
+
+**Target** `Regiment:UpdateMorale` — `Regiment.cs:18221`
+**Technique** 4, on two prefs at once.
+
+The game computes, for the high-momentary-casualties term:
+
+```
+moraleeffects[9]  = T                       // moraleeffectonhighmomentarycasualties, −0.6
+moraleeffects[9] -= moraleeffects[9] * training * d * f
+```
+
+where `d` is `drillreductionfactorforhighmomentarycasualties` (0.7) and `f` is
+the perk's 0.5 **only from level III** (`GetPerkLevel(5) >= 2`). The 0.5 lands on
+the drill reduction, so a fully drilled unit's hit *grows* from −0.18 to −0.39,
+and an undrilled one sees nothing. The config label — "Deadly volley reduction
+of morale hit from high momentary casualties (factor)" — says what was meant,
+and the manual gives it at every level.
+
+The fix lends two values so that the game produces `T·p·(1 − training·d)`:
+
+```
+T' = T * p            where p = perk_deadlyvolley_reductionmoralehit
+d' = d / f            where f is the factor the game will apply anyway
+```
+
+With `f = p` at level III and `f = 1` below it, `T'·(1 − training·d'·f)` is
+exactly the documented term at every level, and the shipped 0.5 stays the
+authority on magnitude. No reimplementation: the perk's resistance is now the
+hit halved, which is what "+50 % resistance" means.
+
+**Repro** A drilled brigade holding Deadly volley III, taking more than
+`losstriggerforhighmomentarycasualties` of its strength in one pass; watch
+morale effect 9 in the unit panel's breakdown. Unfixed it reads about −0.39 per
+hour, worse than the same brigade without the perk.
+**Confirm** The term reads about −0.09 at full drill, and a *level I* holder
+shows half the no-perk value where before it showed all of it.
+
+### GTCW-025 — Iron discipline freezes the rout penalty it should ignore
+
+**Target** `Regiment:UpdateMorale` — decay at `Regiment.cs:17953`, accumulation
+at `Regiment.cs:13671`
+**Technique** 1, in the prefix.
+
+`friendlyroutednear` is a saved, negative accumulator: a friendly rout within
+`rangeroutedunits` adds `impactownunitrouted` (−0.075), and `UpdateMorale` walks
+it back toward zero at `routedunitrecovery` (0.3) per hour — fifteen minutes and
+it is gone. From level II the perk sets that recovery factor to **zero**, so the
+penalty never decays: every rout nearby costs −0.075 an hour for the rest of the
+battle, accumulating down to the −1 clamp. The manual's level II says the unit
+holds "even if other units nearby falter".
+
+The fix is one line in the prefix: for a holder at level II or above,
+`friendlyroutednear = 0f` before the term is read. The frozen decay is then
+harmless — there is nothing left to decay — and a unit that accumulated a
+penalty at level I has it cleared the first pass after it levels. Nothing is
+reimplemented and the `enemyroutednear` half, which is a *bonus* and works, is
+untouched.
+
+**Repro** Two brigades in line, one holding Iron discipline II+. Rout the
+neighbour, then withdraw the holder out of contact and watch morale effect 17.
+Unfixed it sits at −0.075 (or a multiple) indefinitely.
+**Confirm** Effect 17 reads 0 for the holder on the next pass, while a brigade
+without the perk shows the penalty decaying away as normal.
+
+### GTCW-027 — Vanguard: right effects, wrong levels
+
+**Target** `Regiment:UpdateMorale` — `Regiment.cs:18034`, `:18070`, `:18371`
+**Technique** 4 plus the perk-entry spoof.
+
+Two defects, one perk, one fix:
+
+- A bare `HasPerk(12)` zeroes `moraleeffects[2]` (outflanked, to −0.27/h
+  surrounded) and `moraleeffects[3]` (flanking fire, to −1.0/h from all sides)
+  **at every level**. That is the manual's level II benefit, delivered at level
+  I.
+- `moraleeffects[15]`, "outside the influence of its commander", has **no perk
+  test at all** — so the level I headline, *no morale hit if detached*, is
+  missing entirely.
+
+The prefix therefore does two things for a holder, both scoped to one call:
+
+| Level | Perk entry | `moraleeffectofbeingcutoff` |
+| --- | --- | --- |
+| I | set to `-1`, so slots 2 and 3 apply normally | lent `0f` |
+| II+ | left alone | lent `0f` |
+
+The level I case is a *nerf*, and deliberately so: the fix makes the perk
+deliver what it documents, not everything it currently gives plus what it owes.
+Slot 10 (falling back, retreating) already gates correctly at levels II and III
+and is untouched — at level I the perk-entry spoof makes no difference to it,
+because its own test would have failed anyway.
+
+**Repro** A detached cavalry regiment holding Vanguard I, inside fire range and
+out of its commander's radius: morale effect 15 shows the cut-off penalty
+unfixed, and effects 2 and 3 are zero even while it is being flanked.
+**Confirm** Effect 15 is 0; effect 2 or 3 now appears when flanked. A Vanguard
+II holder shows 15 at 0 *and* 2 and 3 at 0.
+
+### GTCW-028 — Mounted rifles is backwards
+
+**Target** `Regiment:FireBullet` — `Regiment.cs:9620`; `Regiment:UpdateFiringAndReloading` — `Regiment.cs:10004`
+**Technique** 4, lending the complement of an array.
+
+Both sites compute `(1 − base) × A[level] + base`, treating
+`perk_mountedriflesmalusfactor` as the share of the mounted penalty
+**recovered**. The config label calls it the *malus* factor and the shipped
+values decline (0.75 / 0.5 / 0.2), which is a remaining-malus array — so the
+code reads it inside out:
+
+| | No perk | I | II | III |
+| --- | --- | --- | --- | --- |
+| Mounted accuracy, as shipped | 0.60 | 0.90 | 0.80 | **0.68** |
+| Mounted accuracy, fixed | 0.60 | 0.70 | 0.80 | 0.92 |
+| Mounted reload time, as shipped | 1.25 | 1.06 | 1.13 | **1.20** |
+| Mounted reload time, fixed | 1.25 | 1.19 | 1.13 | 1.06 |
+
+The fix lends `1 − A[i]` for the duration of each call, so level I removes a
+quarter of the malus and level III four fifths — the declining array read the
+way its label describes. The complement is computed from the *live* array and
+cached by reference identity, so a data mod that re-authors those three numbers
+is respected rather than overwritten.
+
+Only the reload half changes a fight: mounted fire is multiplied by 0.6 before
+the perk, which keeps the shot accuracy under the aim-scatter floor at every
+level either way (§2.4 of the audit). The accuracy site is fixed anyway, because
+leaving a known-inverted read in place because it currently cannot be seen is
+how it becomes visible later.
+
+**Note on level III.** The manual says the mounted reload penalty is removed
+entirely at level III; the shipped array leaves 20 % of it. The fix follows the
+data, and the gap is a one-line data question, not a defect to patch.
+
+**Repro** A dismountable cavalry regiment, mounted, firing: compare its rate of
+fire at perk level I against the same regiment at level III. Unfixed, level III
+is slower.
+**Confirm** Reload time now falls as the perk levels, and level I is strictly
+worse than level III.
+
+### GTCW-035 + GTCW-036 — the attrition perks read the brigade's battle perks
+
+**Target** `Regiment:UpdateCampaignUnitStats` — `Regiment.cs:5998` (Ambulance
+Corps), `Regiment.cs:6040` (Foot Cavalry)
+**Technique** 1 — and the method hands us the answer.
+
+`UpdateCampaignUnitStats(Regiment groupunit, int state)` runs **on the
+brigades** — it returns early above unit type 13 — so `HasPerk(8)` there is
+battle perk 8, Expert scouts, and `HasPerk(6)` is Ace of Spade. `HasPerkParent`
+is false for a brigade, because it only answers for a Corps. The two army perks
+therefore never reach their own effects, while cavalry brigades holding Expert
+scouts quietly get the wounded-mortality cut and infantry brigades holding Ace
+of Spade get the forced-march attrition cut.
+
+The fix needs no search for the formation, because the method is already given
+it: `groupunit` **is** the parent formation (the caller is
+`array[m].UpdateCampaignUnitStats(this, …)`). Both fixes are the same shape — a
+prefix that, for the duration of the call, answers perk 6 and perk 8 on the
+brigade with the formation's army perk instead:
+
+- the brigade's own battle-perk 6 or 8 is hidden (perk-entry spoof), so the
+  wrong effect stops firing;
+- the formation's level, including its own parent's through
+  `groupunit.HasPerkParent`, is lent to the two factor arrays by the same
+  single-reader trick — `woundedtokilledambulancecorps` and
+  `attritionfootcavalry` each have exactly two readers and both are these sites.
+
+The two ids are separate because the two perks are separate and a player may
+want one without the other; they share one patch because they share one method.
+
+**Open question carried from the audit.** Foot Cavalry's attrition half depends
+on a brigade's `doublequick` being true on the campaign map, and the only
+campaign writer found is `RegimentMove` on the unit that *moves*. If an attached
+brigade's flag stays false the whole branch never runs — for the perk or for the
+defect. The fix is written; confirming it is what settles the question.
+
+**Repro** An army holding Ambulance Corps III, encamped with wounded: watch
+`losses[0]` converting to dead over a week against an army without the perk.
+Unfixed the two are identical, while a cavalry brigade with Expert scouts in a
+third army shows the reduction.
+**Confirm** The Ambulance Corps army's wounded die at half the rate; the Expert
+scouts brigade no longer gets it. For Foot Cavalry: forced-march sickness drops
+by 10–30 % for the holder's brigades.
+
+### GTCW-038 + GTCW-039 — Partisan Brigades and Bushwhackers are inverted
+
+**Target** `Autocalc:UpdateRaiding` — `Autocalc.cs:2403`; `Autocalc:SufferMoraleHit`
+**Technique** 4 plus technique 5.
+
+`UpdateRaiding` has two blocks. The first (`:2354`) damages the **raided enemy**
+and reads no perk at all. The second (`:2400`) inflicts return casualties and a
+morale hit on one of the **raider's own** brigades — and that is where all three
+multipliers sit: Partisan Brigades' skirmishing (×1.25 / 1.5 / 2) and raiding
+morale (×1.10 / 1.25 / 1.50), and Bushwhackers' skirmishing
+(×1.25 / 1.20 / 1.10). The config label for the morale factor reads "Raiding
+morale hit on **enemy** partisan brigades", which settles what was intended.
+
+The two blocks use *different* casualty prefs — `casualtyfactorguardingunits`
+for the enemy, `casualtyfactorraidingunits` for the raider — so the casualty
+half is pure technique 4:
+
+1. the prefix computes the three factors from `raidingunits[0].topunits[0]`,
+   own level and parent, exactly as the defective block does;
+2. it lends `casualtyfactorguardingunits × (partisan × bushwhacker)`, so the
+   **enemy** takes the damage the perks promise;
+3. it lends all-ones arrays for the three perk factors, so the raider's own
+   return casualties and morale hit lose the amplification they should never
+   have had.
+
+The morale half cannot go the same way, because both blocks scale
+`moralelosspercasualtyraiding`. It goes through the chokepoint instead: a prefix
+on `Autocalc:SufferMoraleHit` multiplies the hit by the Partisan factor **only
+when the target is not on the raiding side**, which `EnvolvedUnitsIncludeReg`
+answers from the method's own data. The scope flag is set by the `UpdateRaiding`
+prefix and cleared in its finalizer, so the chokepoint is inert everywhere else
+— including `UpdateSkirmishing`, which calls the same helper.
+
+**Repro** A cavalry division holding Partisan Brigades III raiding an enemy
+state with a guarding force present. Unfixed, the raider's own brigade takes
+double casualties and a 50 % deeper morale hit, and the guarding force takes
+exactly what it would against a perkless raider.
+**Confirm** The guarding force's casualties double and its morale hit deepens by
+half; the raider's own return casualties fall back to the perkless value.
+
+### GTCW-041 — Embedded Reporters skips the holder
+
+**Target** `BattleUnits:CheckForGroupPerk` — `BattleUnits.cs:5848`;
+`BattleUnits:CalculateCommanderFame` — `BattleUnits.cs:5912`;
+`Regiment:GetPerkLevel`
+**Technique** 1 and 5.
+
+Two defects in one line of code:
+
+```
+if (unit.unittyp >= 15 && CheckForGroupPerk(unit, 14) != null)
+    num5 *= GamePrefs.fameadjustmentembeddedreporters[unit.GetPerkLevel(14)];
+```
+
+`CheckForGroupPerk` opens its walk with `GrabNextParentUnit`, so it **never
+tests the unit it was asked about** — the holder's own commander is excluded
+unless the holder's parent also holds the perk. And the factor is indexed by the
+*subordinate's* level, which is 0 whenever the subordinate does not hold the
+perk, so every Corps under a holder gets ×1.25 whatever the holder has reached.
+
+The fix is two patches that leave the arithmetic alone:
+
+- a **postfix on `CheckForGroupPerk`**: if the walk found nobody and the unit
+  itself holds the perk, return the unit. The method has exactly one caller, so
+  this changes nothing else;
+- a **postfix on `GetPerkLevel`**, live only inside `CalculateCommanderFame`,
+  which answers perk 14 for the unit the holder was just found for with *the
+  holder's* level. C# evaluates the `&&` before the indexer, so the holder is
+  always known by the time the level is asked for; the postfix additionally
+  requires the instance to be that same unit, and clears itself after one use.
+
+The fame factor scales defame as well as fame (`num5` can be negative), which is
+not obviously wrong and is left as it is: the manual says "fame development",
+and a commander whose reporters amplify a disaster is a defensible reading.
+
+**Repro** An army holding Embedded Reporters III that wins a battle with no
+parent above it. Unfixed its commander's fame gain is unmultiplied, while a
+subordinate Corps that holds nothing gets ×1.25.
+**Confirm** The holder's commander gains ×2 at level III, and a Corps under it
+gains ×2 rather than ×1.25.
+
+### The rest of the family — specified, not written
+
+Ordered by what the fix is worth against what it costs. Every one of these has
+had its target read; none has had its patch written.
+
+| Id | Target | Technique sketch | Why it is not in this wave |
+| --- | --- | --- | --- |
+| GTCW-034 | `Autocalc:FightUnit` ×2, `Autocalc:UpdateFatigue` | Scoped read redirection: swap ids 1 and 2 for the three auto-resolve sites | `FightUnit` is the delicate method of the whole mod — 900 lines, shared with GTCW-042/043/045. One patch, four fixes, written once and carefully |
+| GTCW-042 | `Autocalc:FightUnit` `:3082`–`:3137` | Capture the four multipliers in a prefix and re-apply them to the overwritten `num5`; needs the `GetFortWeaponStrength` postfix as the hook | Same method as GTCW-034 |
+| GTCW-043 | `Autocalc:FightUnit` `:3137` | Scoped redirection of `HasPerk(10)` to 17 at that one site | Same method |
+| GTCW-045 | `Autocalc:FightUnit` `:3112` | Reaching types 1 and 6 means calling the factor from `UpdateRaiding` and `UpdateSkirmishing` instead — closer to GTCW-044 than to a one-site repair | Same method, and overlaps GTCW-044 |
+| GTCW-044 | `Autocalc:UpdateSkirmishing` | The two vestigial locals mark the spot; lend `withdrawal_skirmishingcasualties` and route the morale half through the `SufferMoraleHit` chokepoint GTCW-038 already builds | Needs the two raiding sides' roles in `UpdateSkirmishing` pinned down first — which unit is the rear guard is not yet established |
+| GTCW-052 | `SpottedEnemy:UpdateMarks` `:261` | Lend the reciprocal, exactly as GTCW-003 does for the Confiscation Act | Low reach: the base term saturates within about eight game hours (GTCW-051), so the operator is wrong but nearly inert. Worth doing with GTCW-051, not before |
+| GTCW-055 + GTCW-059 | `IIP:UpdateBlockades` `:671`, `:676` | Lend each blockading fleet's `blockadeefficencyvalue` the holder's factor, so the discount reaches the whole sum instead of the part accumulated so far; `orgrunningtradewar` the same way | One patch, two fixes; GTCW-059 is not a perk and wants its own confirm |
+| GTCW-056 | `Autocalc:UpdateNavalBattle` `:1643` | Move the experience grant behind the same test the effect uses — the *target's* `fleetorders`, which is already in hand at that site | Levelling only; grouped with the other naval perk work |
+| GTCW-031 | `Regiment:UpdateMorale` `:18170` | Walk `receivedfire` in the prefix, compute the mean distance the term *should* divide by, and lend `moraleleveragedistancearifire` the ratio. Exact, because every later factor is multiplicative | It belongs in the `UpdateMorale` group this wave already patches, and is the next thing added there |
+| GTCW-026 | `Regiment:CalculateCohesion` `:19554` | Apply the factor only when cohesion is below its target. Needs the target recomputed in a prefix, or the rate lent asymmetrically | Changes cohesion behaviour in every battle; wants its own confirm pass |
+| GTCW-029, GTCW-030 | `Regiment:FireBullet`, `Regiment:UpdateFiringAndReloading` | Lend the factor arrays per call, gated on the condition the manual states (skirmish order, canister, cover) | GTCW-030 is a **nerf** of three perks. Correct, and worth landing with its own release note rather than inside a wave |
+| GTCW-032 | `ObstacleLine:Build`, `Pontoons:Build` | Reset the multiplier per unit in a prefix on the per-unit step | Battle-scene engineering only; small reach |
+| GTCW-033 | six sites | Each is a different test; no shared technique | Levelling rates, the least visible class of perk defect. Recorded as one row so the six are not re-derived |
+| GTCW-037 | `RegimentMove` `:22207` | Make the factor conditional on `doublequick` and on `unittyp != 17`, by lending the array | Waits on GTCW-035's confirm, which settles whether `doublequick` is ever true for an attached brigade |
+| GTCW-040 | `Regiment:UpdateRaids` | Same method as GTCW-014 and GTCW-015; do all three at once | Grouping |
+| GTCW-046 | `CBuilding:UpdateRaidSmoke` `:419` | Skip the re-arm while the building is still inside its construction timer | The audit's open question first: watch one fort finish |
+| GTCW-047, GTCW-048 | `Regiment:UpdateIIPSupplyLink` `:5044`, `RegimentMove` | GTCW-047 must separate resupply from consumption and upkeep inside one elapsed-time term — the only row in the family that may need a transpiler. GTCW-048 adds a speed factor on creek terrain, mirroring River Expedition | GTCW-047 is the hardest fix in the family; GTCW-048 **adds** an effect and is a design call |
+| GTCW-049 | `Autocalc.EnvolvedUnits:UpdateSiegeStrength` `:407` | Postfix rescale so a lone holder's relative gain matches the label | The averaging over `topunits.Count` may well be deliberate, and "correcting" it doubles every siege bonus. Needs a decision, not a patch |
+| GTCW-054 | `GamePrefs` | Post-parse override of three floats to 1.05 / 1.10 / 1.15 | The first class D row, and the one that most clearly belongs to a data mod. Default off, and it needs the config-override surface Phase 4 owes |
+| GTCW-057 | `FogOfWar:UnitIsHidden`, `Regiment:CheckAbilityToRun`, `Regiment:UpdateBlockades` | Scoped redirection: answer `false` for a perk id read outside its own namespace | Five sites, all of them *removing* an unearned benefit. A nerf of five perks that nobody has complained about; last in the family |
+| GTCW-058 | `AICampaign:ChoosePerk` `:2856` | Lend the exclusive bound, and refuse the fourth slot | Changes what the AI holds in every campaign. Real, and the single largest balance change in the family |
+
+### Three that are design calls, not repairs
+
+These three are recorded, and deliberately have no patch planned. Each would
+*add* a mechanic the game does not have, which is a different mod from this one.
+
+- **GTCW-023 — the melee perks.** Spirited charge, Cold steel and Close support
+  all multiply `meleestrength`, and melee casualties never read it
+  ([12](../../code-findings/12-melee.md) §3). Making the perks work means
+  deciding what melee strength should scale — casualties, the cohesion
+  comparison, or the morale term — and no two of those choices give the same
+  game. Until that is settled, the honest statement is that three perks are
+  display-only.
+- **GTCW-051 — Field Telegraph's information delay.** The multiplier is applied
+  to the right value with the right operator; the value itself saturates at its
+  clamp within hours, so the perk's second half is worth nothing whatever we do
+  to it. Fixing *that* means changing the mark-accumulation term, which is not
+  a perk defect.
+- **GTCW-053 — Sea Raiders' import prices.** `priceadjustment` has one reader
+  and it is a tooltip. A fix would have to find the import price path and apply
+  the factor there, inventing the mechanic the manual describes. That is a
+  feature, and it would move money.
 
 ---
 

@@ -22,6 +22,11 @@ against.
 > and building in `mods/GTCW.BugFixes/Fixes/`. None is `confirmed`: each still
 > owes the in-game repro and confirm its spec names.
 
+> **The perk wave is implemented.** GTCW-024, 025, 027, 028, 035, 036, 038, 039
+> and 041 are written; the rest of the perk family (GTCW-023 … GTCW-059) is
+> recorded. All of it ships off unless the one family switch,
+> `perksasdocumented`, is turned on.
+
 > **State of this file.** First pass. It is seeded only from findings that
 > already state a defect precisely enough to cite a mechanism. The three
 > catalogue sweeps — the `code-findings` summaries, `manual-vs-code` parts I–VI,
@@ -89,7 +94,6 @@ Ordered by what a fix is worth, not by id.
 | GTCW-015 | **`Regiment.UpdateRaids` never mirrors into the node's own `lossestradewarfare`**, which `IIP` and `CBuilding` both do, so a raided node's map tooltip omits regiment raids entirely. | C | [33](code-findings/33-trade-warfare.md) §3 | patch | recorded |
 | GTCW-016 | **`nation[].name` is mutated at runtime** by `statesetname`, so everything that matches a state by string silently stops matching — `SearchNationByName` and policy 30's five-state volunteer bonus among them. Escapes being live only because the territorial names belong to state-sets that precede every shipped campaign start. | C | [summary-game-state](code-findings/summary-game-state.md) § Traps | **none** — the rename is intended and no consumer is reachable; see IMPLEMENTATION.md §6 | wontfix |
 | GTCW-017 | **The 1862 midterms penalty has a one-day window.** Objective 9's chapter list is `{1}`; its trigger falls at about 21:24 on 4 Nov 1862 on the campaign clock and chapter 2 at about 21:45 on 5 Nov, so a config label describing −0.01 Union morale *per week* is worth about −0.15 points in total (corrected from "two days, −0.3"). Whether that is a deliberate token or a chapter-boundary accident is unresolved — **so this one ships off** even if fixed. | C | [manual-vs-code §32.1](mechanics-findings/manual-vs-code.md) | patch | recorded |
-
 | GTCW-022 | **Bounties I charges nothing.** Policy 45/145 sets `bountieslevel = 0` and 46/146 sets 1, matching the "Bounties 1-2" arrays indexed from 0, but both consumers guard `bountieslevel > 0` — the recruit bounty in `Economy.GetUnitCost` and the fighting-spirit cap in `TransformStateSupportToFightingSpirit`. Bounties I therefore never pays `bountiescost[0]` ($300 per recruit) or takes `bountiesfightingspirit[0]` (−0.05); it is a free volunteer bonus. | C | [13](code-findings/13-morale-and-cohesion.md) §5 | patch | recorded |
 
 ### Defaults for the rows above
@@ -111,6 +115,83 @@ default-on: its only readers are a panel and the save file. **GTCW-008** is no
 longer pending — the no-argument form feeds `Economy`'s `surplus` and
 `Alliance.GetBalance()`, so it is real money and stays off.
 
+## Perks — class C, M and D
+
+**Source for every row: [34 — Perks](code-findings/34-perks.md)**, a fresh audit
+of all 48 perks against the manual's Appendix C, traced through every
+`HasPerk` / `GetPerkLevel` / `HasPerkParent` / `IncreasePerkExp` call site. Its
+verdict: 17 perks work as written, 11 work differently, and **20 have a
+headline effect that is dead, inverted or lands on the wrong unit** (§8).
+
+This family gets its own section for three reasons. It is the largest body of
+manual deviation found so far; the perks are *documented* in an appendix, so
+"what it should do" is rarely in doubt; and almost every row is a misdirected
+read rather than a wrong number, which is the kind of defect a patch repairs
+cleanly.
+
+**The intention for the family is plain: a perk should do what its tooltip and
+the manual say it does.** Where the code and the config label agree against the
+manual, the config label wins on magnitude — it is the number the designers
+authored and data mods tune. Where the code contradicts *both*, it is a defect.
+
+> **`perksasdocumented` — one switch for the family.** Every row here moves a
+> combat or campaign quantity, so by the register's own rule each one ships
+> `off`. That would make the family unreachable in practice, so the mod also
+> binds a single `perksasdocumented` toggle that turns on every implemented perk
+> fix at once. It is still opt-in, still one decision, and any id can still be
+> forced on or off individually.
+
+| Id | Defect | Class | Perk(s) | Source § | Fix | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| GTCW-023 | **Three perks' melee bonus is display-only.** All three multiply `meleestrength`, which only the unit panel reads; melee casualties never use it. Levels I and II of Spirited charge therefore do nothing in combat at all | C | Spirited charge, Cold steel, Close support | §3.5, §3.10, §3.15 | patch — **design call**, see IMPLEMENTATION.md §6b | recorded |
+| GTCW-024 | **Deadly volley's casualty resistance reduces the drill reduction instead of the hit, and only from level III.** `moraleeffects[9] -= moraleeffects[9] * training * 0.7 * f` applies the 0.5 to the *reduction*, so at full drill the hit goes from −0.18 to **−0.39** per hour — the perk makes high-casualty morale worse — and at no drill it changes nothing. The config label is "reduction of morale hit", and the manual gives it at every level | C | Deadly volley | §3.6 | patch | **fixed**, awaiting confirm |
+| GTCW-025 | **Iron discipline II+ freezes the friendly-rout penalty instead of ignoring it.** A friendly rout within 60 adds −0.075 to `friendlyroutednear`, which normally decays at 0.3/h and is gone in fifteen minutes. From level II the perk zeroes the *decay* factor, so each rout costs −0.075 an hour for the rest of the battle, down to −1 | C | Iron discipline | §3.8 | patch | **fixed**, awaiting confirm |
+| GTCW-026 | **Iron discipline's cohesion rate is symmetric.** ×1.25 / 1.5 / 2 is applied to the rate at which cohesion approaches its target, and that target *falls* under fire and on the move, so the perk speeds the collapse by exactly the factor it speeds the recovery | C | Iron discipline | §3.8 | patch | recorded |
+| GTCW-027 | **Vanguard applies its level II effect at level I and never applies its level I effect.** A bare `HasPerk(12)` zeroes the outflanked and flanking-fire terms at every level, which is the manual's level II; the detached penalty the manual removes at level I (`moraleeffects[15]`, "outside the influence of its commander") has no perk test anywhere | C | Vanguard | §3.13 | patch | **fixed**, awaiting confirm |
+| GTCW-028 | **Mounted rifles is weaker at every level, and always better than nothing.** Both mounted penalties become `(1 − base) × A[level] + base` using `perk_mountedriflesmalusfactor`, whose config label calls it the *malus* factor (0.75 / 0.5 / 0.2 remaining). The code reads it as the share of the penalty *recovered*, so mounted accuracy runs 0.90 / 0.80 / 0.68 and mounted reload 1.19 / 1.13 / 1.06 — backwards at every level | C | Mounted rifles | §3.11 | patch | **fixed**, awaiting confirm |
+| GTCW-029 | **Sharpshooters' accuracy bonus is gated `unittyp == 0`.** A detached skirmisher company carries the perk, its level and its experience, and loses the bonus; the level III range bonus has no such gate | C | Sharpshooters | §3.2 | patch | recorded |
+| GTCW-030 | **Three reload bonuses are granted without the condition the manual attaches to them.** Expert skirmishers divides the reload time on *all* of the unit's fire, not only in skirmish order; Close support on every reload, not only canister; Sapper gunners with no cover test at all, unlike Ace of Spade and Lightning brigade, which check one | M | Expert skirmishers, Close support, Sapper gunners | §3.4, §3.15, §3.19 | patch | recorded |
+| GTCW-031 | **Grand battery's morale effect is stronger than its label.** For each incoming artillery source the target counts the source and adds its distance, then divides by the mean. Grand battery adds `malus − 1` to the **count without adding distance**, so the mean distance shrinks by the same factor: a lone holder firing from 20 yd or more grows the term **×2.25 at II and ×4 at III**, not the ×1.5 / ×2 the label and the manual state | C | Grand battery | §3.17 | patch | recorded |
+| GTCW-032 | **Engineering's build-speed multiplier leaks across the work party.** The factor is assigned inside the per-unit loop but initialised outside it, so once a holder has been processed every later non-holder on the same obstacle line — or at the same pontoon landing zone — builds at the holder's ×2 / 3 / 4 rate | C | Engineering | §3.1 | patch | recorded |
+| GTCW-033 | **Six perk-experience rules do not match their own labels.** Sharpshooters' range gate `perk_sharpshooters_rangefrom` is loaded and never read; Ace of Spade levels with no cover test while the two perks that copy it check one; Cold steel and Spirited charge test the **victim's** unit type, so they only level against cavalry and against line infantry respectively; Expert scouts levels only when the revealer is a detached scout company; Mounted rifles and Stormers test unit types 1 and 3, which excludes cavalry scouts and includes foot skirmishers | C | six | §3.2, §3.5, §3.7, §3.9, §3.10, §3.11, §3.12 | patch | recorded |
+| GTCW-034 | **Auto-resolve reads the old perk order: Sharpshooters and Zouave are swapped.** Three sites use the numbering of the legacy `157_Zouaves → ChoosePerk(1)` buttons — the casualty bonus on `HasPerk(2)`, the fatigue-morale exemption on `!HasPerk(1)` and the fatigue factor on `HasPerk(1)`. In auto-resolve, Sharpshooters brigades march like Zouaves and Zouave brigades shoot like sharpshooters | C | Sharpshooters, Zouave | §6 | patch | recorded |
+| GTCW-035 | **Foot Cavalry's attrition reduction reads a brigade's battle perk 6.** `UpdateCampaignUnitStats` runs on the brigades and returns early above unit type 13, so `HasPerk(6)` there is Ace of Spade, not Foot Cavalry, and `HasPerkParent` is always false for a brigade. The formation's Foot Cavalry never reaches the forced-march sickness multiplier; infantry brigades holding Ace of Spade get it instead | C | Foot Cavalry | §4.7, §7 | patch | **fixed**, awaiting confirm |
+| GTCW-036 | **Ambulance Corps' mortality reduction reads a brigade's battle perk 8.** Same site, same cause: `HasPerk(8)` there is Expert scouts, so cavalry brigades holding Expert scouts get the 0.9 / 0.75 / 0.5 mortality cut and the Ambulance Corps formation's wounded do not | C | Ambulance Corps | §4.9, §7 | patch | **fixed**, awaiting confirm |
+| GTCW-037 | **Foot Cavalry's speed bonus has no forced-march test and no unit-type test.** The ×1.1 / 1.2 / 1.3 applies to every campaign move rather than to forced marches, and because the test is a bare `HasPerk(6)` a **fleet** holding Sea Raiders (fleet perk 6) gets it too | C | Foot Cavalry, Sea Raiders | §4.7, §7 | patch | recorded |
+| GTCW-038 | **Partisan Brigades is inverted: it costs the raider and does nothing to the enemy.** `UpdateRaiding` has two blocks — the first damages the raided enemy and reads no perks, the second inflicts return casualties and a morale hit on one of the **raider's own** brigades. Both of Partisan Brigades' multipliers sit in the second: own casualties ×1.25 / 1.5 / 2 and own morale hit ×1.10 / 1.25 / 1.50. The config label for the second is "Raiding morale hit on **enemy** partisan brigades" | C | Partisan Brigades | §4.13 | patch | **fixed**, awaiting confirm |
+| GTCW-039 | **Bushwhackers' skirmishing multiplier sits in the same own-casualties block.** ×1.25 / 1.20 / 1.10 on the raider's own losses. The declining array matches the manual, which is only because the manual documents a declining number; applied where it belongs it is a declining *bonus* | C | Bushwhackers | §4.14 | patch | **fixed**, awaiting confirm |
+| GTCW-040 | **Bushwhackers' raiding-support multiplier amplifies the raider's own backlash.** `Regiment.UpdateRaids` scales both state-support writes of a raid by 1.10 / 1.25 / 1.50; in the shipped data those are **−0.00025 to the raider's own** support and **+0.0001 to the owner's**. The config label is "support drop in state due to raiding" | C | Bushwhackers | §4.14 | patch | recorded |
+| GTCW-041 | **Embedded Reporters skips the holder and always applies the level I factor.** `CheckForGroupPerk` starts its walk at the unit's *parent*, so the holder's own commander gets nothing unless the holder's parent holds it too; and the factor is indexed by `unit.GetPerkLevel(14)` — the subordinate's own level, which is 0 when it does not hold the perk — so every Corps below a holder gets ×1.25 whatever level the holder has reached. It scales defame as well as fame | C | Embedded Reporters | §4.15 | patch | **fixed**, awaiting confirm |
+| GTCW-042 | **The siege-assault multipliers of four perks are overwritten a few lines later.** `FightUnit` multiplies `num5` for `type == 2`, then, still for `type == 2`, assigns `num5 = GetFortWeaponStrength(unit0)`. Sappers and Miners, Land Torpedoes (defend), River Expedition (assault) and Limelights (siege at night) all lose their multiplier entirely | C | Sappers and Miners, Land Torpedoes, River Expedition, Limelights | §4.11, §4.12, §4.16, §4.18 | patch | recorded |
+| GTCW-043 | **The embarked-strength override meant for River Expedition tests perk 10.** `fightingstrengthembarkedriverexp` is labelled *"…has perk 'river expedition'"* (perk 17) and is selected by `HasPerk(10)`, which is Sappers and Miners. River Expedition loses it; Sappers and Miners gets 0.50 instead of 0.25 embarked strength on water terrain | C | River Expedition, Sappers and Miners | §4.11 | patch | recorded |
+| GTCW-044 | **The skirmishing-efficiency perks never reach a real skirmish.** `Autocalc.UpdateSkirmishing` (type 6) reads **no perks at all** — it carries two locals, `num6` and `num7`, initialised to 1 and never assigned, in exactly the places a casualty and a morale multiplier belong. The three perks that promise skirmishing efficiency only ever touch the siege path, where GTCW-042 then discards it | C | Partisan Brigades, Bushwhackers, Land Torpedoes | §4.11–§4.14 | patch | recorded |
+| GTCW-045 | **Limelights works only in the one case the manual does not list.** The ×1.25 / 1.5 / 2 night factor is applied in `FightUnit` for types 0, 1 and 2; type 1 (raid) and type 6 (skirmish) never call it and type 2's value is overwritten, leaving auto-resolved **field battles** at night — while the manual promises siege and skirmishing | C | Limelights (army) | §4.16 | patch | recorded |
+| GTCW-046 | **Engineers & Mechanics buys an early completion event, not a shorter build.** The perk divides the construction timer on placement, so the building "finishes" at Condition 0.8 / 0.67 / 0.5 and a fort gets its garrison early — but in the same update cycle `UpdateRaidSmoke` sees Condition below 1 and re-arms the timer to `1 − Condition`, and the rest is built at the normal rate. **Total time to a full-condition building is unchanged.** | C | Engineers & Mechanics | §4.8 | patch | recorded — **open question**: confirm the re-arm by watching one fort |
+| GTCW-047 | **Pontoon Train's "supply efficiency" runs the whole supply clock fast.** ×1.1 / 1.2 / 1.3 multiplies the *elapsed time* of the supply step, so consumption, depot draw-down, resupply **and the upkeep it pays** all scale together. The unit is not more efficient; it spends more per day | C | Pontoon Train | §4.10 | patch | recorded |
+| GTCW-048 | **Pontoon Train's creek bonus is pathfinding cost, not speed.** ×0.75 / 0.5 / 0.25 multiplies the NavMesh area cost of `Small Rivers`, so the route planner detours less around creeks; nothing in `RegimentMove` reads area cost, so the unit does not move faster in one | M | Pontoon Train | §4.10 | patch | recorded |
+| GTCW-049 | **Siege-strength perks are halved by a +1 baseline and then averaged over the side.** `UpdateSiegeStrength` computes `1 + Σ(factor − 1) / topunits.Count` and then **adds 1**, so the no-perk baseline is 2.0 and a lone holder's Siege Train yields +12.5 / +25 / +50 % instead of the stated +25 / +50 / +100 %. Balloon Corps' siege bonus runs through the same halving, and its array gives 1.05 / 1.10 / 1.15 at every level rather than only at III | C | Siege Train, Balloon Corps | §4.1, §4.3 | patch | recorded |
+| GTCW-050 | **Flying Column's "maximum supplies" is a consumption divisor.** The stock cap is untouched; consumption is divided by 1.5 / 2.0 / 2.5. The column does last as long as the manual promises when cut off, and also draws less from its depots — a different mechanism with the documented result, and a worse game if "fixed" | M | Flying Column | §4.6 | **none** | wontfix |
+| GTCW-051 | **Field Telegraph's information delay lands on its own fog marks and saturates.** The ×1.0 / 0.75 / 0.5 is applied in `SpottedEnemy.UpdateMarks` to the chance that *the player* gets a "last seen here" mark for the holder — counter-intelligence, and only ever for AI formations, since player units are never in fog. The base term saturates at its clamp within about eight game hours whatever multiplies it | C | Field Telegraph | §4.2 | patch — **blocked on reach**, see IMPLEMENTATION.md §6b | recorded |
+| GTCW-052 | **The Bureau's information-delay operator is inverted.** `SpottedEnemy` *divides* the holder's own mark chance by 1.0 / 0.75 / 0.5, once per enemy unit inside its command range — the opposite of Field Telegraph's operator on the same value, which makes an AI formation holding the Bureau **easier** for the player to track | C | Bureau of Military Information | §4.4 | patch | recorded |
+| GTCW-053 | **Sea Raiders' import-price increase has no reader but a tooltip.** The 1.10 / 1.25 / 1.50 is stored in `IIP.priceadjustment` and read only by the map tooltip ("Sea raiders affect import prices by …"). No price code reads it. If several Sea Raiders blockade one node, the last in `unitsinrange` sets the factor rather than the highest | C | Sea Raiders | §5.7 | patch — **implements a missing effect**, see IMPLEMENTATION.md §6b | recorded |
+| GTCW-054 | **Balloon Barge's fort-bombardment array is dead at levels I and II.** The shipped values are 1.00 / 1.00 / 1.05 against a manual that promises +5 / +10 / +15 %: nothing at the first two levels and a third of the stated bonus at the third. The first **class D** row — a value that contradicts its own documentation rather than code that misreads it | D | Balloon Barge | §5.4 | override — post-parse, never a file edit | recorded |
+| GTCW-055 | **Blockade Busters' own-port discount is applied inside the per-unit loop.** `blocked *= effectoonblockadewithinradius[...]` discounts only the blockade summed from units processed *before* the holder; blockaders later in `unitsinrange` are untouched, so the perk's worth depends on list order | C | Blockade Busters | §5.9 | patch | recorded |
+| GTCW-056 | **Blockade Busters levels on the wrong fleet's orders.** The effect tests whether the *target* is blockading; the experience test is the **holder's own** `fleetorders == 1`. Attacking blockaders from port — the one thing the manual says levels it — earns nothing | C | Blockade Busters | §5.9 | patch | recorded |
+| GTCW-057 | **Unguarded `HasPerk` reads cross the three perk namespaces.** One id means a battle perk on a brigade, an army perk on a formation and a fleet perk on a fleet, and nothing in `HasPerk` knows which. Five sites have no type guard and hand an effect to a perk that should not have it: `FogOfWar` gives Bureau formations and Balloon Barge fleets Expert skirmishers' concealment, and Ambulance Corps formations and Blockade Busters fleets Expert scouts' concealment *and* line of sight; `CheckAbilityToRun` lets a battle-scene HQ carrying Balloon Corps or Land Torpedoes run; `Regiment.UpdateBlockades` lets Foot Cavalry formations blockade. (The two sites where a collision *strips* an effect are GTCW-035 and GTCW-036; the embarked one is GTCW-043) | C | eight | §7 | patch | recorded |
+| GTCW-058 | **The campaign AI never picks the last perk, and fills a slot the player cannot reach.** `ChoosePerk` is driven by `Random.Range(0, count − 1)` on the int overload, whose upper bound is exclusive: AI armies never get River Expedition (17) and AI fleets never get Port Defender (10). There is no branch filter, and nothing stops it filling the **fourth** perk slot, which `PanelHandler` never shows the player | C | AI selection | §2.3 | patch | recorded |
+| GTCW-059 | **`IIP.UpdateBlockades` compounds the orgrunning penalty once per unit in range.** `blocked *= GamePrefs.orgrunningtradewar` sits inside the per-unit loop alongside GTCW-055, so a harbor with *n* units in range applies the factor *n* times. Found while reading that method for GTCW-055; not a perk defect | C | — | §5.9, in passing | patch | recorded |
+
+### Defaults for the perk rows
+
+| Default | Rows | Why |
+| --- | --- | --- |
+| **off, with one family switch** | GTCW-023 … GTCW-059 | Every one moves a combat or campaign quantity that `Config/` exposes and data mods tune against. `perksasdocumented` turns on the implemented set in one decision rather than thirty-seven |
+| **not fixed** | GTCW-050 | Class M, but the documented *outcome* is already delivered by a different mechanism. "Fixing" it would make the perk worse |
+
+**Nine are implemented** — GTCW-024, 025, 027, 028, 035, 036, 038, 039 and 041 —
+and none is `confirmed`. The techniques, the deferred rows and the three that
+need a design decision rather than a patch are in
+[`mods/GTCW.BugFixes/IMPLEMENTATION.md`](mods/GTCW.BugFixes/IMPLEMENTATION.md) §6b.
 ## Class U — display defects, blocked on UI injection
 
 The bulk of the known defects are here, in
@@ -142,10 +223,15 @@ a presentation one: GTCW-002, which is *why* the support-loss list is empty.
 
 | Class | Rows | Of which actionable |
 | --- | --- | --- |
-| C | 18 | 15 — GTCW-021 and GTCW-013 have no behavioural effect, GTCW-016 no reachable consumer |
-| M | 1 | 1 |
+| C | 50 | 47 — GTCW-021 and GTCW-013 have no behavioural effect, GTCW-016 no reachable consumer |
+| M | 4 | 3 — GTCW-050 delivers the documented outcome already |
 | U | ~50, unitemised | 0 — blocked on UI injection |
-| D | 0 so far | — |
+| D | 1 | 1 — GTCW-054, as a post-parse override |
 | S / B / X | 3 | 0 by definition |
 
-Next allocation: **GTCW-023**.
+**Of the 51 actionable rows, 15 are implemented** — the six of wave 1 and the
+nine perk fixes — and **none is `confirmed`.** Thirty-seven of the rows come
+from the perk audit, which is why the perk family has its own section and its
+own switch.
+
+Next allocation: **GTCW-060**.

@@ -60,4 +60,29 @@ namespace GTCW.BugFixes
         /// </summary>
         OneWay,
     }
+
+    /// <summary>
+    /// What a player has said about one fix.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Three states rather than a <c>bool</c>, because a family switch and a
+    /// per-fix switch have to be able to disagree. BepInEx writes every bound
+    /// entry to the config file on first run, so with a <c>bool</c> there is no
+    /// way to tell "the player wants this off" from "the player has never
+    /// touched it" — and a family switch that cannot be overridden for one id
+    /// is not really a switch.
+    /// </para>
+    /// <para>
+    /// <see cref="Default"/> defers to the fix's shipped default and to its
+    /// family; <see cref="On"/> and <see cref="Off"/> are the player's word and
+    /// win over both.
+    /// </para>
+    /// </remarks>
+    internal enum FixToggle
+    {
+        Default,
+        On,
+        Off,
+    }
 }

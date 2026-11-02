@@ -21,7 +21,8 @@ namespace GTCW.BugFixes
             bool defaultEnabled,
             SaveSafety save,
             string source,
-            Func<ProbeResult> probe)
+            Func<ProbeResult> probe,
+            string? family = null)
         {
             Id = id;
             Title = title;
@@ -30,7 +31,14 @@ namespace GTCW.BugFixes
             Save = save;
             Source = source;
             Probe = probe;
+            Family = family;
         }
+
+        /// <summary>
+        /// The perk family's switch. Every row of
+        /// <c>defect-register.md</c>'s perk section belongs to it.
+        /// </summary>
+        public const string Perks = "perksasdocumented";
 
         /// <summary>Register id, <c>GTCW-NNN</c>. Also the config key.</summary>
         public string Id { get; }
@@ -55,6 +63,20 @@ namespace GTCW.BugFixes
 
         /// <summary>Whether this build still has what the fix patches.</summary>
         public Func<ProbeResult> Probe { get; }
+
+        /// <summary>
+        /// The family switch that can turn this fix on, or null for a fix that
+        /// answers only to its own toggle.
+        /// </summary>
+        /// <remarks>
+        /// A family exists where one intention covers many ids — "perks work as
+        /// documented" covers thirty-seven of them. Without it the rule that
+        /// every fix touching a tuned quantity ships off would make the whole
+        /// family unreachable in practice, which is not what the rule is for.
+        /// The switch is still opt-in, and an explicit per-id
+        /// <see cref="FixToggle"/> still wins.
+        /// </remarks>
+        public string? Family { get; }
     }
 
     /// <summary>
