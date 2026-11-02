@@ -212,6 +212,43 @@ so output in `g` scales as `share × (1 + share^0.4)` — **sub-additive, so
 concentrating a building on one good beats splitting it.** One good at 100 %
 yields 1.00 against 0.88 for a 50/50 split and 0.79 across four.
 
+> **Every multiplier in that line scales only the specialisation bonus.**
+> `num2` (projects 104 and 105), `num4` (the state's
+> `nation.productionfactor[]`, which Northern Routes sets to 1.25 for crops)
+> and `num3` (projects 113/114, were they reachable) all multiply
+> `productionefficiency`, which `GetProductionNumbers` uses as
+> `(1 + productionefficiency)`. `productionefficiency` has no other gameplay
+> reader — `CBuildingIcon` ~774/~786 and `Production` ~226/~384/~497 display
+> it, `ImportExportUnitData` ~5039 saves it. So a factor `m` on that term
+> raises output by `share^0.4 × (m − 1) ÷ (1 + share^0.4)`: **at most half of
+> `m − 1`**, reached at 100 % focus. Subsidize Industry / Agriculture are
+> worth about **+2.5 % output per level, not +5 %**, and Northern Routes about
+> **+12.5 % crops, not +25 %** *(calculated)*. The project panel prints the raw
+> `+5 %` (`Projects.GetProjectEffect` ~751/752). The building panel's
+> "efficiency" figure is `100 + productionefficiency × 100` %, so it is honest
+> about the result.
+
+**Bonus inputs** (`CBuilding` ~1851): if a good has a `bonusresource` and
+that good's `relprice` at the building's market is `<= maxpricebonusresource`
+(**0.35**), the building consumes the bonus good one-for-one with output and
+multiplies output by the good's `multiplier`. An expensive bonus market
+switches the multiplier off.
+
+**The harvest calendar.** `GameVars.currentmonth` is `monthCounter − 1`
+(`CampaignController` ~491), so index 0 is January. The shipped seasonal
+curves (`resources.dat`):
+
+| Good | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct | Nov | Dec |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Crops | 0 | 0 | 0 | 0 | 0 | .5 | .5 | 1 | 3 | 4 | 3 | 0 |
+| Forage | −1 | −1 | −1 | −1 | −1 | .5 | .5 | 1 | 3 | 4 | 3 | 0 |
+| Cotton | 0 | 0 | 0 | 0 | 0 | 1 | 1.5 | 2.5 | 3 | 2.5 | 1.5 | 0 |
+
+Crops are zero for **six** months (December to May), and September to
+November carry 10 of the year's 12 modifier units, **83 %** of the crop
+*(calculated, holding everything else equal)*. Forage's −1 months run at the
+unmodified rate, so September to November is 10 of 17 units, 59 %.
+
 `producedgoods` is parsed from `buildingtypes.dat` as **10 slots, keeping those
 `>= 0`** (`GameVars` ~6818). The shipped lists: Farms `{9,13,16,21,37}`,
 Plantations `{8,26,30,31}`, Iron Works `{0,1,29,35,28}`, Factories
@@ -284,7 +321,9 @@ nation[state].support[1] : 0)` — the third term is **Confederate state
 support**, so the exemption decays with political support. `maxslaveryfactor`
 starts at 1.0 and is moved only by `Policies` ~1177/~1183 (Underground
 Railroad: `-0.10` once plus `-0.05`/yr, applied to **both** alliances) and
-~1429 (`slaveryrestrictionfactor`). **There is no clamp on it anywhere.**
+~1429 (`slaveryrestrictionfactor` = **−0.25**, once, the Confederacy's
+Slavery Restriction Act 132, applied to the enacting alliance only). **There
+is no clamp on it anywhere.**
 
 The map itself is painted in `UpdateFilterMaps` (~1546 onward), one town, one
 small town and one building per call, with `workforcemapupdates = 10` calls per
@@ -322,13 +361,44 @@ blur.** `Initialize` scales it correctly
 
 `Town.UpdateConsumption` (~752) reads the same map as
 `availableworkforcelevel = min(1, value × workforceleverage)` and treats it as
-**unemployment**: `privatewealth` is multiplied by
-`interp(level, influenceprivatewealthworkforce0 = 1.6 →
-influenceprivatewealthworkforce1 = 0.9)`, then by
-`1 + availablecapital × (availablecapitalinfluenceonprivatewealth − 1)` (1.25)
-and `alliance.publicwealthfactor`, clamped [0,1]. `incometax = privatewealth ×
-representingpopulation × tax × taxcaps × taxrevenuemodifier`. So slack labour
-helps production and hurts wealth, tax and national morale (reason 34).
+**unemployment**. Private wealth is built in five steps (~757–777):
+
+```
+base   = 1 − mean(closestiip.relprice[g])     over every good g the town consumes
+wealth = interp(base, 0 → minprivatewealthlevel (0.25), 1 → 1)
+       × interp(level, influenceprivatewealthworkforce0 (1.6) → influenceprivatewealthworkforce1 (0.9))
+       × (1 + availablecapital × (availablecapitalinfluenceonprivatewealth − 1))     (up to 1.25)
+       × alliance.publicwealthfactor
+clamp to [0, 1]
+```
+
+`incometax = privatewealth × representingpopulation × tax × taxcaps ×
+taxrevenuemodifier`.
+
+> **Private wealth is a price index, and the clamp hides most of the jobs
+> bonus.** The base is the average relative price at the town's market of the
+> goods its people buy, not a measure of unmet consumption. Because the
+> product is clamped at 1, a town with no slack (×1.6) sits at the cap until
+> the interpolated value falls below 0.625 (`base` below 0.5), i.e. until its
+> goods average more than half
+> their maximum price. At the map's paint floor (0.15, workforce level 0.3,
+> ×1.39) the cap holds only to an average of about 37 %. A town with full
+> slack (×0.9) can never exceed 0.9 and shows every price rise *(calculated,
+> capital 0, public wealth 1)*.
+
+**The national figure applies slack a second time, uncapped.** `Economy`
+~2062 aggregates `privateincometemp += privatewealth × representingpopulation
+× (1 − availableworkforcelevel × (1 − influenceworkforceprivatewealth))`, with
+`influenceworkforceprivatewealth` = **0.70**, and publishes `privateincome =
+privateincometemp ÷ totalpopulationtemp` (~2092). So in the population-weighted
+average that reason code 34 reads, a fully slack town counts at 0.9 × 0.7 =
+**0.63×** its base, while a town with no slack counts at the cap. Slack labour
+helps production and hurts wealth, income tax and national morale (reason 34).
+
+*An earlier version of this paragraph gave only the multipliers, without the
+price-based base, so the mechanics files read the base as "unmet consumption"
+and read ×1.6 as a wealth gain the clamp mostly absorbs. The national ×0.70
+factor was not recorded.*
 
 `GameVars.UpdateWorkforceFluctuation` closes the loop:
 `eogrowthrates = (1 / max(0.1, √averageavailableworkforce) − 1.2) ×
@@ -359,7 +429,8 @@ num4 = num × availableworkforce(pos) × fertility(pos)        // not squared he
 ```
 
 > **`num5` is assigned `0f` on both branches of the preceding `if`/`else`**, so
-> `influenceonfoundationsubsidies` (1.25) is **dead**. And `num6` is
+> `influenceonfoundationsubsidies` (1.25) is **dead**. (Its only other read,
+> `AICampaign` ~5906, is inside the uncalled `CheckCompanyFoundations_x`.) And `num6` is
 > `alliance.tax[tax_corporate]` — the **slider**, not the effective rate — so
 > the full ×1.35 applies from turn one even though `taxcaps[tax_corporate]`
 > ships at 0. Two discarded `float.IsNaN(...)` calls sit on this path (~5728
@@ -373,21 +444,67 @@ index, so a purely local shortage does not attract industry.
 `companyfoundationsandupgrades` is also the **land-sales tax base**
 (`GetCurrentTaxValuePa`, `GameVars` ~4362/~4367, × `absolutevaluelandsales`).
 
-`UpdateCompanyFoundations` (~5595) then:
+**The goods candidate competes with six other building types** (~5731–5822).
+Each node proposes one type: the producer of its best scarce good
+(`resources[g].buildingtoproduceid`) at the score above, replaced by any of
+the following that scores higher. Only Union and Confederate nodes score the
+last three.
 
-- subsidised types (`subsidytype >= 0`) run only if
-  **`automanageconstructionp`** (or non-player / `ai_vs_ai`), and each needs
-  `GetMissingSubsidyFundingCost(...) >= 0f`, which is
-  `−(1 − (funded/cost)^missingsubsidycostexp) × cost × leverage` with the
-  exponent at **3** — i.e. **only when the category is fully funded**. (That
-  method also contains a discarded `Mathf.Max(0f, num − num2);`.)
-- unsubsidised types run only if **`automanageconstructiong`** *and*
-  `IsRatingOkForConstruction()`.
-- both require `buildingtypes[j].aiplacement`, **false for Mines, Port,
+| Type | Score |
+| --- | --- |
+| Market | `min(1, transportbottlenecks ÷ 10)` |
+| Prison Camp | 0.5 if `powratio > 1`, none founded last month and no enemy in range (0 with an enemy in range) |
+| Hospital | `groupwounded ÷ 10,000` of an own, stationary, non-retreating unit in range, where the hospital map reads 0 |
+| Military Academy | `(enemy mil. exp − own mil. exp) ÷ own schools ÷ schools in the state`, while the enemy has at least as many schools as its project 122 level |
+| Bank | `max(0, own interest ÷ enemy interest − 1) ÷ 3 ÷ max(1, bankvalue) − local capital` |
+| News Agency | `state drafts ÷ 100,000 ÷ printing works in the state` |
+
+The winner is stored in `bestiipplaces[type]` if `HasPolicy` allows the type
+and its score beats the current best, and only while no AI construction is
+pending (`CBuilding.aiplacements.Count <= 0`).
+
+`UpdateCompanyFoundations` (~5595) then runs two different branches:
+
+- **Subsidised types** (`subsidytype >= 0`) run only if
+  **`automanageconstructionp`** (or non-player / `ai_vs_ai`). For each
+  category it takes the best-scoring placeable site and, if
+  `GetMissingSubsidyFundingCost(...) >= 0f`, founds it **at once, as a new
+  level-0 building** (`CBuilding.AddConstructionWish`, ~2417), then returns.
+  The missing cost is `−(1 − (funded/cost)^missingsubsidycostexp) × cost ×
+  companyconstructioncostleverage` with the exponent at **3** and the leverage
+  at **5**, so the branch fires **only when the category is fully funded**.
+  There is **no random roll, no upgrade-instead, no variety damper and no
+  credit-rating test** here, and at most one subsidised building per alliance
+  pass. For a side with an `AIPersonality` and a project queued in that
+  category, `UseSubsidyForPurpose` (~7998) also holds construction back until
+  projects have taken `projectspendingratio` of the category's past spending.
+  (`GetMissingSubsidyFundingCost` also contains a discarded `Mathf.Max(0f,
+  num − num2);`.)
+- **Unsubsidised types** run only if **`automanageconstructiong`** *and*
+  `IsRatingOkForConstruction()`, skip types that need a unit to place, apply
+  the variety damper below, and fire on `Random.Range(0f, 1f) < prob × dt ×
+  50f`. If a building of that type within 100 units (any distance for a
+  prison camp) is below its top level, it is **upgraded instead**.
+- Both require `buildingtypes[j].aiplacement`, **false for Mines, Port,
   Factory, Bridges, Fort, Telegraph and the camps** — so mines and ports never
   auto-found or auto-upgrade.
-- an existing building of that type within 100 units is **upgraded instead**.
-- the trigger is `Random.Range(0f, 1f) < prob × dt × 50f`.
+
+> **Productive buildings never upgrade themselves.** Every automatic farm,
+> plantation, factory, iron works, foundry, mill and the rest is a new level-0
+> building; levels above 0 come only from the player's upgrade button (or an
+> AI side's own upgrade logic). *An earlier version of this list applied the
+> 100-unit upgrade-instead rule and the random trigger to both branches, and
+> the mechanics files followed it.*
+
+**Building by hand charges the shortfall to the treasury at ×5.**
+`CBuilding.Place` (~1225) drains the category's `subsidyfunding` by up to the
+subsidy cost and charges the treasury `GetMissingSubsidyFundingCost` — so a
+productive building placed with an empty category costs **five times** its
+subsidy price in cash, and one placed at half funding 4.4 times on top of the
+half drawn from the budget *(calculated)*. The upgrade panel says as much:
+*"extraordinary payments are much more expensive than waiting for the
+subsidies to acrete"* (`CBuilding` ~3040, ~3123). Without enough funding, a
+rating at CCC+ or worse blocks the extraordinary payment (~3028, ~3111).
 
 Shipped `subsidytype` from `buildingtypes.dat`: **Agriculture (2)** = Farms
 $2.5 M, Plantations $3.0 M, Mills $1.63 M, Saltworks $1.5 M; **Industry (3)** =
@@ -495,6 +612,46 @@ cap = TransportCapacityFactor
 `transportbottlenecks` and `GetTcapFactor()` expose where the network is
 binding; `transcapperalliance[,]` is a static per-alliance cache.
 
+### Trade flow: each node pulls from its neighbours
+
+The node update (`IIP` ~886–1000) loops over `connectediips` and, per good:
+
+```
+envoy  = 1 + level(121) × project_sendenvoystradevolume (0.05)        // Trade Deals
+tariff = 1 + taxcaps[tarifs] × tax[tarifs]                             // own tariff, see defect below
+attr[g] = clamp01( (myRel[g] − theirRel[g] × tariff ÷ envoy × (1 ± tradeinefficiency 0.1))
+                   × clamp01(theirStock[g] ÷ minpricereached[g]) )
+share[g] = attr[g] ^ goodsattractivitylevelfactor (3) ÷ Σ attr
+flow[g]  = (myCap + theirCap) / 2 × dt × goodstransmissionspeed (50,000)
+         × share[g] ÷ max(1, distance) × minpricereached[g]
+flow    = min(flow, 0.02 × minpricereached[g])                         // per update, per connection
+        × (1 − max(myBlocked, theirBlocked))
+        × tradefactorenemyiips (0.1)          if the two owners are at war
+        × 0                                   if no trade agreement, or a supply good between alliances 0 and 1
+flow    = min(flow, theirStock[g])
+        × envoy × importtrafficadjustment (0.7)   if the owners differ; the 0.7 only for a Union or Confederate importer
+```
+
+`attr` is clamped at 0, so **a node only ever imports**, and only goods dearer
+at home. The cube over a sum means one large gap moves at nearly the full
+rate while ten gaps of 0.5 share about a quarter of it. The 2 % cap is per
+call, not per unit of time. Tariff revenue (`tariffs_tmp`) accrues on
+cross-alliance flow and excise (`excisetax_tmp`) on same-alliance flow; excise
+appears nowhere in `attr` or `flow`. A potential flow (`num9`, computed with
+transport capacity before condition and without the blockade and stock
+limits) is kept alongside for the trade-warfare ledger (open question 5).
+
+`SetTradeAgreementWithNation` has one caller, the nations loader
+(`GameVars` ~7278), so the agreement matrix is fixed for the campaign.
+
+> **Defect: the tariff factor leaks onto domestic connections.** `tariff`
+> starts at 1 before the connection loop and is assigned only when
+> `allianceowner != connectediips[j].allianceowner`, with no `else`. After the
+> first foreign connection in `connectediips`, every later connection,
+> same-alliance ones included, is priced as if it paid the node's tariff. A
+> border node with a 30 % tariff therefore under-imports from its own
+> neighbours too, depending on connection order.
+
 ### Policies key off `GameObject` names
 
 ```csharp
@@ -542,8 +699,18 @@ clamp to [0, ratingnotches.Length − 1]
 base   = max(0.01, interestratebase × (1 + (economyFactor − 1) × interestrateleverageeconomy))
 rTerm  = (rating/100) ^ interestratelverageratingexp × interestrateleverageratinglinear
 target = (base + rTerm) / (1 + GetFundingImprovementThroughBanks())
-interest drifts toward target by a random step each update
+interest = target ± 1 % of the current rate, each update
 ```
+
+`GetFundingImprovementThroughBanks` (`GameVars` ~3836) is
+`√bankvalue × fundingimprovementbankslin (0.035) × (1 + level(96) ×
+project_subsidizebanks (0.05))`, where `bankvalue` is the sum of `level + 1`
+over the alliance's completed **Bank buildings** (`Economy` ~1655, published
+~1750). Bank levels are 0 and 1 (`bankinfluenceonavailablecapital` has two
+entries), so ten unupgraded banks give `√10 × 0.035 = 0.11` and cut the rate
+by about 10 % *(calculated)*. Project 96 only scales that. *An earlier version
+of the mechanics translation credited the divisor to "bank subsidies"; it is
+the banks you own.*
 
 > **Fiscal policy has teeth.** Deficit and debt set a credit-rating notch,
 > which sets the interest rate, which compounds the debt. `ratingmodifier` is
@@ -554,8 +721,14 @@ interest drifts toward target by a random step each update
 > project 97 (credit rating) and the bank-funding term are the levers against
 > it.
 
-Note the interest rate **drifts stochastically** toward its target rather than
-jumping, via `Random.Range(target − i×1.01, target − i×0.99)`.
+The update is `interest += Random.Range(target − interest × 1.01, target −
+interest × 0.99)`, which lands on `target ± 0.01 × interest`: the rate
+**jumps** to its new target each update, with ±1 % relative noise. *An earlier
+version of this note said it drifts toward the target rather than jumping.*
+
+The burden divisor `√max(1, usedcampaignagressiveness)` applies to every
+alliance except the player's (`i != playeralliance`), European powers
+included.
 
 ### The boom/bust cycle is an authored curve
 
@@ -676,10 +849,10 @@ raids (`AddShortages`, `ResetShortages`).
    `taxrevenuemodifier = {8, 5, 1, 2.5, 0.7}` and every cap set exclusively by
    policy — income and corporate tax ship at cap **0** and are unusable until
    the Revenue Acts. `GetCurrentTaxValuePa(-1)` omits
-   `taxrevenuemodifier[corporate]` that the per-type branch includes. What is
-   still untraced is the resource-level plumbing: `excisetax_tmp` /
-   `tariffs_tmp` on `Economy.resources[].productalliancedata[]` and
-   `Resource.RewriteTaxValues`.
+   `taxrevenuemodifier[corporate]` that the per-type branch includes. The
+   accrual into `excisetax_tmp` / `tariffs_tmp` is now traced (§4, "Trade
+   flow"); what remains untraced is `Resource.RewriteTaxValues` and the path
+   from those per-good accumulators into the treasury total.
 5. **Blockade and trade warfare — now largely resolved.** `UpdateBlockades` is
    **private on `IIP`** (~621), not on `Economy`. It rebuilds `blocked` from
    scratch each pass over `unitsinrange`: a non-fleet with `cavalryorders == 2`
@@ -701,10 +874,20 @@ raids (`AddShortages`, `ResetShortages`).
    `AddTradeWarfare(1, …)` and `lossestradewarfare`, gated on
    `blocked + connected.blocked > 0 || (condition < 1 && condition > 0)`.
 
-   > **So `lossestradewarfare` is forgone *tariff revenue*, not lost trade
+   > **So `lossestradewarfare` is priced like *tariff revenue*, not lost trade
    > value**, it scales with the alliance's own tariff rate, and it conflates
    > blockade with node damage. A nation with zero tariffs reports zero
    > blockade losses however hard it is squeezed.
+
+   It is not even forgone tariff revenue. The `num9 > 0` booking (~991) sits
+   after the cross-alliance/domestic `if`/`else`, so it runs for **every
+   connection, same-alliance ones included**, which pay excise rather than
+   tariff. And `num10 − num9` includes everything that separates the actual
+   flow from the potential one: the blockade, the condition-reduced transport
+   capacity, and the clamp to the neighbour's stock. Once a node is blockaded
+   or damaged, a neighbour simply running short is booked as a blockade loss
+   too. The figure is best read as *lost flow × price × own tariff rate × 8*.
+   *An earlier version of this note called it forgone tariff revenue.*
 
    **Two defects.** The **perk-8** reduction
    (`blocked *= effectoonblockadewithinradius[level]`) and the `orgrunning`

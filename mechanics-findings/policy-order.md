@@ -600,8 +600,8 @@ substitute.
 | Civil Order (107) | military | $1 M | **−5 % support loss from casualties** — its raid half is inert, and it also shields the enemy (§8.3) |
 | Trade Warfare (106) | military | $1 M | +5 % blockade and blockade-running efficiency |
 | Infrastructure Reform (99) | industry | $2.5 M | +5 % node transport capacity |
-| Subsidize Industry (104) | industry | $2.5 M | +5 % productivity at **Iron Works and Foundries only** — not the Manufactories that make Provisions and Uniforms (§8.3) |
-| Subsidize Agriculture (105) | agri | $2.5 M | +5 % building productivity |
+| Subsidize Industry (104) | industry | $2.5 M | +5 % to the specialisation bonus, so **at most +2.5 % output**, at **Iron Works and Foundries only** — not the Manufactories that make Provisions and Uniforms (§8.3) |
+| Subsidize Agriculture (105) | agri | $2.5 M | +5 % to the specialisation bonus, so **at most +2.5 % output** ([the war economy](the-war-economy.md) §3) |
 | Weapon Production (102) | industry | $2.5 M | +5 % weapon production |
 | Railroad Construction (119) | politics | $1.5 M | +5 % construction speed |
 | Improve Credit Rating (97) | economy | $10 M | **−1 credit-rating notch** — a notch, not a percentage, despite what the panel prints |
@@ -630,7 +630,7 @@ town** in the state, not some of them.
 | **Plantation Mechanization** (114) | Inert — its effect sits inside a condition that cannot be true ([the war economy](the-war-economy.md)) |
 | **Civil Order** (107) | **Half inert, and the working half is leaky.** Its casualty term works; its raid term is computed in two places and thrown away both times, so raiding costs you the full support hit however many levels you hold. And when your side is the one listed first on a battle, **your Civil Order level is applied to the enemy's support loss as well as your own** |
 | **Farm Mechanization** (113) | Its crop-production half is inert; its **recruitment** half works |
-| **Subsidize Industry** (104) | Works, but reaches **Iron Works and Foundries only**. The guard omits the Manufactory — the building that makes Provisions and Uniforms — while three other places in the code that group industrial buildings include it |
+| **Subsidize Industry** (104) | Works, but reaches **Iron Works and Foundries only**. The guard omits the Manufactory — the building that makes Provisions and Uniforms — while three other places in the code that group industrial buildings include it. And like 105, its +5 % multiplies only the specialisation bonus, so it adds at most 2.5 % to output per level ([18](../code-findings/18-economy.md) §3) |
 | **Military Education** (122) | Works for you. For the AI the same gate reads **the enemy's** school count against **the enemy's** project level, and in the wrong direction — so the AI is unconstrained by its own project, and **buying the project and then not building a school stops the AI building one at all** |
 | **Occupation Administration** (93), **Suppress Population** (94) | Both need a state **totally** occupied — every town. And the occupied flag **never clears**, so a state you overran and later lost still counts for you, while a state you liberated still counts for the enemy forever |
 | Improve Credit Rating (97) | Works, but the effect summary formats a rating-notch count as "+100 %" per level |

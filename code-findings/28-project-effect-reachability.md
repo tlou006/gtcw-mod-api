@@ -585,7 +585,10 @@ buildings — `CBuilding` ~502, `Policies` ~1270 and ~1668 — all include
 a design choice. Project 105 Subsidize Agriculture correctly covers both Farms
 and Plantations.
 
-The effect is live; its scope is half what the name promises.
+The effect is live; its scope is half what the name promises. Its size is
+too: like 105's, the factor multiplies only `productionefficiency`, the
+specialisation bonus, so +5 % a level is at most +2.5 % of output
+([18-economy](18-economy.md) §3).
 
 ### 6.5 State that never clears — projects 93 and 94
 

@@ -155,6 +155,18 @@ that moves. Tariff revenue and import volume are directly opposed, and the
 only thing that offsets it is **project 121 Trade Deals**, which divides the
 same term.
 
+> **And at border markets the tariff leaks onto domestic trade.** The code sets
+> the tariff factor on the first foreign connection it meets and never resets
+> it, so every connection after that one in the node's list, including
+> connections to your own markets, is priced as if it paid your tariff. A
+> border node with a high tariff under-imports from its own hinterland too.
+> This is a defect ([18](../code-findings/18-economy.md) §4, "Trade flow").
+
+The whole flow model above is traced in
+[18](../code-findings/18-economy.md) §4, "Trade flow". *An earlier version of
+this file gave it without a code-findings source; it was re-verified line by
+line and holds, apart from the leak above and the 0.7 noted below.*
+
 **6. Blockade cuts flow linearly, using the worse end.** See §4.
 
 ### Who may trade with whom — and it never changes
@@ -191,8 +203,10 @@ border nodes *do* trade — but through two filters:
 > are short of those, the only sources are your own production and the foreign
 > powers' ports.
 
-Imports from a foreign power are additionally scaled by **0.7**, and raised by
-project 121.
+Every import across an alliance line into a Union or Confederate market is
+additionally scaled by **0.7**, including trade across the front line, and
+raised by project 121. *(An earlier version said imports from a foreign
+power.)*
 
 ---
 
@@ -262,9 +276,11 @@ Agricultural goods carry a per-month multiplier. The shipped curves:
 
 Two important differences hide in that table:
 
-- **Crops produce nothing at all from December through May** — seven months of
-  zero. Roughly **70 % of the annual crop arrives in September, October and
-  November.**
+- **Crops produce nothing at all from December through May** — six months of
+  zero. About **83 % of the annual crop arrives in September, October and
+  November** *(calculated: 10 of the year's 12 modifier units)*. *An earlier
+  version said seven months and 70 %; the monthly values in `resources.dat`
+  give six and 83 %.*
 - **Forage is the exception**: it produces at normal rate January to May.
   Only December stops it. (In the data those months are marked with a sentinel
   that means "no seasonal modifier", not "zero" — an easy thing to read
@@ -292,8 +308,13 @@ mechanisation. Neither reaches production:
 > the volunteer bonus — which is a real and useful effect, just not the one the
 > panel leads with.
 
-**Project 104 Subsidize Industry excludes the Factories.** Its +5 %/level
-efficiency applies to building types "Factory", Iron Works and Foundries.
+**Project 104 Subsidize Industry excludes the Factories, and is half as strong
+as it says.** Its +5 %/level multiplies only the specialisation bonus
+(`share^0.4`), not the whole of output, so it is worth **at most +2.5 % of
+output per level**, at full focus *(calculated)*. The same applies to 105
+Subsidize Agriculture and to Northern Routes' crop factor (+12.5 %, not +25 %)
+([18](../code-findings/18-economy.md) §3). And the +5 % applies to building
+types "Factory", Iron Works and Foundries.
 "Factory" (a distinct type from "Factories") produces nothing at all, so in
 practice the project boosts **Iron Works and Foundries only** — your weapons
 and metals, not your provisions and uniforms. Three other places in the game
@@ -301,7 +322,7 @@ that group industrial buildings all include the Factories; this one does not,
 which reads like an oversight rather than a design choice.
 
 Agriculture's equivalent, **105 Subsidize Agriculture**, correctly covers both
-Farms and Plantations.
+Farms and Plantations, at the same half strength.
 
 ---
 
@@ -388,6 +409,10 @@ own tariff rate**. Two consequences:
   reported losses jump without the blockade changing at all.
 - **It includes infrastructure damage**, not just blockade: a node at reduced
   condition books losses into the same figure.
+- **It counts your domestic trade too**, which pays no tariff, and once a
+  market is blockaded or damaged it also books a neighbour simply running out
+  of stock. So it isn't even forgone tariff revenue: it's lost trade, priced
+  at your tariff rate ([18](../code-findings/18-economy.md) §8 q5).
 
 > **What to do with this:** use the per-node blockade percentage (on the node's
 > own tooltip) and your goods prices to judge how badly you are being
@@ -527,6 +552,9 @@ And every threshold is multiplied by a year factor:
 ```
 rate = ( base + (notch / 100)² × 2 ) ÷ (1 + bank funding)
 
+bank funding = √(the levels of all your Bank buildings, each counted + 1)
+             × 0.035 × (1 + 5 % per level of project 96)
+
 base = max(0.01, 0.04 × (1 + (economy factor − 1) × 20))
 ```
 
@@ -556,8 +584,11 @@ The rating adds `(notch/100)² × 2`: nothing at AAA, 1.3 % at BBB, 2.4 % at BB�
 > way: **be careful with the first year's budget and relaxed about the
 > last's.** Deficits in 1861 are expensive in a way deficits in 1864 are not.
 
-Bank subsidies (project 96) divide the whole rate, so they are worth most when
-the rate is high — which is to say, early.
+**The banks you own divide the whole rate**, so they are worth most when the
+rate is high — which is to say, early. Ten unupgraded banks take about 10 %
+off it *(calculated)*; project 96 Subsidize Banks only strengthens that by 5 %
+a level. *An earlier version credited the divisor to bank subsidies (project
+96); the term counts Bank buildings ([18](../code-findings/18-economy.md) §5).*
 
 The rate does not drift gradually, incidentally: each update it jumps to the
 new target with about ±1 % of noise, so a rating change shows up immediately.
@@ -656,7 +687,7 @@ The decisions this file supports, in rough order of value:
    output from a focused factory, and the trade model rewards sharp price gaps
    over diffuse ones.
 7. **Build depots early and behind the front**, not at it (§8).
-8. **Stock food in the autumn.** 70 % of the crop arrives September–November
+8. **Stock food in the autumn.** 83 % of the crop arrives September–November
    and nothing at all arrives December–May (§3). August is the month a raid on
    farmland costs the enemy most.
 9. **Keep December in mind for cavalry and artillery** — the only month forage
@@ -686,6 +717,9 @@ The decisions this file supports, in rough order of value:
 - **The two production-project bugs are one-token fixes each** — `i` should be
   `producedgoods[i]` in both tests (§3) — and project 104's building list wants
   the manufactory id adding.
+- **The tariff leak (§2) is a one-line fix**: reset the tariff factor to 1 at
+  the top of each connection in `IIP`'s trade loop
+  ([18](../code-findings/18-economy.md) §4).
 - **Transport-capacity policies key off Unity scene object names**
   (`"Trade_SantaFe"` and friends), so a new trade route cannot receive those
   policy effects without reusing the exact names

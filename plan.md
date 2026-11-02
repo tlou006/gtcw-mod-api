@@ -557,7 +557,9 @@ planned index are in [`mechanics-findings/README.md`](mechanics-findings/README.
      debt in 1861 costs ~10.3 % while $500 M in 1864 costs ~2.3 %;
    - **`lossestradewarfare` is forgone *tariff revenue*, not lost trade
      value** — it scales with your own tariff rate and conflates blockade with
-     node damage;
+     node damage; *(later refined: it is booked on domestic connections too,
+     so it is lost flow priced at the tariff rate —
+     [18](code-findings/18-economy.md) §8 q5)*;
    - **projects 113 and 114 test the loop counter against a resource id**, so
      114 does nothing at all and 113 keeps only its recruitment half, while
      both are advertised by the project panel;

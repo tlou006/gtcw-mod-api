@@ -67,9 +67,42 @@ array slot, so file order is free), and **`maxprice < 0` means "derive from the
 recipe"** — `Σ(input.maxprice × amount)`. So a mod adding a good mid-chain can
 leave `maxprice` at `-1` and get a consistent price for free.
 
-`harvestingmodifier[12]` is **one modifier per month**, with `isharvested`
-inferred from the data rather than flagged, and fertility is spatial via
-`AssignFertilityMaps`.
+`harvestingmodifier[12]` is **one modifier per month**, January first, with
+`isharvested` inferred from the data rather than flagged, and `−1` meaning "no
+seasonal modifier". Crops are zero for six months (December to May) and take
+83 % of their year in September to November. Fertility is spatial via
+`AssignFertilityMaps`, and is applied **squared**.
+
+## Production, labour and new industry
+
+Detail in [18](18-economy.md) §3.
+
+- **Output** is `share × (1 + share^0.4)` times level, workforce, condition,
+  fertility² and the month's modifier. Projects 104/105 and the state
+  production factor scale only the `share^0.4` bonus term, so their "+5 %"
+  is worth at most +2.5 % of output.
+- **Labour** is a blurred 32×32 map that towns paint up and buildings paint
+  down. The slave share of a building's labour ignores it. Every recruit
+  removes five people from the state's painted population, and the dead are
+  never returned.
+- **Private wealth** is a price index (1 − the average relative price of what
+  a town buys), scaled by slack labour, banks and public wealth, and clamped
+  at 1. The national average that drives morale applies slack a second,
+  uncapped time.
+- **New industry**: each node proposes one building type. Subsidised
+  (productive) types are founded new, at level 0, as soon as their category
+  budget covers the full cost. Unsubsidised types roll a probability, upgrade
+  a nearby building instead, and need a rating above CCC+.
+
+## Trade flow
+
+Detail in [18](18-economy.md) §4. Each node pulls goods from its neighbours,
+weighted by the **cube** of each good's price gap, divided by distance, capped
+at 2 % of the good's scale per update, cut by blockade and by ×0.1 between
+enemies, and zeroed for the eight supply goods between Union and Confederacy.
+**The tariff factor leaks**: once a node has met its first foreign
+connection, every later connection, domestic ones included, is priced as if
+tariffed.
 
 ## Macro: a real debt spiral
 
@@ -79,6 +112,7 @@ notch  = lookup against ratingsurplustodebt[] × a per-year scale
 notch += alliance.ratingmodifier + floor(GetProjectLevel(97) × project_creditrating)
 
 interest → (base(economyCycle) + (rating/100)^exp × lin) / (1 + bankFunding)
+bankFunding = √(Σ over your Bank buildings of level + 1) × 0.035 × (1 + 0.05 × level(96))
 ```
 
 > **Fiscal policy has teeth**, and `ratingmodifier` is exactly what the policy
@@ -86,14 +120,16 @@ interest → (base(economyCycle) + (rating/100)^exp × lin) / (1 + bankFunding)
 > [summary-effects](summary-effects.md) ends with
 > `ratingmodifier += southernpacificrailroadratingmodifier`. So
 > **policy → rating → interest → treasury** is a closed feedback loop, with
-> project 97 and bank funding as the levers against it.
+> project 97 and the banks you own as the levers against it.
 
-Interest **drifts stochastically** toward its target rather than jumping.
+Interest **jumps** to its target each update, with ±1 % relative noise. (An
+earlier version of this summary said it drifts.)
 
 **The boom/bust cycle is an authored curve** — `List<EconomyCycle>` of
-`(date, factor)` pairs interpolated against the campaign date. Data, not
-simulation, and therefore a high-value low-risk mod target *if* its source file
-can be found (it hasn't been yet).
+`(date, factor)` pairs interpolated against the campaign date, read from the
+tail of each scenario's `battledata.dat`. All six shipped scenarios hold the
+same seven points. Data, not simulation, and a high-value, low-risk mod
+target.
 
 ## Credibility decoded
 
@@ -150,18 +186,17 @@ blockades, and raids via `AddShortages`.
 
 ## Still open
 
-1. **Where `EconomyCycle` is loaded from.** Authored curve, high mod value,
-   parse site not found.
-2. **`UpdateEconomyAllianceData` / `UpdateEconomyEstimates`** — the
+Resolved since the first pass, all in [18](18-economy.md) §8: where
+`EconomyCycle` is loaded from, the workforce, slavery and capital maps, the
+tax revenue model, and the blockade mechanism (with
+[33](33-trade-warfare.md) for the ledger). Still open:
+
+1. **`UpdateEconomyAllianceData` / `UpdateEconomyEstimates`** — the
    production/demand aggregation arithmetic. Structure is mapped, the maths is
    not.
-3. **`UpdateFilterMaps`** (~270 lines, run `workforcemapupdates` times per
-   frame) — the spatial resource and workforce maps, and the most expensive
-   economy code. All ten of them are `FilterMap` components, the shared 2-D
-   field type described in [21-ai-battle](21-ai-battle.md) §8; the arithmetic
-   that fills them is still untraced.
-4. **Taxation** — `excisetax`, `tariffs`, `RewriteTaxValues` exist; the player
-   controls and their effects were not followed.
-5. **Blockade and trade warfare** — the naval side.
-6. **`Town` vs `IIP` vs `CBuilding`** all hold stock and trade; the division of
+2. **The other `UpdateFilterMaps` layers** — `transportbottlenecks`,
+   `marketcapacity`, `hospitals`, `tradeandsupply` and `supply`.
+3. **`Resource.RewriteTaxValues`** and the path from the per-good tax
+   accumulators into the treasury.
+4. **`Town` vs `IIP` vs `CBuilding`** all hold stock and trade; the division of
    responsibility is unclear.

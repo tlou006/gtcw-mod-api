@@ -22,8 +22,9 @@ The short version:
 > casualties included, because the dead are never returned. Slave labour is
 > exempt from the whole mechanism and costs a third as much. New industry
 > appears on its own, but only where a good's price is already above 72.5 % of
-> maximum, only while a credit rating holds, and only for building types the
-> game is willing to place — **mines and ports are not among them.**
+> maximum, only once its subsidy category has saved the full price, always as
+> a new level-0 building, and only for building types the game is willing to
+> place — **mines and ports are not among them.**
 
 ---
 
@@ -189,7 +190,11 @@ year** against **$0.33 per slave**, charged against the building's profit.
 
 - **Underground Railroad** subtracts **0.10 once** and then **0.05 per year**,
   continuously — and it applies to **both alliances**, not just the researcher.
-- Slavery-restriction policies subtract a further **0.10** each.
+- The Confederacy's own **Slavery Restriction Act** (132) subtracts **0.25**
+  once, from the Confederacy only. *An earlier version said "slavery-restriction
+  policies subtract a further 0.10 each"; there is one such policy, and
+  `slaveryrestrictionfactor` ships at −0.25
+  ([22](../code-findings/22-policy-and-project-catalogue.md) §7.3, 132).*
 
 There is **no floor on the value anywhere in the code.** Over a four-year war
 the Underground Railroad alone takes it from 1.00 to about 0.70, which drops a
@@ -297,6 +302,11 @@ output(good) = the building type's production factor for its level
              × elapsed time
 ```
 
+Projects 104 and 105 and the state production factor (Northern Routes)
+multiply only the `effortShare^0.4` inside the specialisation bonus, so their
+advertised percentages reach output at half strength at most
+([the-war-economy](the-war-economy.md) §3).
+
 Everything a player controls sits in three of those terms: **where** the
 building is (workforce, fertility), **what level** it is (production factor, at
 the cost of tripled labour), and **what you point it at** (effort share, twice
@@ -381,7 +391,19 @@ categories:
 > productive base cannot grow at all.** Those two sliders are not a bonus, they
 > are the construction budget for the entire economy.
 
-**Private, unsubsidised types are gated on your credit rating** instead.
+When a category is fully funded, the game builds that category's best-scoring
+site **straight away, as a new level-0 building** — no dice roll, and at most
+one subsidised building per side per twelve-hour pass.
+
+**Building by hand before the budget is full costs a premium.** Placing a
+productive building drains what the category has saved and charges the rest
+to the treasury at **five times** the missing share: with an empty budget a
+building costs five times its price in cash *(calculated)*. The upgrade panel
+warns that *"extraordinary payments are much more expensive than waiting"*.
+
+**Private, unsubsidised types are gated on your credit rating** instead, and
+they are the ones that roll dice: each pass, the best-scoring candidate is
+built with a probability that scales with its score.
 
 **Mines and ports never grow by themselves.** The foundation routine only
 considers building types flagged for automatic placement, and **Mines and Port
@@ -390,9 +412,28 @@ camps). So your coal, iron ore, lead, niter, salt and copper output — and your
 harbour transport capacity — will **never** expand on its own. Those must be
 placed and upgraded by hand.
 
-**Upgrades are preferred to new sites.** If an existing building of the chosen
-type sits within 100 units, it is upgraded instead — which, per §2, triples its
-labour bill. This is how a region quietly strangles itself.
+**Productive buildings never upgrade themselves.** Every farm, plantation,
+factory, iron works and the rest that the game founds for you is a new level-0
+building, so automatic growth spreads across sites rather than stacking
+levels. Upgrades — and with them the tripled labour bill of §2 — come only
+from your own upgrade button. The upgrade-instead rule (an existing building of
+the type within 100 units is upgraded rather than a new one founded) applies
+only to the unsubsidised types: banks, markets, hospitals, news agencies,
+military academies and prison camps.
+
+*An earlier version of this section applied the upgrade-instead rule to every
+type and called it "how a region quietly strangles itself". The code applies
+it only to the unsubsidised branch ([18](../code-findings/18-economy.md) §3,
+"Company foundations").*
+
+**Industry is not the only thing a market proposes.** Each node puts forward
+one building type, and the producer of its scarcest good competes with a
+Market (where transport is congested), a Hospital (where your wounded lie with
+no hospital in reach), a Prison Camp (when you hold more prisoners than the
+enemy), a Military Academy (when the enemy's military experience is ahead), a
+Bank (when your interest rate is above the enemy's) and a News Agency (where
+the draft is heavy and printing works are few). Only the highest score is put
+forward.
 
 **And it only runs for you if auto-manage is on.** Two checkboxes in the
 building list, one per tab, gate the whole thing for the player's alliance:
@@ -428,31 +469,55 @@ The same map feeds a second system, in the opposite direction. A town's
 number a building reads — and it is treated as **unemployment**:
 
 ```
-privateWealth = (1 − unmet consumption)                  floored at 0.25
+base          = 1 − the average relative price, at the town's market,
+                    of the goods its people buy
+privateWealth = interp(base: 0 → 0.25, 1 → 1)             0.25 when everything is at top price
               × interp(workforceLevel: 1.6 → 0.9)        ← high slack, low wealth
               × (1 + 0.25 × availableCapital)            banks again
               × the alliance's public wealth factor
+              clamped to at most 1
 ```
 
-and `incomeTax = privateWealth × representingPopulation × slider × cap × 1.5`.
+and `incomeTax = privateWealth × representingPopulation × slider × cap × 1`.
 
-So abundant labour is **good for your factories and bad for your citizens**.
-The wealth multiplier runs from **1.6** where there is no slack to **0.9**
-where there is complete slack. Private wealth in turn drives income tax
-revenue, and national morale through reason code 34.
+So **private wealth is a price index**: a town is wealthy when the goods it
+buys are cheap. Labour then pulls it two ways, and abundant labour is **good
+for your factories and bad for your citizens**:
 
-| | Production | Private wealth |
-| --- | --- | --- |
-| Map 0.50+ (full slack) | 100 % | ×0.9 |
-| Map 0.25 | 50 % | ×1.25 |
-| Map 0.15 | 30 % | ×1.6 |
+- **In the town.** The jobs multiplier runs from **1.6** with no slack to
+  **0.9** with complete slack, but the result is capped at 1. At the map's
+  usual floor (0.15, a multiplier of 1.39) a town stays at the cap until its
+  goods average more than about **37 %** of their top price, and with no slack
+  at all until **50 %**. A town with complete slack can never pass 0.9, and
+  every price rise shows *(calculated, without banks or Print Notes)*.
+- **In the national average.** The figure national morale reads (reason code
+  34) weights each town by population and multiplies it again by `1 − 0.3 ×
+  slack`, uncapped. A town with complete slack counts at **0.63×** its price
+  index; a fully employed one at the cap.
 
-> **Production wins this trade.** It spans 30–100 % (a 3.3× range) against the
-> wealth factor's 0.9–1.6 (1.8×), so a region with surplus labour is the better
-> outcome overall. But it is worth knowing that a fully employed region is
-> reporting higher private wealth and paying more income tax, so the two halves
-> of the economy panel will seem to disagree about whether a place is doing
-> well. They are measuring different things.
+| | Production | Town wealth factor | Weight in the national average |
+| --- | --- | --- | --- |
+| Map 0.50+ (full slack) | 100 % | ×0.9 | ×0.7 |
+| Map 0.25 | 50 % | ×1.25, capped at 1 | ×0.85 |
+| Map 0.15 | 30 % | ×1.39, capped at 1 | ×0.91 |
+| Map 0 | 0 % (free labour) | ×1.6, capped at 1 | ×1.0 |
+
+> **Production still wins this trade** in most places: it spans 30–100 % (a
+> 3.3× range), while complete slack scales a town's price index by 0.9 × 0.7
+> = 0.63 in the national wealth figure. Where prices are high it is closer,
+> because there the jobs multiplier is no longer hidden by the cap.
+> Either way, a fully employed region reports higher private wealth and pays
+> more income tax, so the two halves of the economy panel will seem to
+> disagree about whether a place is doing well. They are measuring different
+> things.
+
+*An earlier version of this section read the base as "unmet consumption",
+left out the cap at 1 — so it showed ×1.25 and ×1.6 as wealth gains the cap
+mostly absorbs — put ×1.6 at map 0.15 rather than at map 0, gave income tax a
+×1.5 modifier where the shipped `taxrevenuemodifier` for income is 1, and
+missed the second, national slack factor. Corrected
+against `Town.UpdateConsumption` and `Economy` ~2062
+([18](../code-findings/18-economy.md) §3, "The workforce map").*
 
 **Available capital** is the one input that helps both halves at once. Banks
 paint it — `0.50` at level 1 and `1.00` at level 2, over a radius of three
@@ -500,7 +565,8 @@ whole production story with no downside.
 - `maxSlaveryFactor` has **no clamp**, so a long campaign with several
   slavery policies can in principle drive it negative. Nothing in the shipped
   policy set gets there, but a mod adding a fourth reduction should add a floor.
-- **The variety damper in stage two is order-dependent.** It divides a running
+- **The variety damper in stage two is order-dependent**, and applies only to
+  the unsubsidised branch. It divides a running
   factor by the recent-founding count of *each type it examines in turn*,
   rather than per type, so low building-type ids are systematically favoured.
 - `CheckCompanyFoundations_x` (69 lines) has **no callers** — an orphaned
