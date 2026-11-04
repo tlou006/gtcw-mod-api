@@ -2179,6 +2179,15 @@ silently no-op.
 
 ### A deterministic test harness — half of it is real
 
+> **Superseded for testing the fixes, 2026-11-04: [`tests/`](tests/README.md)
+> is the harness.** It boots without UI steps by calling the menu's own
+> `MainMenu.LaunchCampaign()` (and the battle panel's batch operations) from a
+> BepInEx plugin in a windowless, sandboxed copy of the game, and adds a
+> no-engine tier that runs the game's code against stubbed Unity. Neither
+> `debug.txt` nor a patch on `LoadBattleScenario` was needed. What follows is
+> kept for the debug army setup, which is still the way to a hand-authored
+> battle.
+
 This section previously claimed `debug.txt` "can boot straight into a specific
 battle or campaign scenario at startup", on the strength of the file's own
 labels. **That is wrong for this build**, and the full reading is now in

@@ -813,7 +813,7 @@ code reads it inside out:
 | Mounted accuracy, as shipped | 0.60 | 0.90 | 0.80 | **0.68** |
 | Mounted accuracy, fixed | 0.60 | 0.70 | 0.80 | 0.92 |
 | Mounted reload time, as shipped | 1.25 | 1.06 | 1.13 | **1.20** |
-| Mounted reload time, fixed | 1.25 | 1.19 | 1.13 | 1.06 |
+| Mounted reload time, fixed | 1.25 | 1.19 | 1.13 | 1.05 |
 
 The fix lends `1 − A[i]` for the duration of each call, so level I removes a
 quarter of the malus and level III four fifths — the declining array read the
@@ -921,6 +921,15 @@ exactly what it would against a perkless raider.
 **Confirm** The guarding force's casualties double and its morale hit deepens by
 half; the raider's own return casualties fall back to the perkless value.
 
+> **Harness finding, 2026-11-04 — the guards' casualties quadruple, not
+> double.** Both blocks compute `num3 *= Random.Range(num3 * f, num3 * (1 + f))`,
+> which squares the casualty term, so a factor lent to `casualtyfactorguardingunits`
+> scales the guards' casualties by its square. Measured over one seeded raid
+> round in 001/E: Partisan III unfixed — guards ×1.00, raider's own casualties
+> ×2.00 and own morale hit ×1.50; fixed — guards ×4 (2²), raider ×1.00. Whether
+> the squaring is itself a defect is not settled here; the fix's direction is
+> confirmed either way. `tests/GTCW.BugFixes.Tests/RaidingPerkDirectionTests.cs`.
+
 ### GTCW-041 — Embedded Reporters skips the holder
 
 **Target** `BattleUnits:CheckForGroupPerk` — `BattleUnits.cs:5848`;
@@ -961,6 +970,18 @@ parent above it. Unfixed its commander's fame gain is unmultiplied, while a
 subordinate Corps that holds nothing gets ×1.25.
 **Confirm** The holder's commander gains ×2 at level III, and a Corps under it
 gains ×2 rather than ×1.25.
+
+> **Harness finding, 2026-11-04 — the repro above does not reproduce as
+> written.** At the top of the hierarchy `GrabNextParentUnit` returns the unit
+> itself (its parent is the "Units" folder), so `CheckForGroupPerk`'s first step
+> *does* test a top-level holder: an Army with no parent above it already gets
+> ×2 unfixed, and the fix changes nothing there. The "holder is skipped" half
+> needs a holder **with** a parent — a Corps holding the perk under an Army that
+> does not. Measured in 001/E (13th Corps under the Army of the Gulf): Corps
+> holder unfixed ×1.00, fixed ×2.00; Corps under an Army holder unfixed ×1.25,
+> fixed ×2.00; top-level Army holder ×2.00 with the fix off and on. Only
+> formations of type 15 and up are multiplied at all, so 001/A, which has no
+> Corps under anything, shows no effect. `tests/GTCW.BugFixes.Tests/EmbeddedReportersTests.cs`.
 
 ### The rest of the family — specified, not written
 
@@ -1031,6 +1052,29 @@ working in game. Nothing ships between those two states.
   the behaviour must be indistinguishable from the mod's absence.
 - **One fix at a time, with the others off.** Wave 2 shares a method with the
   ModApi's own patches, and a wrong number there could come from either side.
+
+### The harness runs this protocol
+
+[`tests/`](../../tests/README.md) automates every rule above, in three tiers:
+the game's code against stubbed Unity with no engine, a windowless campaign,
+and a windowless battle. Each fix test runs one scenario off, on, and off again
+with the patch still applied (`Verify.Fix`), with only that fix switched; the
+harness also checks that every fix in `FixCatalogue` has a test, that the mod
+with every fix Off patches nothing (in the real game as well as outside it),
+and that a fresh config enables exactly the default-on fixes.
+
+**What a pass means for the status ladder.** A fix whose off/on/off test passes
+in the campaign or battle tier — the real game, the real plugin, the real
+scheduler — is `confirmed (headless)`. That stands in for "seen working in
+game" for the simulation. It does not look at the screen, so a fix whose effect
+is a number on a panel still gets a look in the real UI before release. A fix
+tested only in the engine tier stays `fixed`: that tier proves the arithmetic
+against stubbed Unity, not the game.
+
+**Prove a test can fail.** `--sabotage GTCW-NNN` keeps one fix off whatever the
+tests ask; every test of that fix must then fail, and no other. Do this when
+adding a test, and watch for a measurement of zero, which makes "unchanged" and
+"scaled" the same claim.
 
 ---
 

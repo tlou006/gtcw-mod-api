@@ -20,6 +20,12 @@
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
       <_Parameter1>GTCW.ModApi.Runtime</_Parameter1>
     </AssemblyAttribute>
+    <!-- The test harness (tests/) binds a stand-in runtime for its no-engine
+         tier, so fixes that listen for session events can be driven outside
+         the game. Test-only; the shipped library is unchanged. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>GTCW.Harness</_Parameter1>
+    </AssemblyAttribute>
   </ItemGroup>
 
 </Project>

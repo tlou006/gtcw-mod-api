@@ -89,6 +89,8 @@ env/
 bin/
 obj/
 .vs/
+# Test harness reports (tests/README.md). Sandboxes live outside the repo.
+TestResults/
 *.user
 *.suo
 

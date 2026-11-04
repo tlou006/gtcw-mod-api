@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The no-engine host: a .NET Framework 4.8 process, because the game's
+    Assembly-CSharp targets mscorlib 4.0. It references nothing at compile
+    time — a net48 project cannot reference this repo's netstandard2.1
+    projects — and only points the loader at two folders the runner names:
+    the engine runtime (stubbed Unity plus the publicized game, under obj/)
+    and the tests' build output. Everything else lives in GTCW.Harness.
+  -->
+
+  <PropertyGroup>
+    <AssemblyName>GTCW.Harness.EngineHost</AssemblyName>
+    <RootNamespace>GTCW.Harness.EngineHost</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <Nullable>disable</Nullable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <AutoGenerateBindingRedirects>false</AutoGenerateBindingRedirects>
+  </PropertyGroup>
+
+</Project>

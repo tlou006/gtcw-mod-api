@@ -31,6 +31,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The test harness in tests/ drives FixState and reads FixCatalogue to
+         run each fix off, on and off again. Nothing else may: this changes no
+         behaviour of the shipped mod. -->
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>GTCW.Harness</_Parameter1>
+    </AssemblyAttribute>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>GTCW.BugFixes.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- The public API only. A real external mod would reference the NuGet
          package; the project reference is here because this ships in-repo. -->
     <ProjectReference Include="..\..\src\GTCW.ModApi\GTCW.ModApi.csproj" />

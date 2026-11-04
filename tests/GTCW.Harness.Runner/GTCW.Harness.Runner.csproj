@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The one entry point; run it with dotnet run against this project and
+    one of engine, campaign, battle or all (tests/README.md).
+
+    Builds the engine runtime (stubbed Unity), keeps sandboxes, launches and
+    times out game processes, and gathers results into one report. It never
+    references the game's assemblies; it reads them as files.
+  -->
+
+  <PropertyGroup>
+    <AssemblyName>GTCW.Harness.Runner</AssemblyName>
+    <RootNamespace>GTCW.Harness.Runner</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <ImplicitUsings>disable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Mono.Cecil" Version="0.11.6" />
+  </ItemGroup>
+
+  <!-- Machine-specific paths come from game.props, the same gitignored file
+       the build reads, so there is one place to point at an install. -->
+  <ItemGroup>
+    <AssemblyMetadata Include="RepoRoot" Value="$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..'))" />
+    <AssemblyMetadata Include="GameDir" Value="$(GameDir)" />
+    <AssemblyMetadata Include="HarnessGameDir" Value="$(HarnessGameDir)" />
+    <AssemblyMetadata Include="HarnessDir" Value="$(HarnessDir)" />
+  </ItemGroup>
+
+</Project>

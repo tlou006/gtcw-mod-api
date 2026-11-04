@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Everything a test sees, for all three tiers: the tier attributes, the
+    off/on/off protocol, assertions, the results file, and the helpers that
+    drive game state (clock, objectives, units). Also the no-engine tier's own
+    machinery (shipped-data boot, stand-in ModApi host), because the net48
+    engine host cannot compile against netstandard2.1 and so only loads this.
+
+    Never shipped. Never deployed into a real install: the runner copies it
+    only into its own throwaway sandboxes.
+  -->
+
+  <PropertyGroup>
+    <AssemblyName>GTCW.Harness</AssemblyName>
+    <RootNamespace>GTCW.Harness</RootNamespace>
+    <UsesGameAssemblies>true</UsesGameAssemblies>
+
+    <!-- CS0436: Krafs.Publicizer and MonoMod.Utils (via HarmonyX) each define
+         IgnoresAccessChecksToAttribute. Same reason as GTCW.ModApi.Runtime. -->
+    <NoWarn>$(NoWarn);CS0436</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\GTCW.ModApi\GTCW.ModApi.csproj" />
+    <ProjectReference Include="..\..\mods\GTCW.BugFixes\GTCW.BugFixes.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BepInEx.Core" Version="5.4.21" PrivateAssets="all" ExcludeAssets="runtime" />
+    <PackageReference Include="Krafs.Publicizer" Version="2.2.1" PrivateAssets="all" />
+    <Publicize Include="Assembly-CSharp" />
+  </ItemGroup>
+
+</Project>

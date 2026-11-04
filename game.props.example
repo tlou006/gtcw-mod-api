@@ -14,4 +14,16 @@
     <GameDir Condition="'$(GameDir)' == ''">E:\SteamLibrary\steamapps\common\Grand Tactician The Civil War (1861-1865)</GameDir>
   </PropertyGroup>
 
+  <!--
+    The test harness (tests/README.md). Optional when GameDir is a full install
+    with BepInEx in it; otherwise point HarnessGameDir at one. The harness only
+    ever reads it: every run works in its own throwaway copy under HarnessDir,
+    which must be outside this repo and outside the game folder.
+    GTCW_HARNESS_GAME_DIR and GTCW_HARNESS_DIR override both at run time.
+  -->
+  <PropertyGroup>
+    <HarnessGameDir Condition="'$(HarnessGameDir)' == ''">$(GameDir)</HarnessGameDir>
+    <HarnessDir Condition="'$(HarnessDir)' == ''">$(LOCALAPPDATA)\gtcw-harness</HarnessDir>
+  </PropertyGroup>
+
 </Project>

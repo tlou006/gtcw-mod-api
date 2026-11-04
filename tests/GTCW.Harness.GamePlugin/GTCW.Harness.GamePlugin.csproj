@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The headless host: a BepInEx plugin that the runner drops into a sandbox
+    copy of the game. It launches the scenario the way the menu does, keeps the
+    simulation running, and runs one test class's campaign or battle tests as
+    coroutines, writing a results file before it quits the game.
+
+    Never deployed into a real install; .claude/deploy.ps1 does not know it.
+  -->
+
+  <PropertyGroup>
+    <AssemblyName>GTCW.Harness.GamePlugin</AssemblyName>
+    <RootNamespace>GTCW.Harness.GamePlugin</RootNamespace>
+    <UsesGameAssemblies>true</UsesGameAssemblies>
+    <NoWarn>$(NoWarn);CS0436</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GTCW.Harness\GTCW.Harness.csproj" />
+    <!-- Not called directly; referenced so its output lands beside this one
+         and the runner can deploy a single folder. -->
+    <ProjectReference Include="..\GTCW.BugFixes.Tests\GTCW.BugFixes.Tests.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BepInEx.Core" Version="5.4.21" PrivateAssets="all" ExcludeAssets="runtime" />
+    <PackageReference Include="Krafs.Publicizer" Version="2.2.1" PrivateAssets="all" />
+    <Publicize Include="Assembly-CSharp" />
+  </ItemGroup>
+
+</Project>

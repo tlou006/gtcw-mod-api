@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The tests for GTCW.BugFixes: one file per fix group, holding that group's
+    tests for every tier it can be tested in. Loaded by the engine host and by
+    the headless game plugin; see tests/README.md.
+  -->
+
+  <PropertyGroup>
+    <AssemblyName>GTCW.BugFixes.Tests</AssemblyName>
+    <RootNamespace>GTCW.BugFixes.Tests</RootNamespace>
+    <UsesGameAssemblies>true</UsesGameAssemblies>
+    <NoWarn>$(NoWarn);CS0436</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GTCW.Harness\GTCW.Harness.csproj" />
+    <ProjectReference Include="..\..\mods\GTCW.BugFixes\GTCW.BugFixes.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BepInEx.Core" Version="5.4.21" PrivateAssets="all" ExcludeAssets="runtime" />
+    <PackageReference Include="Krafs.Publicizer" Version="2.2.1" PrivateAssets="all" />
+    <Publicize Include="Assembly-CSharp" />
+  </ItemGroup>
+
+</Project>

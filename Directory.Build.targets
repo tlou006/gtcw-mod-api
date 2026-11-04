@@ -43,6 +43,29 @@
   </ItemGroup>
 
   <!--
+    Krafs.Publicizer hands its task "$(IntermediateOutputPath)PublicizedAssemblies\",
+    a relative path, and the task resolves it against the build node's working
+    directory rather than the project's. With several publicizing projects on
+    parallel nodes, one project then reports its publicized assembly as already
+    present when it is another project's, and the compile fails with CS0009
+    "being used by another process" on a clean build. Anchoring the path to the
+    project for the duration of that one target names the same folder without
+    the ambiguity, and putting it back keeps every other target unchanged.
+  -->
+  <Target Name="AnchorPublicizerOutput" BeforeTargets="PublicizeAssemblies">
+    <PropertyGroup>
+      <_UnanchoredIntermediateOutputPath>$(IntermediateOutputPath)</_UnanchoredIntermediateOutputPath>
+      <IntermediateOutputPath Condition="!$([System.IO.Path]::IsPathRooted('$(IntermediateOutputPath)'))">$(MSBuildProjectDirectory)\$(IntermediateOutputPath)</IntermediateOutputPath>
+    </PropertyGroup>
+  </Target>
+
+  <Target Name="ReleasePublicizerOutput" AfterTargets="PublicizeAssemblies">
+    <PropertyGroup>
+      <IntermediateOutputPath>$(_UnanchoredIntermediateOutputPath)</IntermediateOutputPath>
+    </PropertyGroup>
+  </Target>
+
+  <!--
     Guard the inviolable boundary mechanically: if a game reference ever appears
     in a project that did not ask for one, that is the public API leaking.
   -->

@@ -44,24 +44,10 @@ namespace GTCW.BugFixes
             }
 
             var registry = new FixRegistry(Config, Logger);
-
-            // Wave 1. One line per patched method, in register order; a method
-            // with several fixes on it appears once, because the patch is shared
-            // (see FixGroup). IMPLEMENTATION.md has the remaining three waves.
-            registry.Add(Fixes.ElectionDoubleCharge.Group());   // GTCW-001
-            registry.Add(Fixes.SupportBreakdownNaN.Group());    // GTCW-002
-            registry.Add(Fixes.ConfiscationActSupply.Group());  // GTCW-003
-            registry.Add(Fixes.NavalFiringStrength.Group());    // GTCW-004, GTCW-006
-            registry.Add(Fixes.RaidLedgerSign.Group());         // GTCW-014
-
-            // Wave 5 — the perks. Every one of these answers to the
-            // `perksasdocumented` family switch as well as to its own id, and
-            // all of them are off until one of the two is turned on.
-            registry.Add(Fixes.MoralePerks.Group());            // GTCW-024, 025, 027
-            registry.Add(Fixes.MountedRiflesMalus.Group());     // GTCW-028
-            registry.Add(Fixes.AttritionPerkNamespace.Group()); // GTCW-035, 036
-            registry.Add(Fixes.RaidingPerkDirection.Group());   // GTCW-038, 039
-            registry.Add(Fixes.EmbeddedReporters.Group());      // GTCW-041
+            foreach (FixGroup group in FixCatalogue.Groups())
+            {
+                registry.Add(group);
+            }
 
             _harmony = new Harmony(PluginGuid);
             registry.ApplyAll(_harmony);

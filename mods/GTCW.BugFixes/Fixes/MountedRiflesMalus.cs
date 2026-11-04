@@ -21,7 +21,7 @@ namespace GTCW.BugFixes.Fixes
     /// <item><description>mounted accuracy, as shipped: 0.90 / 0.80 / 0.68 — worse each level</description></item>
     /// <item><description>mounted accuracy, fixed: 0.70 / 0.80 / 0.92</description></item>
     /// <item><description>mounted reload, as shipped: 1.06 / 1.13 / 1.20</description></item>
-    /// <item><description>mounted reload, fixed: 1.19 / 1.13 / 1.06</description></item>
+    /// <item><description>mounted reload, fixed: 1.19 / 1.13 / 1.05</description></item>
     /// </list>
     /// <para>
     /// The fix lends the complement <c>1 − A[i]</c> for the duration of each
