@@ -718,15 +718,22 @@ raiding support hit +10 / +25 / +50 %.
 **Manual:** fame development +25 / +50 % / doubled.
 **Code:** `BattleUnits.CalculateCommanderFame` (~5912) applies the factor to
 units of `unittyp >= 15` when `CheckForGroupPerk(unit, 14)` finds a holder.
-That walk **starts at the unit's parent and never checks the unit itself**.
-The factor is then indexed by **`unit.GetPerkLevel(14)`, the unit's own
-level**, which is 0 when it doesn't hold the perk. So:
-- the holder's own commander gets nothing, unless the holder's parent also
-  holds it;
+That walk **starts at the unit's parent**, and checks the unit itself only
+when it is top-level: there `GrabNextParentUnit` returns the unit itself. The
+factor is then indexed by **`unit.GetPerkLevel(14)`, the unit's own level**,
+which is 0 when it doesn't hold the perk. So:
+- a holder under another formation gets nothing, unless a formation above it
+  also holds the perk (then it gets its own level);
+- a top-level holder gets its own level, ×1.25 / 1.5 / 2;
 - every subordinate Corps gets **×1.25, the level I factor, whatever level
   the holder has reached**.
 
 It scales defame as well as fame (`num5` can be negative). ❌
+
+*Corrected 2026-11-04:* this section said the walk "never checks the unit
+itself" and that "the holder's own commander gets nothing". The test harness
+showed a top-level Army holding level III getting ×2 unfixed
+([IMPLEMENTATION.md](../mods/GTCW.BugFixes/IMPLEMENTATION.md), GTCW-041).
 **Levels up:** 0.000002 × `groupstrength` per battle fought
 (`ImportExportUnitData` ~3473), about 20 battles per level at 25,000 men. ✅
 **Verdict:** ❌
@@ -936,7 +943,7 @@ The ❌ defects come in six kinds:
 | --- | --- |
 | Multiplies a value nothing reads | Spirited charge, Cold steel and Close support (`meleestrength`); Sea Raiders (`priceadjustment`); Sappers and Miners, Land Torpedoes, River Expedition and Limelights (overwritten `num5`) |
 | Arithmetic points the wrong way | Mounted rifles (recovery share authored as remaining malus); Deadly volley III (halves the drill reduction); Iron discipline II+ (freezes the decay) |
-| Lands on the wrong unit | Partisan Brigades and Bushwhackers (raider's own brigade); Ambulance Corps and Foot Cavalry (brigade's battle perk); Embedded Reporters (parent walk skips self, level from wrong unit) |
+| Lands on the wrong unit | Partisan Brigades and Bushwhackers (raider's own brigade); Ambulance Corps and Foot Cavalry (brigade's battle perk); Embedded Reporters (parent walk skips a holder that has a parent, level from wrong unit) |
 | Undone later in the frame | Engineers & Mechanics (`UpdateRaidSmoke` re-arms the timer) |
 | Wrong quantity scaled | Pontoon Train (whole supply clock; path cost, not speed) |
 | Gate missing | Vanguard (detached term never tested); Field Telegraph and the Bureau (operate on the player's marks of AI units, and saturate anyway) |
@@ -960,7 +967,7 @@ Mechanics assigning rather than stacking. **Corrections and additions:**
 | §1.6, §1.7: Bushwhackers' declining array is a defect in inflicted casualties | The declining 25 / 20 / 10 is in the manual; the real defect is that it scales the raider's own casualties |
 | §1.7: Sea Raiders raises prices 10 / 25 / 50 % at a trade node | `priceadjustment` is read only by the tooltip |
 | §1.6: `Autocalc` ~3229 "may be the same slip; not traced" | Traced: same swap, and there's a third site at ~3062. The legacy `157_Zouaves → 1` / `158_Sharpshooters → 2` buttons show the old order |
-| §1.2: Embedded Reporters is a fame multiplier for `unittyp >= 15` | It skips the holder and always applies the level I factor |
+| §1.2: Embedded Reporters is a fame multiplier for `unittyp >= 15` | It skips a holder that sits under another formation, and gives every formation under a holder the level I factor |
 | §1.2: Pontoon Train is "movement cost" | NavMesh path cost, plus a supply-clock speed-up that raises consumption and upkeep |
 | [15](15-attrition-and-condition.md) §2b: sickness "reduced by `attritionfootcavalry`[perk 6], self + parent" | Reads the brigade's battle perk 6; the parent test is always false for brigades |
 | Not covered | Siege Train halved by the +1 baseline; Grand battery morale squared; Vanguard's missing detached gate; Sharpshooters' unread range gate; Cold steel and Spirited charge levelling on the victim's type; Expert scouts levelling only on detachments; the campaign AI never picking the last perk and filling a 4th slot; the seven battlefield `unitprefs.txt` copies |

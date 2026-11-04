@@ -11,10 +11,11 @@ namespace GTCW.BugFixes.Tests
     /// <summary>
     /// GTCW-041 — in <c>BattleUnits.CalculateCommanderFame</c>,
     /// <c>CheckForGroupPerk</c> starts its walk at the unit's parent, so a
-    /// holder of Embedded Reporters that sits under another formation never
-    /// benefits itself; and the factor is indexed by the <em>subordinate's</em>
-    /// level, so a Corps under a holder gets the level I factor whatever level
-    /// the holder has reached.
+    /// holder of Embedded Reporters that sits under a formation without the
+    /// perk never benefits itself; and the factor is indexed by the
+    /// <em>asking unit's</em> level, so a Corps under a holder gets the level I
+    /// factor whatever level the holder has reached. The fix's rule: the
+    /// nearest holder, counting the unit itself.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -27,8 +28,8 @@ namespace GTCW.BugFixes.Tests
     /// <c>GrabNextParentUnit</c> returns the unit itself, so the walk's first
     /// step does test a top-level holder. The "holder is skipped" defect
     /// therefore exists only for holders that have a parent formation, and
-    /// IMPLEMENTATION.md's repro — "an army holding Embedded Reporters III …
-    /// with no parent above it" — does not reproduce it.
+    /// IMPLEMENTATION.md's first repro — "an army holding Embedded Reporters
+    /// III … with no parent above it" — did not reproduce it.
     /// <see cref="ATopLevelHolderWasNeverSkipped"/> records that.
     /// </para>
     /// <para>
@@ -42,28 +43,30 @@ namespace GTCW.BugFixes.Tests
     public sealed class EmbeddedReportersTests
     {
         private const int EmbeddedReporters = 14;
+        private const int None = -1;
+        private const int LevelOne = 0;
         private const int LevelIII = 2;
 
-        private static float LevelI => GamePrefs.fameadjustmentembeddedreporters[0];
+        private static float FactorI => GamePrefs.fameadjustmentembeddedreporters[LevelOne];
 
-        private static float LevelIIIFactor => GamePrefs.fameadjustmentembeddedreporters[LevelIII];
+        private static float FactorIII => GamePrefs.fameadjustmentembeddedreporters[LevelIII];
 
         [CampaignTest]
         public IEnumerator AHolderUnderAnotherFormationGetsItsOwnReporters()
         {
             yield return Live.NextCampaignPass();
             (Regiment corps, Regiment army) = CorpsUnderAnArmy();
-            Expect.True(LevelIIIFactor != 1f, $"Embedded Reporters III changes fame at all (factor {LevelIIIFactor})");
+            Expect.True(FactorIII != 1f, $"Embedded Reporters III changes fame at all (factor {FactorIII})");
 
             yield return Verify.FixLive<(float without, float with)>(
                 "GTCW-041",
                 box =>
                 {
-                    box.Value = (Fame(corps, (corps, false), (army, false)), Fame(corps, (corps, true), (army, false)));
+                    box.Value = (Fame(corps, (corps, None), (army, None)), Fame(corps, (corps, LevelIII), (army, None)));
                     return Live.Frames(1);
                 },
                 defect: r => { Expect.NonZero(r.without, "fame gain without the perk"); Expect.Near(r.without, r.with, "a Corps holder's own fame gain (unfixed its own perk is skipped)", Slack(r.without)); },
-                repaired: r => { Expect.NonZero(r.without, "fame gain without the perk"); Expect.Near(r.without * LevelIIIFactor, r.with, $"a Corps holder's own fame gain (factor {LevelIIIFactor})", Slack(r.without)); });
+                repaired: r => { Expect.NonZero(r.without, "fame gain without the perk"); Expect.Near(r.without * FactorIII, r.with, $"a Corps holder's own fame gain (factor {FactorIII})", Slack(r.without)); });
         }
 
         [CampaignTest]
@@ -71,17 +74,17 @@ namespace GTCW.BugFixes.Tests
         {
             yield return Live.NextCampaignPass();
             (Regiment corps, Regiment army) = CorpsUnderAnArmy();
-            Expect.True(LevelI != LevelIIIFactor, $"levels I and III differ ({LevelI} vs {LevelIIIFactor})");
+            Expect.True(FactorI != FactorIII, $"levels I and III differ ({FactorI} vs {FactorIII})");
 
             yield return Verify.FixLive<(float without, float with)>(
                 "GTCW-041",
                 box =>
                 {
-                    box.Value = (Fame(corps, (corps, false), (army, false)), Fame(corps, (corps, false), (army, true)));
+                    box.Value = (Fame(corps, (corps, None), (army, None)), Fame(corps, (corps, None), (army, LevelIII)));
                     return Live.Frames(1);
                 },
-                defect: r => { Expect.NonZero(r.without, "fame gain without the perk"); Expect.Near(r.without * LevelI, r.with, $"a Corps' fame gain under a level III holder (unfixed: the level I factor {LevelI})", Slack(r.without)); },
-                repaired: r => { Expect.NonZero(r.without, "fame gain without the perk"); Expect.Near(r.without * LevelIIIFactor, r.with, $"a Corps' fame gain under a level III holder (factor {LevelIIIFactor})", Slack(r.without)); });
+                defect: r => { Expect.NonZero(r.without, "fame gain without the perk"); Expect.Near(r.without * FactorI, r.with, $"a Corps' fame gain under a level III holder (unfixed: the level I factor {FactorI})", Slack(r.without)); },
+                repaired: r => { Expect.NonZero(r.without, "fame gain without the perk"); Expect.Near(r.without * FactorIII, r.with, $"a Corps' fame gain under a level III holder (factor {FactorIII})", Slack(r.without)); });
         }
 
         /// <summary>
@@ -104,11 +107,53 @@ namespace GTCW.BugFixes.Tests
                     Toggle.AllOff();
                 }
 
-                float without = Fame(army, (army, false));
-                float with = Fame(army, (army, true));
+                float without = Fame(army, (army, None));
+                float with = Fame(army, (army, LevelIII));
                 Expect.NonZero(without, "fame gain without the perk");
-                Expect.Near(without * LevelIIIFactor, with, $"a top-level Army holder's fame gain, fix {(fixOn ? "on" : "off")}", Slack(without));
+                Expect.Near(without * FactorIII, with, $"a top-level Army holder's fame gain, fix {(fixOn ? "on" : "off")}", Slack(without));
                 Report.Note($"top-level '{army.name}', fix {(fixOn ? "on" : "off")}: {without:R} -> {with:R}");
+            }
+
+            Toggle.AllOff();
+        }
+
+        /// <summary>
+        /// Not an off/on/off check either: a unit that holds the perk itself
+        /// is its own nearest holder, so it gets its own level whatever a
+        /// formation above it holds. Unfixed, the game happens to do that (the
+        /// walk finds the parent, and the factor is indexed by the unit's own
+        /// level); the fix must not take it away. The first version of the fix
+        /// did — it answered with the parent's level — and this test was red
+        /// against it.
+        /// </summary>
+        [CampaignTest]
+        public IEnumerator AHolderUnderAnotherHolderKeepsItsOwnLevel()
+        {
+            yield return Live.NextCampaignPass();
+            (Regiment corps, Regiment army) = CorpsUnderAnArmy();
+            Expect.True(FactorI != FactorIII, $"levels I and III differ ({FactorI} vs {FactorIII})");
+            foreach (bool fixOn in new[] { false, true })
+            {
+                if (fixOn)
+                {
+                    Toggle.Only("GTCW-041");
+                }
+                else
+                {
+                    Toggle.AllOff();
+                }
+
+                string fix = fixOn ? "on" : "off";
+                float without = Fame(corps, (corps, None), (army, None));
+                Expect.NonZero(without, "fame gain without the perk");
+
+                float higherUnderLower = Fame(corps, (corps, LevelIII), (army, LevelOne));
+                Expect.Near(without * FactorIII, higherUnderLower, $"a level III Corps under a level I Army, fix {fix}", Slack(without));
+
+                float lowerUnderHigher = Fame(corps, (corps, LevelOne), (army, LevelIII));
+                Expect.Near(without * FactorI, lowerUnderHigher, $"a level I Corps under a level III Army, fix {fix}", Slack(without));
+
+                Report.Note($"fix {fix}: none {without:R}; III under I {higherUnderLower:R}; I under III {lowerUnderHigher:R}");
             }
 
             Toggle.AllOff();
@@ -119,16 +164,16 @@ namespace GTCW.BugFixes.Tests
         /// <summary>
         /// The fame <paramref name="unit"/>'s commander gains from one run of
         /// the game's fame calculation, with each listed formation holding
-        /// Embedded Reporters III or nothing.
+        /// Embedded Reporters at a level (0 = I) or, with <c>None</c>, not at all.
         /// </summary>
-        private static float Fame(Regiment unit, params (Regiment formation, bool holds)[] perks)
+        private static float Fame(Regiment unit, params (Regiment formation, int level)[] perks)
         {
             GameVars.Commander commander = GameVars.commander[unit.commander];
             Units.KeepFields(commander);
             Units.KeepFields(unit);
-            foreach ((Regiment formation, bool holds) in perks)
+            foreach ((Regiment formation, int level) in perks)
             {
-                Units.SetPerks(formation, holds ? (EmbeddedReporters, LevelIII) : (-1, 0));
+                Units.SetPerks(formation, level == None ? (-1, 0) : (EmbeddedReporters, level));
             }
 
             try

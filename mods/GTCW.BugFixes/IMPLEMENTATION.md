@@ -930,7 +930,7 @@ half; the raider's own return casualties fall back to the perkless value.
 > the squaring is itself a defect is not settled here; the fix's direction is
 > confirmed either way. `tests/GTCW.BugFixes.Tests/RaidingPerkDirectionTests.cs`.
 
-### GTCW-041 — Embedded Reporters skips the holder
+### GTCW-041 — Embedded Reporters skips a holder under another formation
 
 **Target** `BattleUnits:CheckForGroupPerk` — `BattleUnits.cs:5848`;
 `BattleUnits:CalculateCommanderFame` — `BattleUnits.cs:5912`;
@@ -944,17 +944,37 @@ if (unit.unittyp >= 15 && CheckForGroupPerk(unit, 14) != null)
     num5 *= GamePrefs.fameadjustmentembeddedreporters[unit.GetPerkLevel(14)];
 ```
 
-`CheckForGroupPerk` opens its walk with `GrabNextParentUnit`, so it **never
-tests the unit it was asked about** — the holder's own commander is excluded
-unless the holder's parent also holds the perk. And the factor is indexed by the
-*subordinate's* level, which is 0 whenever the subordinate does not hold the
-perk, so every Corps under a holder gets ×1.25 whatever the holder has reached.
+`CheckForGroupPerk` opens its walk with `GrabNextParentUnit` and tests every
+formation it reaches. At the top of the hierarchy `GrabNextParentUnit` returns
+the unit itself (its parent is the "Units" folder), so the walk **tests the unit
+it was asked about only when that unit is top-level**: it finds the nearest
+holder *above* the unit, or the unit itself at the top. A holder under a
+formation that does not hold the perk is excluded. And the factor is indexed by
+the *asking unit's* level, which is 0 whenever that unit does not hold the perk,
+so every Corps under a holder gets ×1.25 whatever the holder has reached.
+
+For a formation U of type 15 or more:
+
+| U | Unfixed | Fixed |
+| --- | --- | --- |
+| holds the perk, top-level | its own level | its own level |
+| holds the perk, nothing above holds it | **nothing** | its own level |
+| does not hold it, a formation above holds it | **level I** | the nearest holder's level |
+| holds the perk, a formation above holds it too | its own level | its own level |
+
+**The rule: the nearest holder, counting the unit itself.** A unit that holds
+the perk is its own holder; a unit that does not takes the level of the nearest
+holder above it. It agrees with the unfixed game everywhere the game is right
+— in the last row by accident: the walk reaches the parent, and the indexer
+then prices the unit at its own level — and repairs the two rows in bold.
+Nothing in the code suggests levels stack, so the fix does not stack them
+either.
 
 The fix is two patches that leave the arithmetic alone:
 
-- a **postfix on `CheckForGroupPerk`**: if the walk found nobody and the unit
-  itself holds the perk, return the unit. The method has exactly one caller, so
-  this changes nothing else;
+- a **postfix on `CheckForGroupPerk`**: if the unit itself holds the perk,
+  return the unit, whatever the walk found above it. The method has exactly one
+  caller, so this changes nothing else;
 - a **postfix on `GetPerkLevel`**, live only inside `CalculateCommanderFame`,
   which answers perk 14 for the unit the holder was just found for with *the
   holder's* level. C# evaluates the `&&` before the indexer, so the holder is
@@ -965,23 +985,31 @@ The fame factor scales defame as well as fame (`num5` can be negative), which is
 not obviously wrong and is left as it is: the manual says "fame development",
 and a commander whose reporters amplify a disaster is a defensible reading.
 
-**Repro** An army holding Embedded Reporters III that wins a battle with no
-parent above it. Unfixed its commander's fame gain is unmultiplied, while a
-subordinate Corps that holds nothing gets ×1.25.
-**Confirm** The holder's commander gains ×2 at level III, and a Corps under it
-gains ×2 rather than ×1.25.
+**Repro** Scenario 001/E: the 13th Corps under the Army of the Gulf. The Corps
+holds Embedded Reporters III and the Army holds nothing: unfixed the Corps
+commander's fame gain is unmultiplied. The Army holds it at III and the Corps
+holds nothing: the Corps gets ×1.25.
+**Confirm** ×2 in both cases. A top-level Army holding level III gets ×2 with the
+fix off and on; a Corps holding III under an Army holding I gets ×2, and a Corps
+holding I under an Army holding III gets ×1.25, with the fix off and on.
 
-> **Harness finding, 2026-11-04 — the repro above does not reproduce as
-> written.** At the top of the hierarchy `GrabNextParentUnit` returns the unit
-> itself (its parent is the "Units" folder), so `CheckForGroupPerk`'s first step
-> *does* test a top-level holder: an Army with no parent above it already gets
+> **Harness finding, 2026-11-04 — the first repro did not reproduce.** It read
+> "an army holding Embedded Reporters III that wins a battle with no parent above
+> it". A top-level holder is tested by the walk's first step, so it already gets
 > ×2 unfixed, and the fix changes nothing there. The "holder is skipped" half
-> needs a holder **with** a parent — a Corps holding the perk under an Army that
-> does not. Measured in 001/E (13th Corps under the Army of the Gulf): Corps
-> holder unfixed ×1.00, fixed ×2.00; Corps under an Army holder unfixed ×1.25,
-> fixed ×2.00; top-level Army holder ×2.00 with the fix off and on. Only
-> formations of type 15 and up are multiplied at all, so 001/A, which has no
-> Corps under anything, shows no effect. `tests/GTCW.BugFixes.Tests/EmbeddedReportersTests.cs`.
+> needs a holder **with** a parent. Only formations of type 15 and up are
+> multiplied at all, so 001/A, which has no Corps under anything, shows no
+> effect. `tests/GTCW.BugFixes.Tests/EmbeddedReportersTests.cs`.
+
+> **Corrected 2026-11-04 — the first version of the fix regressed the last row
+> of the table.** It returned the unit itself only when the walk found nobody,
+> so a holder under a holder took the parent's level: a Corps holding III under
+> an Army holding I got ×1.25 where the unfixed game gives ×2. The harness test
+> `AHolderUnderAnotherHolderKeepsItsOwnLevel` was red against it (expected
+> 0.01978, got 0.01236) and is green against the self-first rule, as are the
+> other three. Run with the fix withheld (`--sabotage GTCW-041`), the two
+> off / on / off tests go red at the confirm and the two characterization tests
+> stay green.
 
 ### The rest of the family — specified, not written
 

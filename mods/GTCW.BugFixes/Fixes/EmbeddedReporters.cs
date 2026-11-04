@@ -5,8 +5,8 @@ using HarmonyLib;
 namespace GTCW.BugFixes.Fixes
 {
     /// <summary>
-    /// GTCW-041 — Embedded Reporters never reaches the commander who holds it,
-    /// and when it reaches anyone it always applies the level I factor.
+    /// GTCW-041 — Embedded Reporters misses a holder that sits under another
+    /// formation, and gives every formation under a holder the level I factor.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -17,21 +17,41 @@ namespace GTCW.BugFixes.Fixes
     ///     num5 *= GamePrefs.fameadjustmentembeddedreporters[unit.GetPerkLevel(14)];
     /// </code>
     /// <para>
-    /// <c>CheckForGroupPerk</c> opens its walk with <c>GrabNextParentUnit</c>, so
-    /// it never tests the unit it was asked about — the holder's own commander
-    /// is excluded unless the holder's parent holds the perk too. And the factor
-    /// is indexed by the <em>subordinate's</em> level, which is 0 whenever the
-    /// subordinate does not hold the perk, so every Corps under a holder gets
-    /// ×1.25 whatever level the holder has reached.
+    /// <c>CheckForGroupPerk</c> opens its walk with <c>GrabNextParentUnit</c>,
+    /// which returns the unit itself only at the top of the hierarchy. So it
+    /// finds the nearest holder <em>above</em> the unit and tests the unit
+    /// itself only when the unit has no parent: a holder under a formation that
+    /// does not hold the perk gets nothing. And the factor is indexed by the
+    /// <em>asking unit's</em> level, which is 0 whenever that unit does not hold
+    /// the perk, so every formation under a holder gets ×1.25 whatever level
+    /// the holder has reached.
     /// </para>
     /// <para>
-    /// Both are repaired without touching the arithmetic. A postfix on
-    /// <c>CheckForGroupPerk</c> returns the unit itself when the walk found
-    /// nobody and the unit holds the perk; a postfix on
+    /// <b>The rule the fix applies: the nearest holder, counting the unit
+    /// itself.</b> A unit that holds the perk is its own holder and gets its
+    /// own level, whatever a formation above it holds; a unit that does not
+    /// gets the level of the nearest holder above it. That is the reading with
+    /// the fewest assumptions: it agrees with the unfixed code everywhere the
+    /// unfixed code is right — a top-level holder, and a holder under another
+    /// holder, which the walk reaches through the parent and the indexer then
+    /// prices at the unit's own level — and it repairs the two cases above.
+    /// Nothing in the code suggests levels stack, so neither does this.
+    /// </para>
+    /// <para>
+    /// Both halves are repaired without touching the arithmetic. A postfix on
+    /// <c>CheckForGroupPerk</c> answers with the unit itself whenever the unit
+    /// holds the perk — before, not after, the walk's own answer; a postfix on
     /// <c>Regiment.GetPerkLevel</c>, live only inside
-    /// <c>CalculateCommanderFame</c>, answers perk 14 for that unit with the
-    /// holder's level. C# evaluates the <c>&amp;&amp;</c> before the indexer, so
-    /// the holder is always known by the time the level is asked for.
+    /// <c>CalculateCommanderFame</c>, answers perk 14 for the asking unit with
+    /// the holder's level. C# evaluates the <c>&amp;&amp;</c> before the
+    /// indexer, so the holder is always known by the time the level is asked for.
+    /// </para>
+    /// <para>
+    /// <b>Corrected 2026-11-04.</b> The first version returned the unit itself
+    /// only when the walk found nobody, so a holder under a holder at a
+    /// different level was priced at the parent's level — a regression from the
+    /// unfixed game in that case. The harness's
+    /// <c>AHolderUnderAnotherHolderKeepsItsOwnLevel</c> caught it.
     /// </para>
     /// <para>
     /// <b>On patching <c>GetPerkLevel</c>.</b> It is a small method with about
@@ -72,9 +92,9 @@ namespace GTCW.BugFixes.Fixes
             {
                 new Fix(
                     Id,
-                    "Embedded Reporters multiplies the fame of the commander who holds it, at the level it " +
-                    "has actually reached. Unfixed the holder gets nothing and its subordinates all get " +
-                    "the level I factor.",
+                    "Embedded Reporters multiplies the fame of the commander who holds it, and of the formations " +
+                    "under it, at the level it has actually reached. Unfixed a holder under another formation " +
+                    "gets nothing and every formation under a holder gets the level I factor.",
                     FixClass.Code,
                     defaultEnabled: false,
                     SaveSafety.ValueOnly,
@@ -137,7 +157,7 @@ namespace GTCW.BugFixes.Fixes
             _holder = null;
         }
 
-        // --- the self-skip --------------------------------------------------
+        // --- the nearest holder, counting the unit itself --------------------
 
         /// <summary>
         /// Captures the unit the question was about, because the method
@@ -155,7 +175,10 @@ namespace GTCW.BugFixes.Fixes
                 return;
             }
 
-            if (__result == null && __state.HasPerk(perk))
+            // The unit first, whatever the walk found above it: a holder is its
+            // own nearest holder. Testing this only when the walk came back
+            // empty priced a holder under another holder at the parent's level.
+            if (__state.HasPerk(perk))
             {
                 __result = __state;
             }

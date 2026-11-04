@@ -284,8 +284,9 @@ After every battle the game scores every commander who was on the field:
 
 It then scales the score by his echelon (brigade **0.005**, division 0.0065,
 corps 0.009, army **0.013**), by **×1.2** if he was wounded and the score is
-positive, by your printing works and, for corps and armies, by ×1.25 when a
-formation **above** them holds the Embedded Reporters perk (§10). **Every
+positive, by your printing works and, for corps and armies, by the Embedded
+Reporters perk (§10): ×1.25 when a formation **above** them holds it, and the
+perk's own ×1.25 / 1.5 / 2 when a top-level army holds it itself. **Every
 commander's fame moves by that score** — a brigade commander trading 2 : 1
 gains about one point of fame, an army commander about 2.6. Then:
 
@@ -754,7 +755,7 @@ or close, six that half work, and five that do nothing useful or hurt you**.
 | **Foot Cavalry** | speed ×1.1 / 1.2 / 1.3 on **every** campaign move, not just forced marches | forced-march attrition ×0.9 / 0.8 / 0.7 is read from the brigades' battle perk instead (§10.4) |
 | **Ambulance Corps** | speed penalty from disabled soldiers ×0.75 / 0.50 / 0.25 | wounded-to-killed rate ×0.9 / 0.75 / 0.5 goes to cavalry brigades with Expert scouts instead (§10.4) |
 | **Land Torpedoes** | enemy movement in command range ×0.9 / 0.8 / **0.7** | skirmish ×1.05 / 1.10 / 1.20 is overwritten |
-| Embedded reporters | fame from battles ×1.25 for the commanders of corps and armies **below** the holder, at every level | the holder's own commander gets nothing, and it never rises past ×1.25; it magnifies fame lost in a bad battle too |
+| Embedded reporters | fame from battles ×1.25 for the commanders of corps and armies **below** the holder, at every level; a top-level holder's own commander ×1.25 / 1.5 / 2 | a holder under another formation gets nothing, and the formations below it never get more than ×1.25; it magnifies fame lost in a bad battle too |
 | Pontoon train | route planning counts creeks ×0.75 / 0.5 / 0.25 as costly, so units detour less — they don't cross faster | "supply speed" ×1.1 / 1.2 / 1.3 runs the whole supply clock fast, so the formation uses supplies and pays upkeep faster |
 
 **Do nothing useful, or hurt you**

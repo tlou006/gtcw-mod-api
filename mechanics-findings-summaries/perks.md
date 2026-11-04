@@ -127,7 +127,7 @@ Up to three slots you can fill per division, corps, army and army group. Corps a
 | **Foot Cavalry** | Speed ×1.1 / 1.2 / 1.3 on **every** campaign move, not just forced marches | Its forced-march attrition cut never reaches the formation (Section 5) |
 | **Ambulance Corps** | Speed penalty from disabled soldiers ×0.75 / 0.5 / 0.25 | Its cut in wounded who die goes to cavalry brigades with Expert scouts instead (Section 5) |
 | **Land Torpedoes** | Enemy movement inside its command range ×0.9 / 0.8 / 0.7 | Its skirmishing bonus is overwritten and does nothing |
-| Embedded reporters | Fame that the commanders of corps and armies **under** the holder earn from battles ×1.25, at every level | The holder's own commander gets nothing, and the bonus never rises past level I. It also magnifies fame lost in a bad battle |
+| Embedded reporters | Fame that the commanders of corps and armies **under** the holder earn from battles ×1.25, at every level. A top-level army that holds it gets ×1.25 / 1.5 / 2 itself | A holder under another formation gets nothing, and the bonus for the formations under a holder never rises past level I. It also magnifies fame lost in a bad battle |
 | Pontoon train | Route planning counts creeks as ×0.75 / 0.5 / 0.25 as costly, so units detour less. They don't cross any faster | Its "supply speed" runs the whole supply clock 10 / 20 / 30 % fast: the formation uses supplies and pays upkeep faster, not more efficiently |
 
 ### Don't work

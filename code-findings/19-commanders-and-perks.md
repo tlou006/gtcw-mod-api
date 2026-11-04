@@ -86,7 +86,7 @@ table read several of these one level low.
 | 11 | Land Torpedoes | `movementreductionlandtorpedoes`, `perkexplandtorpedoes` |
 | 12 | Partisan Brigades | |
 | 13 | Bushwhackers | |
-| 14 | Embedded reporters | `fameadjustmentembeddedreporters` (fame multiplier for `unittyp >= 15`, but it skips the holder and always applies the level I factor: §4.1, [34](34-perks.md) §4.15) |
+| 14 | Embedded reporters | `fameadjustmentembeddedreporters` (fame multiplier for `unittyp >= 15`, but it skips a holder under another formation and gives the formations under a holder the level I factor: §4.1, [34](34-perks.md) §4.15) |
 | 15 | Limelights | |
 | 16 | Expert Scouts | `intelligencegatheringexpertscouts` |
 | 17 | River Expedition | `rivermovementspeedriverexpedition`, `perkexpincreaserivermovement` |
@@ -903,11 +903,13 @@ score × fameadjustmentembeddedreporters[unit.GetPerkLevel(14)]   if unittyp >= 
 ```
 
 The Embedded Reporters test, `CheckForGroupPerk`, starts at the unit's
-**parent**, and the index is the unit's **own** level (0 when it doesn't hold
-the perk). So the holder's commander gets nothing unless its own parent holds
-it too, and every formation below gets ×1.25 whatever level the holder has
-reached. A negative score is scaled too ([34](34-perks.md) §4.15). An earlier
-version wrote the condition as "campaign perk 14".
+**parent** (it tests the unit itself only at the top of the hierarchy), and
+the index is the unit's **own** level (0 when it doesn't hold the perk). So a
+holder under another formation gets nothing unless a formation above it holds
+the perk too, a top-level holder gets its own level, and every formation below
+a holder gets ×1.25 whatever level the holder has reached. A negative score is
+scaled too ([34](34-perks.md) §4.15). An earlier version wrote the condition as
+"campaign perk 14", and said the holder's commander always gets nothing.
 
 then the **best** scorer becomes famous if `score > fametrigger[resulttype]`,
 and the **worst** becomes defamed if `score < defamedtrigger[resulttype]`.
