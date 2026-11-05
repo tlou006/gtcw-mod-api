@@ -994,7 +994,7 @@ for each enemy building within buglerange: Damage(net × raiddamage)
 | `raidvolume`, marked `[not active]` in the config | horses 0.001, rifles 0.0005 |
 | `raiddamage` | 0.075 per unit of efficiency per year |
 | minimum morale to raid / to guard | 0.45 / 0.40 |
-| casualties on raiders / on guards | 50 / 0.3 per year, scaled by efficiency |
+| casualties on raiders / on guards | 50 / 0.3 per year, scaled by efficiency — then squared (below) |
 
 > **Guarding subtracts directly from raiding, and the result is floored at
 > 0.1.** So guards can reduce a raid to a tenth of its effect but never stop
@@ -1011,6 +1011,45 @@ for each enemy building within buglerange: Damage(net × raiddamage)
 > `reinforcementdelaycavalryorders` = 50 is added to the delay of any brigade
 > reinforcing a formation that holds a raid or guard order
 > (`Regiment.cs:26742`). The manual does not mention it.
+
+### Raid casualties are squared (GTCW-061)
+
+The fighting side of a raid is a separate engine, `Autocalc.UpdateRaiding`,
+run once per autocalc cycle (`cycleupdateforautocalcs` = 0.00004 years, about
+21 game minutes). Each round computes a casualty term for the guards and one
+for a raider brigade, with `Δt` the time since the last round in years and
+"guard efficiency" the guarding formations' `groupguardefficiency` summed
+(× `nonguardingraidmodifier` for any without a guard order or below the
+guarding morale minimum):
+
+```
+g      = √(groupraidingefficiency / max(1, guard efficiency))
+guards = groupraidingefficiency × 0.3 × Δt × g / (number of guarding formations)   // :2355
+raider = guard efficiency × 50 × Δt / groupraidingefficiency / g × 1000             // :2382
+num3 *= Random.Range(num3 × 0.5, num3 × 1.5)                                       // :2356, :2383
+```
+
+The last line multiplies the term by a random fraction **of itself**, so a
+round's casualties are `num3² × U(0.5, 1.5)`, not `num3 × U(0.5, 1.5)`. The
+config calls 0.5 the "random variation factor (+/-)", and `UpdateSkirmishing`
+writes the same variation as `Random.Range(1 − v, 1 + v)` (`:2529`, `:2563`);
+the squaring is a slip, not a design.
+
+What it does, measured in the harness over one round of two cycles in 001/E
+(a Union garrison raiding next to the District of Western Louisiana,
+`RaidingPerkDirectionTests`):
+
+- the guards' term, small to begin with, is crushed: **about 0.001 men** a
+  round;
+- the raider's return term is inflated: **16–21 men** a round from one brigade;
+- both sides' morale hits, and the guards' supply loss, are computed from the
+  squared term;
+- a round's casualties grow with `Δt²`, so the casualty **rate** grows with the
+  length of the update step.
+
+So in practice a raid costs the raider men and hardly touches the guards. Its
+effect on the enemy is economic — the plunder, the building damage and the trade-warfare
+bill above — not casualties.
 
 ---
 

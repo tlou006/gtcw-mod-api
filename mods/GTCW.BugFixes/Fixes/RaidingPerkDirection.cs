@@ -25,23 +25,39 @@ namespace GTCW.BugFixes.Fixes
     /// <b>enemy</b> partisan brigades"</i>.
     /// </para>
     /// <para>
-    /// <b>The casualty half is a loan.</b> The two blocks happen to use
-    /// different prefs — <c>casualtyfactorguardingunits</c> for the enemy,
-    /// <c>casualtyfactorraidingunits</c> for the raider — so lending the first
-    /// the perk factor moves the damage onto the enemy, and lending all-ones
-    /// arrays for the perk factors themselves takes the amplification off the
-    /// raider. Nothing is recomputed: the game still rolls its own randomness
-    /// and picks its own targets.
+    /// <b>Each factor lands where the defective block puts it, on the other
+    /// side.</b> That block multiplies the casualty factor into the amount it
+    /// hands <c>SufferCasualties</c> and the morale factor into the hit it hands
+    /// <c>SufferMoraleHit</c>, both after the casualty term is computed, and
+    /// touches nothing else. So the fix goes through those two chokepoints: a
+    /// prefix on each scales the call only when the target is not on the
+    /// raiding side, which the raider's own alliance answers directly. The
+    /// scope flag is set by the <c>UpdateRaiding</c> prefix and cleared in its
+    /// finalizer, and the casualty prefix also requires the call to come from
+    /// the scoped raid, so both are inert everywhere else — including
+    /// <c>UpdateSkirmishing</c> and <c>UpdateTransportInterception</c>, which
+    /// call the same helpers. Nothing is recomputed: the game still rolls its
+    /// own randomness and picks its own targets.
     /// </para>
     /// <para>
-    /// <b>The morale half goes through a chokepoint</b>, because both blocks
-    /// scale the same <c>moralelosspercasualtyraiding</c>. A prefix on
-    /// <c>SufferMoraleHit</c> scales the hit only when the target is not on the
-    /// raiding side, which the raider's own alliance answers directly. The scope
-    /// flag is set by the <c>UpdateRaiding</c> prefix and cleared in its
-    /// finalizer, so the chokepoint is inert everywhere else — including
-    /// <c>UpdateSkirmishing</c> and <c>UpdateTransportInterception</c>, which
-    /// call the same helper.
+    /// <b>The raider's side is a loan.</b> Its block reads the three perk
+    /// arrays and nothing else does, so lending all-ones arrays for the length
+    /// of the call takes the amplification off the raider.
+    /// </para>
+    /// <para>
+    /// <b>Corrected 2026-11-05.</b> The first version lent the casualty factor
+    /// to <c>casualtyfactorguardingunits</c> instead. That pref sits upstream of
+    /// <c>num3 *= Random.Range(num3 * f, num3 * (1 + f))</c>, which squares the
+    /// casualty term (GTCW-061), and the same term drives the enemy's morale
+    /// hit and supply loss. Under Partisan III the guards took ×4 casualties, a
+    /// ×6 morale hit and ×4 supply loss, where the defective block gives the
+    /// raider ×2, ×1.5 and nothing. The chokepoint is also independent of the
+    /// squaring, so it stays right if GTCW-061 is ever fixed.
+    /// </para>
+    /// <para>
+    /// <b>On patching <c>SufferCasualties</c>.</b> It is called for every hit
+    /// in a battle, so the prefix opens with a single static <c>bool</c> test
+    /// and does nothing else outside a raid round.
     /// </para>
     /// </remarks>
     internal static class RaidingPerkDirection
@@ -51,6 +67,7 @@ namespace GTCW.BugFixes.Fixes
 
         private const string Target = "Autocalc:UpdateRaiding";
         private const string Chokepoint = "Autocalc:SufferMoraleHit";
+        private const string CasualtyChokepoint = "Regiment:SufferCasualties";
         private const string GuardLabel = "GTCW-038/039";
 
         /// <summary>Army perk ids, as the game numbers them.</summary>
@@ -62,14 +79,14 @@ namespace GTCW.BugFixes.Fixes
         private static bool _inRaiding;
         private static Autocalc? _scope;
 
+        /// <summary>The casualty factor the enemy's losses are owed, or 1.</summary>
+        private static float _enemyCasualty = 1f;
+
         /// <summary>The morale factor the enemy's hit is owed, or 1.</summary>
         private static float _enemyMorale = 1f;
 
         /// <summary>The raiding side's alliance, for telling the two apart.</summary>
         private static int _raiderAlliance = -1;
-
-        private static bool _casualtyLent;
-        private static float _savedCasualty;
 
         private static bool _partisanLent;
         private static float[]? _savedPartisanCasualty;
@@ -79,7 +96,7 @@ namespace GTCW.BugFixes.Fixes
         private static float[]? _savedBushwhacker;
 
         public static FixGroup Group() => new FixGroup(
-            Target + " + " + Chokepoint,
+            Target + " + " + Chokepoint + " + " + CasualtyChokepoint,
             new[]
             {
                 new Fix(
@@ -108,8 +125,8 @@ namespace GTCW.BugFixes.Fixes
         private static ProbeResult Probe() => FixProbe.All(
             () => FixProbe.RequireMethod("Autocalc", "UpdateRaiding"),
             () => FixProbe.RequireMethod("Autocalc", "SufferMoraleHit"),
+            () => FixProbe.RequireMethod("Regiment", "SufferCasualties"),
             () => FixProbe.RequireField("Autocalc", "raidingunits"),
-            () => FixProbe.RequireField("GamePrefs", "casualtyfactorguardingunits"),
             () => FixProbe.RequireField("GamePrefs", "skirmishingpartisanbrigades"),
             () => FixProbe.RequireField("GamePrefs", "raidingmoralepartisanbrigades"),
             () => FixProbe.RequireField("GamePrefs", "skirmishingbushwhackers"));
@@ -130,6 +147,13 @@ namespace GTCW.BugFixes.Fixes
             harmony.Patch(
                 morale,
                 prefix: new HarmonyMethod(AccessTools.Method(typeof(RaidingPerkDirection), nameof(BeforeMoraleHit))));
+
+            MethodInfo casualties = AccessTools.Method(CasualtyChokepoint)
+                ?? throw new InvalidOperationException($"'{CasualtyChokepoint}' not found");
+
+            harmony.Patch(
+                casualties,
+                prefix: new HarmonyMethod(AccessTools.Method(typeof(RaidingPerkDirection), nameof(BeforeCasualties))));
         }
 
         private static void Before(Autocalc __instance, out bool __state)
@@ -192,14 +216,8 @@ namespace GTCW.BugFixes.Fixes
             _inRaiding = true;
             _scope = autocalc;
             _raiderAlliance = raider.alliance;
+            _enemyCasualty = enemyCasualty;
             _enemyMorale = partisanMorale;
-
-            if (enemyCasualty != 1f)
-            {
-                _savedCasualty = GamePrefs.casualtyfactorguardingunits;
-                GamePrefs.casualtyfactorguardingunits = _savedCasualty * enemyCasualty;
-                _casualtyLent = true;
-            }
 
             // The raider's own block reads these three arrays and nothing else
             // does, so all-ones takes the amplification off the raider without
@@ -223,12 +241,6 @@ namespace GTCW.BugFixes.Fixes
 
         private static void Restore()
         {
-            if (_casualtyLent)
-            {
-                GamePrefs.casualtyfactorguardingunits = _savedCasualty;
-                _casualtyLent = false;
-            }
-
             if (_partisanLent)
             {
                 if (_savedPartisanCasualty != null)
@@ -260,6 +272,7 @@ namespace GTCW.BugFixes.Fixes
             _inRaiding = false;
             _scope = null;
             _raiderAlliance = -1;
+            _enemyCasualty = 1f;
             _enemyMorale = 1f;
         }
 
@@ -335,6 +348,31 @@ namespace GTCW.BugFixes.Fixes
             }
 
             moraleeffect *= _enemyMorale;
+        }
+
+        /// <summary>
+        /// Gives the enemy the casualties the two perks promise, after the
+        /// raid has computed them — exactly where the defective block applies
+        /// the factor to the raider.
+        /// </summary>
+        private static void BeforeCasualties(Regiment __instance, ref float amount, Autocalc calledfromautocalc)
+        {
+            if (!_inRaiding ||
+                _enemyCasualty == 1f ||
+                __instance == null ||
+                !ReferenceEquals(calledfromautocalc, _scope))
+            {
+                return;
+            }
+
+            // The raider's own return casualties come through here too; the
+            // alliance tells them apart, as for the morale hit.
+            if (__instance.alliance == _raiderAlliance)
+            {
+                return;
+            }
+
+            amount *= _enemyCasualty;
         }
     }
 }

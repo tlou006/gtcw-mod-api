@@ -669,7 +669,7 @@ one reader:
 | `moraleeffectonhighmomentarycasualties` | 1 |
 | `drillreductionfactorforhighmomentarycasualties` | 1 |
 | `moraleeffectofbeingcutoff` | 1 |
-| `casualtyfactorguardingunits` | 1 |
+| `casualtyfactorguardingunits` | 1 — lent by GTCW-038's first version, which squared the factor; it now uses a chokepoint |
 | `skirmishingpartisanbrigades`, `raidingmoralepartisanbrigades`, `skirmishingbushwhackers` | 2 each, both in the defective block |
 
 So a prefix can lend the method a *different* value for one call — chosen so
@@ -883,8 +883,9 @@ by 10–30 % for the holder's brigades.
 
 ### GTCW-038 + GTCW-039 — Partisan Brigades and Bushwhackers are inverted
 
-**Target** `Autocalc:UpdateRaiding` — `Autocalc.cs:2403`; `Autocalc:SufferMoraleHit`
-**Technique** 4 plus technique 5.
+**Target** `Autocalc:UpdateRaiding` — `Autocalc.cs:2403`; `Autocalc:SufferMoraleHit`;
+`Regiment:SufferCasualties`
+**Technique** 5 for the enemy's side, 4 for the raider's.
 
 `UpdateRaiding` has two blocks. The first (`:2354`) damages the **raided enemy**
 and reads no perk at all. The second (`:2400`) inflicts return casualties and a
@@ -894,41 +895,63 @@ morale (×1.10 / 1.25 / 1.50), and Bushwhackers' skirmishing
 (×1.25 / 1.20 / 1.10). The config label for the morale factor reads "Raiding
 morale hit on **enemy** partisan brigades", which settles what was intended.
 
-The two blocks use *different* casualty prefs — `casualtyfactorguardingunits`
-for the enemy, `casualtyfactorraidingunits` for the raider — so the casualty
-half is pure technique 4:
+The second block also shows *where* each factor belongs. It computes the
+casualty term first, then multiplies the casualty factor into the amount it
+hands `SufferCasualties` and the morale factor into the hit it hands
+`SufferMoraleHit` — and touches nothing else. The fix keeps that shape and
+moves it to the other side:
 
-1. the prefix computes the three factors from `raidingunits[0].topunits[0]`,
-   own level and parent, exactly as the defective block does;
-2. it lends `casualtyfactorguardingunits × (partisan × bushwhacker)`, so the
-   **enemy** takes the damage the perks promise;
-3. it lends all-ones arrays for the three perk factors, so the raider's own
-   return casualties and morale hit lose the amplification they should never
-   have had.
+1. the `UpdateRaiding` prefix computes the three factors from
+   `raidingunits[0].topunits[0]`, own level and parent, exactly as the
+   defective block does, and opens a scope for that one call;
+2. a prefix on `Regiment:SufferCasualties` multiplies the amount by
+   `partisan × bushwhacker` **only when the call comes from the scoped raid and
+   the target is not on the raiding side**;
+3. a prefix on `Autocalc:SufferMoraleHit` does the same with the Partisan morale
+   factor;
+4. the prefix lends all-ones arrays for the three perk factors, so the raider's
+   own return casualties and morale hit lose the amplification they should
+   never have had. Its block reads those arrays and nothing else does.
 
-The morale half cannot go the same way, because both blocks scale
-`moralelosspercasualtyraiding`. It goes through the chokepoint instead: a prefix
-on `Autocalc:SufferMoraleHit` multiplies the hit by the Partisan factor **only
-when the target is not on the raiding side**, which `EnvolvedUnitsIncludeReg`
-answers from the method's own data. The scope flag is set by the `UpdateRaiding`
-prefix and cleared in its finalizer, so the chokepoint is inert everywhere else
-— including `UpdateSkirmishing`, which calls the same helper.
+The raider's alliance tells the two sides apart, because the second block's
+target is one of the raider's own brigades. The scope is cleared in the
+finalizer, so both chokepoints are inert everywhere else — including
+`UpdateSkirmishing` and `UpdateTransportInterception`, which call the same
+helpers. `SufferCasualties` is called for every hit in a battle, so its prefix
+opens with a single static `bool` test.
 
-**Repro** A cavalry division holding Partisan Brigades III raiding an enemy
-state with a guarding force present. Unfixed, the raider's own brigade takes
-double casualties and a 50 % deeper morale hit, and the guarding force takes
-exactly what it would against a perkless raider.
-**Confirm** The guarding force's casualties double and its morale hit deepens by
-half; the raider's own return casualties fall back to the perkless value.
+**Repro** A formation holding Partisan Brigades III raiding next to an enemy
+formation. Unfixed, the raider's own brigade takes ×2 casualties and a ×1.5
+morale hit, and the enemy takes exactly what it would against a perkless raider.
+**Confirm** One seeded raid round in 001/E, with the perk over without:
 
-> **Harness finding, 2026-11-04 — the guards' casualties quadruple, not
-> double.** Both blocks compute `num3 *= Random.Range(num3 * f, num3 * (1 + f))`,
-> which squares the casualty term, so a factor lent to `casualtyfactorguardingunits`
-> scales the guards' casualties by its square. Measured over one seeded raid
-> round in 001/E: Partisan III unfixed — guards ×1.00, raider's own casualties
-> ×2.00 and own morale hit ×1.50; fixed — guards ×4 (2²), raider ×1.00. Whether
-> the squaring is itself a defect is not settled here; the fix's direction is
-> confirmed either way. `tests/GTCW.BugFixes.Tests/RaidingPerkDirectionTests.cs`.
+| | Partisan III | Bushwhackers III | Both |
+| --- | --- | --- | --- |
+| enemy casualties | ×2.00 | ×1.10 | ×2.20 |
+| enemy morale hit | ×1.50 | ×1.00 | ×1.50 |
+| enemy supply loss | ×1.00 | ×1.00 | ×1.00 |
+| raider's own casualties and morale hit | ×1.00 | ×1.00 | ×1.00 |
+
+`tests/GTCW.BugFixes.Tests/RaidingPerkDirectionTests.cs`. The ratios are exact
+because the generator is reseeded for each round and a perk does not change the
+number of draws.
+
+> **The effect is small, and it is the raider's side that matters.** The
+> guards' casualty term is tiny once squared (GTCW-061): about 0.001 men per
+> round in that raid, against 16–21 for the raider's own brigade. What the fix
+> changes in play is the raider no longer paying ×2 casualties and a ×1.5
+> morale hit for its own perk.
+
+> **Corrected 2026-11-05 — the first version squared the factor.** It lent
+> `casualtyfactorguardingunits × (partisan × bushwhacker)`. That pref sits
+> upstream of `num3 *= Random.Range(num3 * v, num3 * (1 + v))`, which squares the
+> casualty term, and the same term feeds the enemy's morale hit and supply
+> loss. Under Partisan III the guards took ×4 casualties, a ×6 morale hit and
+> ×4 supply loss, where the defective block gives the raider ×2, ×1.5 and
+> nothing. The harness found the ×4 on 2026-11-04; the tightened tests were
+> red against that version (×4, ×1.21, ×4.84 for the three columns above) and
+> are green now. The chokepoint is independent of the squaring, so it stays
+> right if GTCW-061 is fixed.
 
 ### GTCW-041 — Embedded Reporters skips a holder under another formation
 

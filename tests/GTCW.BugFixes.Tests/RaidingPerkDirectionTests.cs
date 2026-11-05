@@ -21,16 +21,23 @@ namespace GTCW.BugFixes.Tests
     /// one (<c>AddComponent&lt;Autocalc&gt;().StartRaiding</c>), and the game's
     /// own <c>UpdateRaiding</c>. A probe registered after every other patch
     /// records each <c>SufferCasualties</c> and <c>SufferMoraleHit</c> the round
-    /// makes — after the fix's own prefix has adjusted the morale hit — and
-    /// skips applying them, so no unit is changed and every measurement starts
-    /// from the same state. Unity's generator is reseeded before each round.
+    /// makes — after the fix's own prefixes have adjusted them — and skips
+    /// applying them, so no unit is changed and every measurement starts from
+    /// the same state. The supply each hit unit loses is measured against a
+    /// stand-in stock of 1 per slot and the real stock put back. Unity's
+    /// generator is reseeded before each round.
     /// </para>
     /// <para>
-    /// The assertions are on ratios, with-perk over without, and on direction
-    /// rather than on the perk's nominal factor: both blocks compute
-    /// <c>num3 *= Random.Range(num3 * f, num3 * (1 + f))</c>, which squares the
-    /// casualty term, so a factor lent to the enemy's block scales its
-    /// casualties by its square. The measured ratios are reported.
+    /// The assertions are on exact ratios, with-perk over without: the reseed
+    /// gives both rounds the same draws, and a perk does not change how many
+    /// draws a round makes. The fix must apply each factor where the defective
+    /// block applies it — the casualty factor to the casualties, the morale
+    /// factor to the morale hit, neither to the supply loss. Both blocks
+    /// compute <c>num3 *= Random.Range(num3 * f, num3 * (1 + f))</c>, which
+    /// squares the casualty term (GTCW-061), so a factor applied any earlier
+    /// than the casualties themselves comes out squared. The first version of
+    /// the fix did that: the guards took ×4 casualties, a ×6 morale hit and ×4
+    /// supply loss under Partisan III.
     /// </para>
     /// </remarks>
     [FixTests("GTCW-038", "GTCW-039")]
@@ -44,9 +51,19 @@ namespace GTCW.BugFixes.Tests
         private const int LevelIII = 2;
         private const int Seed = 1862;
 
+        /// <summary>Ratios are exact; this only absorbs float rounding.</summary>
+        private const float Exact = 0.001f;
+
         private static bool _recording;
         private static readonly List<(int alliance, float amount)> Casualties = new List<(int, float)>();
         private static readonly List<(int alliance, float amount)> MoraleHits = new List<(int, float)>();
+        private static readonly Dictionary<Regiment, float[]> Stocks = new Dictionary<Regiment, float[]>();
+
+        private static float PartisanCasualty => GamePrefs.skirmishingpartisanbrigades[LevelIII];
+
+        private static float PartisanMorale => GamePrefs.raidingmoralepartisanbrigades[LevelIII];
+
+        private static float BushwhackerCasualty => GamePrefs.skirmishingbushwhackers[LevelIII];
 
         public sealed class Round
         {
@@ -58,8 +75,10 @@ namespace GTCW.BugFixes.Tests
 
             public float OwnMorale { get; set; }
 
+            public float EnemySupply { get; set; }
+
             public override string ToString() =>
-                $"enemy {EnemyCasualties:G4} men / {EnemyMorale:G4} morale, own {OwnCasualties:G4} / {OwnMorale:G4}";
+                $"enemy {EnemyCasualties:G4} men / {EnemyMorale:G4} morale / {EnemySupply:G4} supply, own {OwnCasualties:G4} / {OwnMorale:G4}";
         }
 
         [CampaignTest]
@@ -67,25 +86,29 @@ namespace GTCW.BugFixes.Tests
         {
             yield return Live.NextCampaignPass();
             (Regiment raider, Regiment guard) = Contact();
+            Expect.True(PartisanCasualty != 1f && PartisanMorale != 1f, $"Partisan Brigades III has factors to move ({PartisanCasualty}, {PartisanMorale})");
             yield return Verify.FixLive<(Round without, Round with)>(
                 "GTCW-038",
                 box =>
                 {
-                    box.Value = (Raid(raider, guard, -1), Raid(raider, guard, PartisanBrigades));
+                    box.Value = (Raid(raider, guard), Raid(raider, guard, PartisanBrigades));
                     return Live.Frames(1);
                 },
                 defect: r =>
                 {
-                    Expect.Near(1f, Ratio(r, x => x.EnemyCasualties, "enemy casualties"), "enemy casualties, Partisan III over none (unfixed: no effect)", 0.01f);
-                    Expect.True(Ratio(r, x => x.OwnCasualties, "own casualties") > 1.01f, "the raider's own casualties are amplified (unfixed)");
-                    Expect.True(Ratio(r, x => x.OwnMorale, "own morale hit") > 1.01f, "the raider's own morale hit is amplified (unfixed)");
+                    Expect.Near(1f, Ratio(r, x => x.EnemyCasualties, "enemy casualties"), "enemy casualties, Partisan III over none (unfixed: no effect)", Exact);
+                    Expect.Near(1f, Ratio(r, x => x.EnemyMorale, "enemy morale hit"), "enemy morale hit, Partisan III over none (unfixed: no effect)", Exact);
+                    Expect.Near(PartisanCasualty, Ratio(r, x => x.OwnCasualties, "own casualties"), "the raider's own casualties (unfixed: amplified)", Exact);
+                    Expect.Near(PartisanMorale, Ratio(r, x => x.OwnMorale, "own morale hit"), "the raider's own morale hit (unfixed: amplified)", Exact);
+                    Expect.Near(1f, Ratio(r, x => x.EnemySupply, "enemy supply loss"), "enemy supply loss, Partisan III over none", Exact);
                 },
                 repaired: r =>
                 {
-                    Expect.True(Ratio(r, x => x.EnemyCasualties, "enemy casualties") > 1.01f, "the enemy's casualties are amplified");
-                    Expect.True(Ratio(r, x => x.EnemyMorale, "enemy morale hit") > 1.01f, "the enemy's morale hit is amplified");
-                    Expect.Near(1f, Ratio(r, x => x.OwnCasualties, "own casualties"), "the raider's own casualties, Partisan III over none", 0.01f);
-                    Expect.Near(1f, Ratio(r, x => x.OwnMorale, "own morale hit"), "the raider's own morale hit, Partisan III over none", 0.01f);
+                    Expect.Near(PartisanCasualty, Ratio(r, x => x.EnemyCasualties, "enemy casualties"), "enemy casualties, Partisan III over none", Exact);
+                    Expect.Near(PartisanMorale, Ratio(r, x => x.EnemyMorale, "enemy morale hit"), "enemy morale hit, Partisan III over none", Exact);
+                    Expect.Near(1f, Ratio(r, x => x.OwnCasualties, "own casualties"), "the raider's own casualties, Partisan III over none", Exact);
+                    Expect.Near(1f, Ratio(r, x => x.OwnMorale, "own morale hit"), "the raider's own morale hit, Partisan III over none", Exact);
+                    Expect.Near(1f, Ratio(r, x => x.EnemySupply, "enemy supply loss"), "enemy supply loss, Partisan III over none (no factor of its own)", Exact);
                 });
         }
 
@@ -94,23 +117,62 @@ namespace GTCW.BugFixes.Tests
         {
             yield return Live.NextCampaignPass();
             (Regiment raider, Regiment guard) = Contact();
+            Expect.True(BushwhackerCasualty != 1f, $"Bushwhackers III has a factor to move ({BushwhackerCasualty})");
             yield return Verify.FixLive<(Round without, Round with)>(
                 "GTCW-039",
                 box =>
                 {
-                    box.Value = (Raid(raider, guard, -1), Raid(raider, guard, Bushwhackers));
+                    box.Value = (Raid(raider, guard), Raid(raider, guard, Bushwhackers));
                     return Live.Frames(1);
                 },
                 defect: r =>
                 {
-                    Expect.Near(1f, Ratio(r, x => x.EnemyCasualties, "enemy casualties"), "enemy casualties, Bushwhackers III over none (unfixed: no effect)", 0.01f);
-                    Expect.True(Ratio(r, x => x.OwnCasualties, "own casualties") > 1.01f, "the raider's own casualties are amplified (unfixed)");
+                    Expect.Near(1f, Ratio(r, x => x.EnemyCasualties, "enemy casualties"), "enemy casualties, Bushwhackers III over none (unfixed: no effect)", Exact);
+                    Expect.Near(BushwhackerCasualty, Ratio(r, x => x.OwnCasualties, "own casualties"), "the raider's own casualties (unfixed: amplified)", Exact);
+                    Expect.Near(1f, Ratio(r, x => x.EnemySupply, "enemy supply loss"), "enemy supply loss, Bushwhackers III over none", Exact);
                 },
                 repaired: r =>
                 {
-                    Expect.True(Ratio(r, x => x.EnemyCasualties, "enemy casualties") > 1.01f, "the enemy's casualties are amplified");
-                    Expect.Near(1f, Ratio(r, x => x.OwnCasualties, "own casualties"), "the raider's own casualties, Bushwhackers III over none", 0.01f);
+                    Expect.Near(BushwhackerCasualty, Ratio(r, x => x.EnemyCasualties, "enemy casualties"), "enemy casualties, Bushwhackers III over none", Exact);
+                    Expect.Near(1f, Ratio(r, x => x.EnemyMorale, "enemy morale hit"), "enemy morale hit, Bushwhackers III over none (it has no morale factor)", Exact);
+                    Expect.Near(1f, Ratio(r, x => x.OwnCasualties, "own casualties"), "the raider's own casualties, Bushwhackers III over none", Exact);
+                    Expect.Near(1f, Ratio(r, x => x.EnemySupply, "enemy supply loss"), "enemy supply loss, Bushwhackers III over none", Exact);
                 });
+        }
+
+        /// <summary>
+        /// Not an off/on/off check: a raider holding both perks, with both
+        /// fixes off and then both on. The two casualty factors multiply, on
+        /// whichever side they land.
+        /// </summary>
+        [CampaignTest]
+        public IEnumerator BothPerksMultiply()
+        {
+            yield return Live.NextCampaignPass();
+            (Regiment raider, Regiment guard) = Contact();
+            float both = PartisanCasualty * BushwhackerCasualty;
+            foreach (bool fixOn in new[] { false, true })
+            {
+                if (fixOn)
+                {
+                    Toggle.Only("GTCW-038", "GTCW-039");
+                }
+                else
+                {
+                    Toggle.AllOff();
+                }
+
+                string fix = fixOn ? "on" : "off";
+                (Round without, Round with) r = (Raid(raider, guard), Raid(raider, guard, PartisanBrigades, Bushwhackers));
+                Expect.Near(fixOn ? both : 1f, Ratio(r, x => x.EnemyCasualties, "enemy casualties"), $"enemy casualties, both perks III over none, fixes {fix}", Exact);
+                Expect.Near(fixOn ? PartisanMorale : 1f, Ratio(r, x => x.EnemyMorale, "enemy morale hit"), $"enemy morale hit, both perks III over none, fixes {fix}", Exact);
+                Expect.Near(fixOn ? 1f : both, Ratio(r, x => x.OwnCasualties, "own casualties"), $"the raider's own casualties, both perks III over none, fixes {fix}", Exact);
+                Expect.Near(fixOn ? 1f : PartisanMorale, Ratio(r, x => x.OwnMorale, "own morale hit"), $"the raider's own morale hit, both perks III over none, fixes {fix}", Exact);
+                Expect.Near(1f, Ratio(r, x => x.EnemySupply, "enemy supply loss"), $"enemy supply loss, both perks III over none, fixes {fix}", Exact);
+                Report.Note($"fixes {fix}: none ({r.without}); both ({r.with})");
+            }
+
+            Toggle.AllOff();
         }
 
         private static float Ratio((Round without, Round with) r, System.Func<Round, float> of, string what)
@@ -145,20 +207,20 @@ namespace GTCW.BugFixes.Tests
             return (raider, guard);
         }
 
-        /// <summary>One raid round by <paramref name="raider"/> holding only <paramref name="perk"/> at level III.</summary>
-        private static Round Raid(Regiment raider, Regiment guard, int perk)
+        /// <summary>One raid round by <paramref name="raider"/> holding exactly <paramref name="perks"/>, each at level III.</summary>
+        private static Round Raid(Regiment raider, Regiment guard, params int[] perks)
         {
-            List<Regiment.Perk> perks = raider.perks;
+            List<Regiment.Perk> kept = raider.perks;
             List<GameObject> inRange = raider.unitrange.enemyinrange;
             int orders = raider.cavalryorders, ordered = raider.cavalryordersordered;
             Autocalc raid = raider.gameObject.AddComponent<Autocalc>();
             Casualties.Clear();
             MoraleHits.Clear();
+            Stocks.Clear();
+            var round = new Round();
             try
             {
-                raider.perks = perk < 0
-                    ? new List<Regiment.Perk>()
-                    : new List<Regiment.Perk> { new Regiment.Perk { perk = perk, perklevel = LevelIII } };
+                raider.perks = perks.Select(p => new Regiment.Perk { perk = p, perklevel = LevelIII }).ToList();
                 raider.unitrange.enemyinrange = new List<GameObject> { guard.gameObject };
 
                 raid.StartRaiding(raider);
@@ -166,11 +228,22 @@ namespace GTCW.BugFixes.Tests
                 UnityEngine.Random.InitState(Seed);
                 _recording = true;
                 Traverse.Create(raid).Method("UpdateRaiding", new object[] { true }).GetValue();
+                _recording = false;
+
+                round.EnemySupply = Stocks
+                    .Where(s => s.Key.alliance != raider.alliance)
+                    .Sum(s => s.Key.supplyinstock.Sum(left => 1f - left));
             }
             finally
             {
                 _recording = false;
-                raider.perks = perks;
+                foreach (KeyValuePair<Regiment, float[]> stock in Stocks)
+                {
+                    stock.Key.supplyinstock = stock.Value;
+                }
+
+                Stocks.Clear();
+                raider.perks = kept;
                 raider.unitrange.enemyinrange = inRange;
                 raider.cavalryorders = orders;
                 raider.cavalryordersordered = ordered;
@@ -180,13 +253,11 @@ namespace GTCW.BugFixes.Tests
                 }
             }
 
-            return new Round
-            {
-                EnemyCasualties = Casualties.Where(c => c.alliance != raider.alliance).Sum(c => c.amount),
-                OwnCasualties = Casualties.Where(c => c.alliance == raider.alliance).Sum(c => c.amount),
-                EnemyMorale = MoraleHits.Where(c => c.alliance != raider.alliance).Sum(c => Mathf.Abs(c.amount)),
-                OwnMorale = MoraleHits.Where(c => c.alliance == raider.alliance).Sum(c => Mathf.Abs(c.amount)),
-            };
+            round.EnemyCasualties = Casualties.Where(c => c.alliance != raider.alliance).Sum(c => c.amount);
+            round.OwnCasualties = Casualties.Where(c => c.alliance == raider.alliance).Sum(c => c.amount);
+            round.EnemyMorale = MoraleHits.Where(c => c.alliance != raider.alliance).Sum(c => Mathf.Abs(c.amount));
+            round.OwnMorale = MoraleHits.Where(c => c.alliance == raider.alliance).Sum(c => Mathf.Abs(c.amount));
+            return round;
         }
 
         private static bool RecordCasualties(Regiment __instance, float amount, ref int __result)
@@ -197,6 +268,16 @@ namespace GTCW.BugFixes.Tests
             }
 
             Casualties.Add((__instance.alliance, amount));
+
+            // The round takes supply from the unit it has just hit. A stand-in
+            // stock of 1 per slot keeps the loss well clear of the floor at 0
+            // and of float rounding against a large stock.
+            if (__instance.supplyinstock != null && !Stocks.ContainsKey(__instance))
+            {
+                Stocks[__instance] = __instance.supplyinstock;
+                __instance.supplyinstock = Enumerable.Repeat(1f, __instance.supplyinstock.Length).ToArray();
+            }
+
             __result = (int)amount;
             return false;
         }
